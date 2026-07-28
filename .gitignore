@@ -1,0 +1,13 @@
+# сборка
+/mor
+/dist/
+*.exe
+
+# локальные данные/секреты (не коммитим)
+/etc/
+config.json
+users.json
+*.pem
+
+# system
+.DS_Store
