@@ -16,6 +16,12 @@ import (
 
 const Service = "xray"
 
+const (
+	APIPort    = 10085
+	inboundTag = "vless-in"
+	apiInbound = "api"
+)
+
 type Manager struct {
 	cfg   *config.Config
 	paths config.Paths
@@ -34,19 +40,31 @@ func (m *Manager) BuildConfig(users []*store.User) ([]byte, error) {
 		if u.Proto != store.ProtoReality || u.UUID == "" {
 			continue
 		}
-		clients = append(clients, map[string]any{
-			"id":   u.UUID,
-			"flow": "xtls-rprx-vision",
-		})
+		clients = append(clients, client(u))
 		if u.SNI != "" && !seen[u.SNI] {
 			seen[u.SNI] = true
 			names = append(names, u.SNI)
 		}
 	}
 	doc := map[string]any{
-		"log": map[string]any{"loglevel": "warning"},
-		"dns": map[string]any{"servers": []string{m.cfg.DNS}},
+		"log":   map[string]any{"loglevel": "warning"},
+		"dns":   map[string]any{"servers": []string{m.cfg.DNS}},
+		"api":   map[string]any{"tag": apiInbound, "services": []string{"HandlerService", "StatsService"}},
+		"stats": map[string]any{},
+		"policy": map[string]any{
+			"levels": map[string]any{"0": map[string]any{"statsUserUplink": true, "statsUserDownlink": true}},
+		},
+		"routing": map[string]any{
+			"rules": []any{map[string]any{"type": "field", "inboundTag": []string{apiInbound}, "outboundTag": apiInbound}},
+		},
 		"inbounds": []any{map[string]any{
+			"tag":      apiInbound,
+			"listen":   "127.0.0.1",
+			"port":     APIPort,
+			"protocol": "dokodemo-door",
+			"settings": map[string]any{"address": "127.0.0.1"},
+		}, map[string]any{
+			"tag":      inboundTag,
 			"listen":   "0.0.0.0",
 			"port":     r.Port,
 			"protocol": "vless",

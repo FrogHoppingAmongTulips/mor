@@ -13,11 +13,14 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"mor/internal/config"
 	"mor/internal/hysteria"
 	"mor/internal/keys"
+	"mor/internal/period"
 	"mor/internal/qr"
+	"mor/internal/stats"
 	"mor/internal/store"
 	"mor/internal/xray"
 )
@@ -174,8 +177,9 @@ func cmdList() {
 		return
 	}
 	fmt.Println()
+	now := time.Now()
 	for i, u := range users {
-		fmt.Printf("  %d  %-22s %s\n", i+1, u.Name, store.ProtoName(u.Proto))
+		fmt.Printf("  %d  %-22s %-14s %s\n", i+1, u.Name, store.ProtoName(u.Proto), period.Left(u.ExpiresAt, now))
 	}
 }
 
@@ -192,12 +196,9 @@ func cmdDelete(args []string) {
 	if !ok {
 		return
 	}
-	if err := e.st.Delete(u.ID); err != nil {
-		fmt.Println(err)
-		return
-	}
-	if err := applyProto(e, u.Proto); err != nil {
+	if err := removeKey(e, u); err != nil {
 		fmt.Println(" ", err)
+		return
 	}
 	fmt.Printf("  «%s» удалён\n", u.Name)
 }
@@ -338,6 +339,8 @@ func serve() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	go collectLoop(ctx, e)
+
 	log.Printf("mor %s: проверка ключей на 127.0.0.1:%d", version, hysteria.AuthPort)
 	if err := hysteria.StartAuthServer(ctx, e.st); err != nil {
 		log.Fatal(err)
@@ -407,6 +410,7 @@ type env struct {
 	st    *store.Store
 	hy    *hysteria.Manager
 	xr    *xray.Manager
+	stats *stats.Stats
 	paths config.Paths
 }
 
@@ -421,11 +425,16 @@ func load() (*env, error) {
 	if err != nil {
 		return nil, err
 	}
+	st2, err := stats.Open(paths.StatsFile)
+	if err != nil {
+		return nil, err
+	}
 	return &env{
 		cfg:   cfg,
 		st:    st,
 		hy:    hysteria.New(cfg, paths),
 		xr:    xray.New(cfg, paths),
+		stats: st2,
 		paths: paths,
 	}, nil
 }
@@ -445,19 +454,34 @@ func createKey(e *env, name, proto, sni string) (*store.User, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := applyProto(e, proto); err != nil {
+	if err := syncProto(e, proto); err != nil {
 		return saved, err
+	}
+	if proto == store.ProtoReality {
+		if err := e.xr.AddUser(saved); err != nil {
+			return saved, err
+		}
 	}
 	return saved, nil
 }
 
-func applyProto(e *env, proto string) error {
-	users := e.st.List()
-	switch proto {
-	case store.ProtoReality:
-		if xray.Installed() {
-			return e.xr.Apply(users)
-		}
+func syncProto(e *env, proto string) error {
+	if proto == store.ProtoReality && xray.Installed() {
+		return e.xr.WriteConfig(e.st.List())
+	}
+	return nil
+}
+
+func removeKey(e *env, u *store.User) error {
+	if err := e.st.Delete(u.ID); err != nil {
+		return err
+	}
+	e.stats.Delete(u.ID)
+	if err := syncProto(e, u.Proto); err != nil {
+		return err
+	}
+	if u.Proto == store.ProtoReality {
+		return e.xr.RemoveUser(u.ID)
 	}
 	return nil
 }

@@ -6,8 +6,11 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"mor/internal/config"
+	"mor/internal/period"
+	"mor/internal/stats"
 	"mor/internal/store"
 	"mor/internal/xray"
 )
@@ -21,13 +24,15 @@ const (
 
 var menuItems = []struct{ key, title string }{
 	{"1", "Создать ключ"},
-	{"2", "Список ключей"},
-	{"3", "Показать ключ"},
-	{"4", "Удалить ключ"},
-	{"5", "DNS"},
-	{"6", "SNI"},
-	{"7", "Порты"},
-	{"8", "Состояние"},
+	{"2", "Временный ключ"},
+	{"3", "Список ключей"},
+	{"4", "Показать ключ"},
+	{"5", "Удалить ключ"},
+	{"6", "Статистика"},
+	{"7", "DNS"},
+	{"8", "SNI"},
+	{"9", "Порты"},
+	{"10", "Состояние"},
 	{"0", "Выход"},
 }
 
@@ -89,28 +94,36 @@ func (m *menu) ask(prompt string) (string, bool) {
 func (m *menu) run(choice string) {
 	switch choice {
 	case "1":
-		m.createKey()
+		m.createKey(false)
 	case "2":
-		m.listKeys()
+		m.createKey(true)
 	case "3":
-		m.showKey()
+		m.listKeys()
 	case "4":
-		m.deleteKey()
+		m.showKey()
 	case "5":
-		m.setDNS()
+		m.deleteKey()
 	case "6":
-		m.setSNI()
+		m.showStats()
 	case "7":
-		m.setPorts()
+		m.setDNS()
 	case "8":
+		m.setSNI()
+	case "9":
+		m.setPorts()
+	case "10":
 		m.status()
 	default:
 		m.msg = "нет такого пункта"
 	}
 }
 
-func (m *menu) createKey() {
-	m.page("Создать ключ")
+func (m *menu) createKey(temporary bool) {
+	title := "Создать ключ"
+	if temporary {
+		title = "Временный ключ"
+	}
+	m.page(title)
 	m.note("Ключ — это доступ для одного устройства: телефона, ноутбука.",
 		"Каждый ключ работает по одному протоколу, поэтому сначала выбери его.")
 	fmt.Printf("  %s1%s  Hysteria2      самый быстрый, подойдёт в большинстве сетей\n", bold, reset)
@@ -148,19 +161,100 @@ func (m *menu) createKey() {
 		}
 		return
 	}
+	var until time.Time
+	if temporary {
+		m.page("Временный ключ · " + name)
+		m.note("Сколько ключ должен работать: число и единица.",
+			"h — часы, d — дни, m — месяцы, y — годы. Можно словом: 12hour, 5days.",
+			"Считает как есть: 56h — это 2 дня 8 часов.")
+		sp, ok2 := m.askPeriod()
+		if !ok2 {
+			if m.msg == "" {
+				m.msg = "отменено"
+			}
+			return
+		}
+		until = sp.Add(time.Now())
+	}
+
 	u, err := createKey(m.e, name, proto, sni)
 	if u == nil {
 		m.msg = err.Error()
 		return
 	}
+	if temporary {
+		if err := m.e.st.SetExpiry(u.ID, until); err != nil {
+			m.msg = err.Error()
+			return
+		}
+		u.ExpiresAt = until
+	}
 	m.page("Ключ «" + name + "» создан")
 	if err != nil {
 		fmt.Printf("  предупреждение: %v\n", err)
+	}
+	if temporary {
+		m.note("Ключ перестанет работать сам: " + period.Left(u.ExpiresAt, time.Now()) + ".")
 	}
 	m.note("Ниже ссылка: отсканируй QR в приложении или скопируй строку целиком.")
 	m.printKey(u)
 	m.wait()
 	m.msg = "«" + name + "» создан"
+}
+
+func (m *menu) askPeriod() (period.Span, bool) {
+	for {
+		val, ok := m.ask("Срок")
+		if !ok || val == "" {
+			return period.Span{}, false
+		}
+		sp, err := period.Parse(val)
+		if err != nil {
+			fmt.Printf("\n  %v\n\n", err)
+			continue
+		}
+		fmt.Printf("  %sэто %s%s\n", dim, sp.String(), reset)
+		return sp, true
+	}
+}
+
+func (m *menu) showStats() {
+	u, ok := m.pickKey("Статистика")
+	if !ok {
+		return
+	}
+	e := m.e.stats.Get(u.ID)
+	now := time.Now()
+
+	m.page("Статистика · «" + u.Name + "»")
+	state := period.Ago(e.LastSeen, now)
+	if !e.LastSeen.IsZero() && now.Sub(e.LastSeen) < 3*time.Minute {
+		state = "работает прямо сейчас"
+	}
+	fmt.Printf("  протокол    %s\n", store.ProtoName(u.Proto))
+	fmt.Printf("  заходил     %s\n", state)
+	if !u.ExpiresAt.IsZero() {
+		fmt.Printf("  срок        %s\n", period.Left(u.ExpiresAt, now))
+	}
+	fmt.Printf("  потрачено   %s\n", stats.Human(e.Total))
+
+	months := e.MonthsSorted()
+	if len(months) > 0 {
+		fmt.Println()
+		for i, mu := range months {
+			if i >= 12 {
+				break
+			}
+			fmt.Printf("  %-16s %s\n", stats.MonthName(mu.Month), stats.Human(mu.Bytes))
+		}
+	}
+	if e.Total == 0 {
+		fmt.Println()
+		m.note("Пока пусто. Данные появляются в течение минуты после того,",
+			"как ключом начали пользоваться.")
+	}
+	m.wait()
+	m.msg = ""
 }
 
 func note(installed bool) string {
@@ -177,8 +271,13 @@ func (m *menu) listKeys() {
 		m.note("Пока пусто. Ключи создаются в первом пункте меню.")
 	} else {
 		m.note(fmt.Sprintf("Всего ключей: %d.", len(users)))
+		now := time.Now()
 		for i, u := range users {
-			fmt.Printf("  %s%d%s  %-22s %s%s%s\n", bold, i+1, reset, u.Name, dim, store.ProtoName(u.Proto), reset)
+			tail := period.Left(u.ExpiresAt, now)
+			if tail == "" {
+				tail = period.Ago(m.e.stats.Get(u.ID).LastSeen, now)
+			}
+			fmt.Printf("  %s%d%s  %-22s %-14s %s%s%s\n", bold, i+1, reset, u.Name, store.ProtoName(u.Proto), dim, tail, reset)
 		}
 	}
 	m.wait()
@@ -241,21 +340,13 @@ func (m *menu) deleteKey() {
 		return
 	}
 
-	protos := map[string]bool{}
 	done := 0
 	for _, u := range picked {
-		if err := m.e.st.Delete(u.ID); err != nil {
+		if err := removeKey(m.e, u); err != nil {
 			m.msg = err.Error()
 			return
 		}
-		protos[u.Proto] = true
 		done++
-	}
-	for proto := range protos {
-		if err := applyProto(m.e, proto); err != nil {
-			m.msg = err.Error()
-			return
-		}
 	}
 	if done == 1 {
 		m.msg = "«" + picked[0].Name + "» удалён"
@@ -354,7 +445,7 @@ func (m *menu) setSNI() {
 		return
 	}
 	if u.Proto == store.ProtoReality {
-		if err := applyProto(m.e, u.Proto); err != nil {
+		if err := m.e.xr.Apply(m.e.st.List()); err != nil {
 			m.msg = err.Error()
 			return
 		}

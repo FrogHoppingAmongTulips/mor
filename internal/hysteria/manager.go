@@ -13,6 +13,8 @@ import (
 
 const AuthPort = 9797
 
+const StatsPort = 9798
+
 const Service = "hysteria-server"
 
 const fallbackSNI = "www.bing.com"
@@ -47,7 +49,10 @@ masquerade:
     rewriteHost: true
 quic:
   disablePathMTUDiscovery: true
-%s`, c.VPNPort, m.paths.HyCertFile, m.paths.HyKeyFile, AuthPort, sni, resolverBlock(c.DNS))
+trafficStats:
+  listen: 127.0.0.1:%d
+  secret: %s
+%s`, c.VPNPort, m.paths.HyCertFile, m.paths.HyKeyFile, AuthPort, sni, StatsPort, c.StatsSecret, resolverBlock(c.DNS))
 }
 
 func resolverBlock(dns string) string {

@@ -37,6 +37,12 @@ type User struct {
 	SNI     string `json:"sni,omitempty"`
 
 	UUID string `json:"uuid,omitempty"`
+
+	ExpiresAt time.Time `json:"expires_at,omitempty"`
+}
+
+func (u *User) Expired() bool {
+	return !u.ExpiresAt.IsZero() && time.Now().After(u.ExpiresAt)
 }
 
 type Store struct {
@@ -160,6 +166,18 @@ func (s *Store) Delete(id string) error {
 	return s.persistLocked()
 }
 
+func (s *Store) SetExpiry(id string, at time.Time) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.reloadIfChangedLocked()
+	u, ok := s.users[id]
+	if !ok {
+		return ErrNotFound
+	}
+	u.ExpiresAt = at
+	return s.persistLocked()
+}
+
 func (s *Store) SetSNI(id, sni string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -181,6 +199,9 @@ func (s *Store) FindByHyToken(token string) *User {
 	s.reloadIfChangedLocked()
 	for _, u := range s.users {
 		if u.Proto == ProtoHy2 && u.HyToken == token {
+			if u.Expired() {
+				return nil
+			}
 			cp := *u
 			return &cp
 		}

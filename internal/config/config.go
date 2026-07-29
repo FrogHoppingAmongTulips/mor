@@ -14,6 +14,7 @@ type Paths struct {
 	BaseDir    string
 	ConfigFile string
 	DataFile   string
+	StatsFile  string
 	HyConfig   string
 	HyCertFile string
 	HyKeyFile  string
@@ -26,6 +27,7 @@ func DefaultPaths() Paths {
 		BaseDir:    base,
 		ConfigFile: filepath.Join(base, "config.json"),
 		DataFile:   filepath.Join(base, "users.json"),
+		StatsFile:  filepath.Join(base, "stats.json"),
 		HyConfig:   envOr("MOR_HY_CONFIG", "/etc/hysteria/config.yaml"),
 		HyCertFile: envOr("MOR_HY_CERT", "/etc/hysteria/server.crt"),
 		HyKeyFile:  envOr("MOR_HY_KEY", "/etc/hysteria/server.key"),
@@ -45,6 +47,8 @@ type Config struct {
 	DNS     string `json:"dns"`
 
 	Reality Reality `json:"reality"`
+
+	StatsSecret string `json:"stats_secret"`
 
 	mu   sync.Mutex
 	path string
@@ -96,6 +100,7 @@ func (c *Config) EnsureDefaults() bool {
 	set(c.Reality.Port == 0, func() { c.Reality.Port = 443 })
 	set(c.Reality.Dest == "", func() { c.Reality.Dest = DefaultSNI })
 	set(c.Reality.ShortID == "", func() { c.Reality.ShortID = keys.ShortID() })
+	set(c.StatsSecret == "", func() { c.StatsSecret = keys.Token() })
 	set(c.Reality.PrivateKey == "" || c.Reality.PublicKey == "", func() {
 		if priv, pub, err := keys.RealityPair(); err == nil {
 			c.Reality.PrivateKey, c.Reality.PublicKey = priv, pub
