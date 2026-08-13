@@ -198,6 +198,23 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
 .tog::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--t1);transition:transform .25s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
 .tog.on::after{transform:translateX(16px)}
 
+/* An iOS-style switch reads as a setting you flip; a bare checkbox reads as a
+   form you submit. These are settings. */
+.swrow{display:flex;align-items:center;gap:10px;height:38px}
+.swrow-label{font-size:13px;color:var(--t2)}
+
+/* Bulk selection */
+.uh-pick{width:16px;height:16px;border-radius:5px;border:1.5px solid var(--border2);flex-shrink:0;cursor:pointer;position:relative;transition:background .15s,border-color .15s}
+.uh-pick:hover{border-color:var(--t3)}
+.uh-pick.on{background:var(--t1);border-color:var(--t1)}
+.uh-pick.on::after{content:'';position:absolute;left:4.5px;top:1.5px;width:4px;height:8px;border:solid var(--bg);border-width:0 2px 2px 0;transform:rotate(45deg)}
+.bulkbar{display:none;align-items:center;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--card-border)}
+.bulkbar.show{display:flex}
+
+/* Restart pane — the warning and the button need room to read as two steps */
+#pane-restart{display:flex;flex-direction:column;gap:16px;align-items:flex-start}
+#pane-restart .rs-warn{margin:0}
+
 
 
 .btn{background:var(--card);border:1px solid var(--border);color:var(--t1);font-family:var(--font);font-size:13px;font-weight:400;letter-spacing:-.005em;padding:8px 18px;border-radius:8px;cursor:pointer;transition:all .15s}
@@ -367,7 +384,13 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
 </div>
 
 <div id="paneHolder" class="hidden">
-  <div id="pane-keys"><div id="homeUsers"></div></div>
+  <div id="pane-keys">
+    <div id="homeUsers"></div>
+    <div class="bulkbar" id="bulkBar">
+      <button class="btn btn-sm btn-r" id="bulkDelBtn" onclick="deleteSelected()"></button>
+      <button class="btn btn-sm" onclick="picked.clear();renderHome()" data-i18n="clearSel">Снять</button>
+    </div>
+  </div>
   <div id="pane-status">
     <div class="status-line" id="statusLine"></div>
     <div class="status-probs" id="statusProbs"></div>
@@ -452,16 +475,16 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
 
 <!-- CREATE -->
 <div class="ov" id="createModal">
-  <div class="modal">
+  <form class="modal" autocomplete="off" onsubmit="return false">
     <div class="mt">Создать ключ</div>
     <div class="fld"><div class="fl">Имя</div><input class="fi" id="createName" autocomplete="off"></div>
     <div class="fld"><div class="fl">Протоколы</div><div class="pchk" id="createProtos"></div></div>
     <div class="fr">
-      <div class="fld"><div class="fl">Срок</div><input class="fi" id="createTime" placeholder="30d"></div>
-      <div class="fld"><div class="fl">Лимит трафика</div><input class="fi" id="createTraffic" placeholder="50gb"></div>
+      <div class="fld"><div class="fl">Срок</div><input class="fi" id="createTime" autocomplete="off" placeholder="30d"></div>
+      <div class="fld"><div class="fl">Лимит трафика</div><input class="fi" id="createTraffic" autocomplete="off" placeholder="50gb"></div>
     </div>
-    <div class="mbtn"><button class="btn" onclick="hideCreateModal()">Отмена</button><button class="btn btn-w" onclick="createUser()">Создать</button></div>
-  </div>
+    <div class="mbtn"><button type="button" class="btn" onclick="hideCreateModal()">Отмена</button><button type="button" class="btn btn-w" onclick="createUser()">Создать</button></div>
+  </form>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -544,6 +567,7 @@ const I18N={
   speed:'Скорость',speedRun:'Запустить замер',speedNote:'Замер между этим браузером и сервером, в несколько параллельных потоков.',
   ping:'Пинг',jitter:'Джиттер',down:'Скачивание',up:'Отдача',measuring:'Измеряю',speedDone:'Готово',
   edit:'Изменить',saveKey:'Сохранить',editHint:'Пустое поле снимает ограничение. Правка не меняет ссылку.',
+  select:'Выбрать',deleteSelected:'Удалить выбранные',confirmDelete:'Точно удалить?',deletedN:'удалено:',clearSel:'Снять',
   nameEmpty:'имя не может быть пустым',pickProto:'выбери хотя бы один протокол',keyCreated:'ключ создан',errPrefix:'ошибка: ',
   all:'Все',devices:'Устройств сразу',noLimit:'без лимита',monthlyReset:'Сброс трафика',monthlyResetOn:'каждый месяц',
   devicesHint:'Лимит устройств работает только на Hysteria2 — остальные протоколы не сообщают о подключениях.',
@@ -584,6 +608,7 @@ const I18N={
   speed:'Speed',speedRun:'Run test',speedNote:'Measured between this browser and the server across several parallel streams.',
   ping:'Ping',jitter:'Jitter',down:'Download',up:'Upload',measuring:'Measuring',speedDone:'Done',
   edit:'Edit',saveKey:'Save',editHint:'An empty field lifts the limit. Editing never changes the link.',
+  select:'Select',deleteSelected:'Delete selected',confirmDelete:'Delete for good?',deletedN:'deleted:',clearSel:'Clear',
   nameEmpty:'name cannot be empty',pickProto:'pick at least one protocol',keyCreated:'key created',errPrefix:'error: ',
   all:'All',devices:'Devices at once',noLimit:'no limit',monthlyReset:'Traffic reset',monthlyResetOn:'every month',
   devicesHint:'The device limit only works on Hysteria2 — the other protocols never report connections.',
@@ -882,29 +907,98 @@ function editing(sel){
   const a=document.activeElement;
   return !!(a&&a.closest&&a.closest(sel));
 }
+// Keys picked for bulk deletion. Kept out of the DOM so a background refresh
+// redrawing the rows cannot silently forget what was ticked.
+const picked=new Set();
+
 function renderHome(){
   if(editing('.kedit'))return;
   const w=document.getElementById('homeUsers');
-  if(!users.length){w.innerHTML='<div class="empty">ключей нет — нажми «+ Создать»</div>';return}
+  if(!users.length){picked.clear();renderBulkBar();w.innerHTML='<div class="empty">'+t('noKeys')+'</div>';return}
+  // The pane scrolls inside .detail-body, not inside the list itself — saving
+  // the wrong element's position looked correct and fixed nothing. Rebuilding
+  // rows under a scrolled view is what threw the page around on every save.
+  const scroller=document.querySelector('.detail-body');
+  const scroll=scroller?scroller.scrollTop:0;
+  for(const id of [...picked])if(!users.some(u=>u.id===id))picked.delete(id);
   w.innerHTML='';
   users.forEach(u=>{
     const on=!u.banned&&ago(u.lastSeen)==='онлайн';
     const isOpen=homeExpanded===u.id;
     const card=document.createElement('div');card.className='uh'+(isOpen?' open':'');
     card.innerHTML=
-      '<div class="uh-head"><span class="uh-dot '+(u.banned?'off':on?'on':'off')+'"></span>'+
+      '<div class="uh-head">'+
+        '<span class="uh-pick'+(picked.has(u.id)?' on':'')+'" title="'+t('select')+'"></span>'+
+        '<span class="uh-dot '+(u.banned?'off':on?'on':'off')+'"></span>'+
         '<span class="uh-name'+(u.banned?' ban':'')+'">'+esc(u.name)+'</span>'+
         '<span class="uh-status">'+statusPill(u,on)+'</span>'+
         sparkSvg(u.spark)+
         '<span class="uh-val">'+fmtBytes(u.traffic)+'</span></div>'+
       '<div class="uh-body'+(isOpen?' open':'')+'"><div class="uh-body-in"><div class="uh-content" id="uh-content-'+u.id+'"></div></div></div>';
     card.querySelector('.uh-head').onclick=()=>toggleHomeUser(u.id);
+    // Ticking a key must not also open it.
+    card.querySelector('.uh-pick').onclick=e=>{e.stopPropagation();togglePick(u.id)};
     w.appendChild(card);
     if(isOpen)renderHomeDetail(u.id);
   });
+  if(scroller)scroller.scrollTop=scroll;
+  renderBulkBar();
 }
-function toggleHomeUser(id){
-  homeExpanded=homeExpanded===id?null:id;
+
+function togglePick(id){
+  picked.has(id)?picked.delete(id):picked.add(id);
+  document.querySelectorAll('#homeUsers .uh').forEach((card,i)=>{
+    const el=card.querySelector('.uh-pick');
+    if(el)el.classList.toggle('on',picked.has(users[i].id));
+  });
+  renderBulkBar();
+}
+
+function renderBulkBar(){
+  const bar=document.getElementById('bulkBar');
+  if(!bar)return;
+  bar.classList.toggle('show',picked.size>0);
+  const btn=document.getElementById('bulkDelBtn');
+  if(btn)btn.textContent=t('deleteSelected')+' ('+picked.size+')';
+}
+
+// Two presses, like the engine restart: deleting several keys at once is not
+// something to do on a stray click, and there is no undo.
+let bulkArmed=false;
+async function deleteSelected(){
+  if(!picked.size)return;
+  const btn=document.getElementById('bulkDelBtn');
+  if(!bulkArmed){
+    bulkArmed=true;
+    btn.textContent=t('confirmDelete')+' ('+picked.size+')';
+    btn.classList.add('rs-btn-confirm');
+    setTimeout(()=>{if(bulkArmed){bulkArmed=false;btn.classList.remove('rs-btn-confirm');renderBulkBar()}},5000);
+    return;
+  }
+  bulkArmed=false;btn.classList.remove('rs-btn-confirm');
+  const ids=[...picked];
+  let failed=0;
+  for(const id of ids){
+    try{await api('/users/'+encodeURIComponent(id),{method:'DELETE'})}catch(e){failed++}
+    detailCache.delete(id);
+    if(homeExpanded===id)homeExpanded=null;
+  }
+  picked.clear();
+  await loadUsers();
+  toast(failed?t('errPrefix')+failed:t('deletedN')+' '+(ids.length-failed));
+}
+// Detail is fetched before the card opens, not after. Opening first and
+// filling later gave the expansion two stages — an empty box sliding down,
+// then content appearing and shoving the height again.
+const detailCache=new Map();
+async function toggleHomeUser(id){
+  if(homeExpanded===id){homeExpanded=null;renderHome();return}
+  if(!detailCache.has(id)){
+    try{detailCache.set(id,await api('/users/'+encodeURIComponent(id)))}
+    catch(e){toast(t('errPrefix')+e.message);return}
+  }
+  homeExpanded=id;
+  currentDetail=detailCache.get(id);
   renderHome();
 }
 // One word for the key's state, in the order that matters: a ban outranks an
@@ -927,12 +1021,12 @@ function sparkSvg(spark){
   const d=spark.map((v,i)=>(i?'L':'M')+(i*step).toFixed(1)+','+(H-v/mx*H).toFixed(1)).join(' ');
   return '<svg class="uh-spark" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none"><path class="uh-spark-line" d="'+d+'"></path></svg>';
 }
-async function renderHomeDetail(id){
+// Renders straight from the cache filled before the card opened, so the whole
+// panel exists at its final height from the first frame of the animation.
+function renderHomeDetail(id){
   const box=document.getElementById('uh-content-'+id);
-  if(!box)return;
-  box.innerHTML='<div class="empty">загрузка…</div>';
-  let u;try{u=await api('/users/'+encodeURIComponent(id))}catch(e){box.innerHTML='<div class="empty">не удалось загрузить</div>';return}
-  if(homeExpanded!==id)return;
+  const u=detailCache.get(id);
+  if(!box||!u)return;
   currentDetail=u;
   const months=u.months||[],mx=Math.max(...months.map(m=>m.bytes),1);
   let h='<div class="dgrid">'+
@@ -949,15 +1043,16 @@ async function renderHomeDetail(id){
   // rendering fault. The bars start being worth drawing at two.
   if(months.length>1)h+='<div class="bars">'+months.map(m=>'<div class="bar" style="height:'+Math.max(4,m.bytes/mx*100)+'%" title="'+m.month+': '+fmtBytes(m.bytes)+'"></div>').join('')+'</div>';
   h+='<div class="kedit">'+
-       '<div class="set-label">'+t('name')+'</div><input class="fi" id="ed-name-'+id+'" value="'+esc(u.name)+'">'+
+       '<div class="set-label">'+t('name')+'</div><input class="fi" id="ed-name-'+id+'" autocomplete="off" value="'+esc(u.name)+'">'+
        '<div class="kedit-row">'+
-         '<div><div class="set-label">'+t('period')+'</div><input class="fi" id="ed-time-'+id+'" placeholder="30d"></div>'+
-         '<div><div class="set-label">'+t('trafficLimit')+'</div><input class="fi" id="ed-traffic-'+id+'" placeholder="50gb"></div>'+
+         '<div><div class="set-label">'+t('period')+'</div><input class="fi" id="ed-time-'+id+'" autocomplete="off" placeholder="30d"></div>'+
+         '<div><div class="set-label">'+t('trafficLimit')+'</div><input class="fi" id="ed-traffic-'+id+'" autocomplete="off" placeholder="50gb"></div>'+
        '</div>'+
        '<div class="kedit-row">'+
-         '<div><div class="set-label">'+t('devices')+'</div><input class="fi" id="ed-ip-'+id+'" inputmode="numeric" placeholder="'+t('noLimit')+'" value="'+(u.ipLimit||'')+'"></div>'+
+         '<div><div class="set-label">'+t('devices')+'</div><input class="fi" id="ed-ip-'+id+'" inputmode="numeric" autocomplete="off" placeholder="'+t('noLimit')+'" value="'+(u.ipLimit||'')+'"></div>'+
          '<div><div class="set-label">'+t('monthlyReset')+'</div>'+
-           '<label class="set-check" style="height:38px"><input type="checkbox" id="ed-auto-'+id+'"'+(u.autoReset?' checked':'')+'> '+t('monthlyResetOn')+'</label>'+
+           '<div class="swrow"><div class="tog'+(u.autoReset?' on':'')+'" id="ed-auto-'+id+'" onclick="this.classList.toggle(\'on\')"></div>'+
+           '<span class="swrow-label">'+t('monthlyResetOn')+'</span></div>'+
          '</div>'+
        '</div>'+
        '<div class="set-note">'+t('editHint')+'</div>'+
@@ -986,13 +1081,17 @@ async function saveKeyEdit(id){
     time:document.getElementById('ed-time-'+id).value.trim(),
     traffic:document.getElementById('ed-traffic-'+id).value.trim(),
     ipLimit:isNaN(ip)||ip<0?0:ip,
-    autoReset:document.getElementById('ed-auto-'+id).checked,
+    autoReset:document.getElementById('ed-auto-'+id).classList.contains('on'),
   };
   try{
-    await api('/users/'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify(body)});
+    const fresh=await api('/users/'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify(body)});
     toast(lang==='ru'?'сохранено':'saved');
-    await loadUsers();
+    // The reply already carries the saved key, so the open card is refreshed
+    // from it directly. Re-fetching the whole list here rebuilt every row and
+    // yanked the page out from under the button just pressed.
+    if(fresh&&fresh.id)detailCache.set(id,fresh);
     if(homeExpanded===id)renderHomeDetail(id);
+    loadUsers();
   }catch(e){toast((lang==='ru'?'ошибка: ':'error: ')+e.message)}
 }
 function toggleHomeQR(id){
@@ -1003,7 +1102,11 @@ function toggleHomeQR(id){
 }
 // Ban, reset and delete all change what the opened key shows, so the list is
 // reloaded and the open card redrawn from the fresh data.
+// Ban and reset change the key on the server, so the cached copy the open
+// card renders from has to be refetched — otherwise the card would redraw
+// itself from the state that was just replaced.
 async function refreshDetailViews(id){
+  try{detailCache.set(id,await api('/users/'+encodeURIComponent(id)))}catch(e){detailCache.delete(id)}
   await loadUsers();
   if(homeExpanded===id)renderHomeDetail(id);
 }
@@ -1217,6 +1320,8 @@ async function deleteUser(){
   try{
     await api('/users/'+encodeURIComponent(id),{method:'DELETE'});
     hideDetail();
+    detailCache.delete(id);
+    picked.delete(id);
     if(homeExpanded===id)homeExpanded=null;
     await loadUsers();toast(name+' удалён');
   }catch(e){toast('ошибка: '+e.message)}
