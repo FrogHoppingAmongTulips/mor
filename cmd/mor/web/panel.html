@@ -223,6 +223,10 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
 .grp-title{font-size:11px;font-weight:600;color:var(--t1);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px}
 .grp-hint{font-size:12px;color:var(--t3);line-height:1.55;margin-bottom:16px}
 .grp .set-field:last-child{margin-bottom:0}
+/* Boxes as wide as their content needs — a port is four digits, not a line
+   stretched across the panel. */
+.grp .fi{max-width:420px}
+.grp .set-field:has(input[inputmode="numeric"]) .fi{max-width:120px}
 details.grp>summary{cursor:pointer;font-size:11px;font-weight:600;color:var(--t1);text-transform:uppercase;letter-spacing:.07em;list-style:none}
 details.grp>summary::-webkit-details-marker{display:none}
 details.grp>summary::before{content:'+ ';color:var(--t3)}
@@ -250,7 +254,6 @@ details.grp[open]>summary{margin-bottom:14px}
 .kcard{background:var(--bg2);border:1px solid var(--card-border);border-radius:14px;padding:18px;margin-bottom:12px}
 .kcard:last-child{margin-bottom:0}
 .kcard .ksec{margin:0 0 14px}
-.kused{font-size:11px;color:var(--t3);margin-top:-8px;margin-bottom:14px}
 .kwide{justify-content:center;margin-top:20px;padding:8px 28px}
 .kdanger{margin-top:12px;padding-top:14px;border-top:1px solid var(--card-border)}
 .btn-danger{border-color:var(--border2);color:var(--t2)}
@@ -269,7 +272,6 @@ details.grp[open]>summary{margin-bottom:14px}
 .kfacts{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:12px}
 .kfact-v{font-size:21px;font-weight:600;letter-spacing:-.02em;line-height:1.15}
 .kfact-l{font-size:11px;color:var(--t3);margin-top:3px}
-.kmeter{margin-bottom:14px}
 .ksec{font-size:10px;font-weight:600;color:var(--t1);text-transform:uppercase;letter-spacing:.07em;margin:20px 0 12px}
 .set-sep{height:1px;background:var(--card-border);margin:24px 0 18px}
 
@@ -1120,21 +1122,16 @@ function renderHomeDetail(id){
   currentDetail=u;
   const months=u.months||[],mx=Math.max(...months.map(m=>m.bytes),1);
   const days=u.expiresAt?Math.max(0,Math.ceil((new Date(u.expiresAt)-Date.now())/864e5)):null;
-  const pct=u.limit?Math.min(100,u.traffic/u.limit*100):0;
 
   // What is true right now, stated plainly and large enough to read at a
   // glance — the days left used to be 11px grey and easy to miss entirely.
   let h='<div class="kcard">'+
     '<div class="kfacts">'+
-      '<div class="kfact"><div class="kfact-v">'+countdown(u.expiresAt)+'</div>'+
+      '<div class="kfact"><div class="kfact-v" id="kcount">'+countdown(u.expiresAt)+'</div>'+
         '<div class="kfact-l">'+(u.expiresAt?t('leftLabel'):'&nbsp;')+'</div></div>'+
       '<div class="kfact"><div class="kfact-v">'+(u.limit?fmtBytes(Math.max(0,u.limit-u.traffic)):fmtBytes(u.traffic))+'</div>'+
         '<div class="kfact-l">'+(u.limit?t('leftOf')+' '+fmtBytes(u.limit):t('noCap'))+'</div></div>'+
     '</div>';
-  if(u.limit){
-    h+='<div class="sc-meter kmeter"><div class="sc-meter-fill" style="width:'+pct+'%"></div></div>'+
-       '<div class="kused">'+Math.round(pct)+'% '+t('usedPct')+'</div>';
-  }
   // One month is a rectangle, not a chart — it says nothing and reads as a
   // rendering fault. The bars start being worth drawing at two.
   if(months.length>1)h+='<div class="bars">'+months.map(m=>'<div class="bar" style="height:'+Math.max(4,m.bytes/mx*100)+'%" title="'+m.month+': '+fmtBytes(m.bytes)+'"></div>').join('')+'</div>';
@@ -1205,11 +1202,23 @@ function fmtLimitInput(b){
 // hours and minutes on the last day — "22 дня" told you nothing at 23:50.
 function countdown(iso){
   if(!iso)return t('noDeadline');
-  let ms=new Date(iso)-Date.now();
+  const ms=new Date(iso)-Date.now();
   if(ms<=0)return t('expiredS');
-  const d=Math.floor(ms/864e5), h=Math.floor(ms%864e5/36e5), m=Math.floor(ms%36e5/6e4);
-  return d>0?d+t('days')+' '+h+t('hours'):h>0?h+t('hours')+' '+m+t('minShort'):m+t('minShort');
+  const d=Math.floor(ms/864e5), h=Math.floor(ms%864e5/36e5),
+        m=Math.floor(ms%36e5/6e4), sec=Math.floor(ms%6e4/1000);
+  const two=n=>String(n).padStart(2,'0');
+  return (d>0?d+t('days')+' ':'')+two(h)+':'+two(m)+':'+two(sec);
 }
+
+// The deadline is a clock, so it has to move. Only the one element is
+// rewritten — re-rendering the card every second would fight anything being
+// typed into it.
+setInterval(()=>{
+  const el=document.getElementById('kcount');
+  if(!el||!homeExpanded)return;
+  const u=detailCache.get(homeExpanded);
+  if(u&&u.expiresAt)el.textContent=countdown(u.expiresAt);
+},1000);
 
 // Russian needs three forms for a counted noun; English gets two.
 function plural(n,forms){
