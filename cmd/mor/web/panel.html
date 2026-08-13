@@ -203,7 +203,7 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
 .btn{background:var(--card);border:1px solid var(--border);color:var(--t1);font-family:var(--font);font-size:13px;font-weight:400;letter-spacing:-.005em;padding:8px 18px;border-radius:8px;cursor:pointer;transition:all .15s}
 .btn:hover{background:var(--card-h);border-color:var(--border2)}
 .btn-w{background:var(--t1);color:var(--bg);border-color:var(--t1)}
-.btn-w:hover{opacity:.85}
+.btn-w:hover{background:var(--t1);border-color:var(--t1)}
 .btn-r{color:var(--t3);border-color:var(--border)}
 .btn-r:hover{color:var(--t1);background:var(--card-h)}
 .btn-sm{font-size:12px;padding:5px 12px}
@@ -544,6 +544,7 @@ const I18N={
   speed:'Скорость',speedRun:'Запустить замер',speedNote:'Замер между этим браузером и сервером, в несколько параллельных потоков.',
   ping:'Пинг',jitter:'Джиттер',down:'Скачивание',up:'Отдача',measuring:'Измеряю',speedDone:'Готово',
   edit:'Изменить',saveKey:'Сохранить',editHint:'Пустое поле снимает ограничение. Правка не меняет ссылку.',
+  nameEmpty:'имя не может быть пустым',pickProto:'выбери хотя бы один протокол',keyCreated:'ключ создан',errPrefix:'ошибка: ',
   all:'Все',devices:'Устройств сразу',noLimit:'без лимита',monthlyReset:'Сброс трафика',monthlyResetOn:'каждый месяц',
   devicesHint:'Лимит устройств работает только на Hysteria2 — остальные протоколы не сообщают о подключениях.',
   recentActions:'Последние действия',noActions:'пока пусто',
@@ -583,6 +584,7 @@ const I18N={
   speed:'Speed',speedRun:'Run test',speedNote:'Measured between this browser and the server across several parallel streams.',
   ping:'Ping',jitter:'Jitter',down:'Download',up:'Upload',measuring:'Measuring',speedDone:'Done',
   edit:'Edit',saveKey:'Save',editHint:'An empty field lifts the limit. Editing never changes the link.',
+  nameEmpty:'name cannot be empty',pickProto:'pick at least one protocol',keyCreated:'key created',errPrefix:'error: ',
   all:'All',devices:'Devices at once',noLimit:'no limit',monthlyReset:'Traffic reset',monthlyResetOn:'every month',
   devicesHint:'The device limit only works on Hysteria2 — the other protocols never report connections.',
   recentActions:'Recent actions',noActions:'nothing yet',
@@ -1159,6 +1161,28 @@ function syncAllChip(){
   const chips=[...document.querySelectorAll('#createProtos .pchip[data-proto]')];
   const all=document.querySelector('#createProtos .pchip-all');
   if(all)all.classList.toggle('on',chips.length>0&&chips.every(c=>c.classList.contains('on')));
+}
+async function createUser(){
+  const name=document.getElementById('createName').value.trim();
+  if(!name){toast(t('nameEmpty'));return}
+  const protos=[...document.querySelectorAll('#createProtos .pchip[data-proto].on')].map(c=>c.dataset.proto);
+  if(!protos.length){toast(t('pickProto'));return}
+  const body={
+    name,protocols:protos,
+    time:document.getElementById('createTime').value.trim(),
+    traffic:document.getElementById('createTraffic').value.trim(),
+  };
+  try{
+    const created=await api('/users',{method:'POST',body:JSON.stringify(body)});
+    hideCreateModal();
+    await loadUsers();
+    toast(t('keyCreated'));
+    // Land on the new key already open: the link and QR are the only reason
+    // anyone creates one, and they are inside it.
+    select('keys');
+    homeExpanded=created.id;
+    renderHome();
+  }catch(e){toast(t('errPrefix')+e.message)}
 }
 function hideCreateModal(){document.getElementById('createModal').classList.remove('show')}
 document.getElementById('createModal').addEventListener('click',e=>{if(e.target===e.currentTarget)hideCreateModal()});
