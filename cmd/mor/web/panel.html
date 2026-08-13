@@ -57,8 +57,15 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
 #page-home{overflow:hidden;padding:14px}
 #page-home.on{display:block}
 .stage{display:flex;gap:34px;height:100%;min-height:0}
-.squares{flex:1;display:grid;grid-template-columns:repeat(2,1fr);grid-auto-rows:1fr;gap:14px;min-width:0}
-.sq{background:var(--card);border:1px solid var(--card-border);border-radius:var(--r);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;min-width:0;min-height:0;cursor:pointer;transition:background .15s,border-color .15s}
+/* Square tiles, sized by the grid rather than stretched to fill the column —
+   a tile forced to the height of its row stops being a tile and becomes a bar. */
+/* A fixed column count, not auto-fill: seven tiles left to fit themselves
+   spread into a thin row of six with one orphan underneath. Four columns give
+   an even 4+3. */
+.squares{flex:1;display:grid;grid-template-columns:repeat(4,1fr);gap:14px;align-content:start;min-width:0;overflow-y:auto}
+@media(max-width:1280px){.squares{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:900px){.squares{grid-template-columns:repeat(2,1fr)}}
+.sq{aspect-ratio:1;background:var(--card);border:1px solid var(--card-border);border-radius:var(--r);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;min-width:0;cursor:pointer;transition:background .15s,border-color .15s}
 .sq:hover{background:var(--card-h)}
 .sq.on{background:var(--card-h);border-color:var(--border2)}
 .sq-icon{width:30px;height:30px;stroke:var(--t3);stroke-width:1.25;fill:none;stroke-linecap:round;stroke-linejoin:round;transition:stroke .15s}
@@ -203,11 +210,24 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
 .swrow{display:flex;align-items:center;gap:10px;height:38px}
 .swrow-label{font-size:13px;color:var(--t2)}
 
+/* Key detail — three named sections instead of one undifferentiated pile:
+   what is true now, what can be changed, and what can be done. */
+.kfacts{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:12px}
+.kfact-v{font-size:21px;font-weight:600;letter-spacing:-.02em;line-height:1.15}
+.kfact-l{font-size:11px;color:var(--t3);margin-top:3px}
+.kmeter{margin-bottom:14px}
+.kmeta{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--t3);padding-bottom:16px;border-bottom:1px solid var(--card-border)}
+.kmeta-r{white-space:nowrap}
+.ksec{font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin:20px 0 12px}
+.set-sep{height:1px;background:var(--card-border);margin:24px 0 18px}
+
 /* Bulk selection */
-.uh-pick{width:16px;height:16px;border-radius:5px;border:1.5px solid var(--border2);flex-shrink:0;cursor:pointer;position:relative;transition:background .15s,border-color .15s}
+.uh-pick{width:16px;height:16px;border-radius:5px;border:1.5px solid var(--border2);flex-shrink:0;cursor:pointer;transition:background .15s,border-color .15s;display:flex;align-items:center;justify-content:center;align-self:center}
 .uh-pick:hover{border-color:var(--t3)}
 .uh-pick.on{background:var(--t1);border-color:var(--t1)}
-.uh-pick.on::after{content:'';position:absolute;left:4.5px;top:1.5px;width:4px;height:8px;border:solid var(--bg);border-width:0 2px 2px 0;transform:rotate(45deg)}
+/* The tick is centred by the flex box above and then nudged up by the height
+   its own rotation adds, instead of being positioned by hand. */
+.uh-pick.on::after{content:'';width:3px;height:7px;margin-top:-2px;border:solid var(--bg);border-width:0 2px 2px 0;transform:rotate(45deg)}
 .bulkbar{display:none;align-items:center;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--card-border)}
 .bulkbar.show{display:flex}
 
@@ -360,10 +380,6 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
         <svg class="sq-icon" viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>
         <div class="sq-label" data-i18n="traffic">Трафик за месяц</div>
       </div>
-        <div class="sq" onclick="select('restart')" data-pane="restart">
-        <svg class="sq-icon" viewBox="0 0 24 24"><path d="M12 4v7"/><path d="M6.3 7.3a8 8 0 1011.4 0"/></svg>
-        <div class="sq-label" data-i18n="restart">Перезапуск</div>
-      </div>
         <div class="sq" onclick="select('actions')" data-pane="actions">
           <svg class="sq-icon" viewBox="0 0 24 24"><path d="M3.5 9A9 9 0 1112 21a9 9 0 01-7.5-4"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></svg>
           <div class="sq-label" data-i18n="recentActions">Последние действия</div>
@@ -466,8 +482,9 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
     <div class="pane-actions">
       <button class="btn btn-w btn-sm" data-i18n="save" onclick="saveSettings()">Сохранить</button>
     </div>
-  </div>
-  <div id="pane-restart">
+
+    <div class="set-sep"></div>
+    <div class="set-label" data-i18n="restart">Перезапуск</div>
     <div class="rs-warn" id="rsWarn"></div>
     <button class="btn btn-sm btn-r" id="rsBtn" data-i18n="restartBtn" onclick="restartEngines()">Перезапустить</button>
   </div>
@@ -566,7 +583,9 @@ const I18N={
   hyDown:'Hysteria2 не отвечает — присутствие по остальным протоколам определяется по трафику и может отставать.',
   speed:'Скорость',speedRun:'Запустить замер',speedNote:'Замер между этим браузером и сервером, в несколько параллельных потоков.',
   ping:'Пинг',jitter:'Джиттер',down:'Скачивание',up:'Отдача',measuring:'Измеряю',speedDone:'Готово',
-  edit:'Изменить',saveKey:'Сохранить',editHint:'Пустое поле снимает ограничение. Правка не меняет ссылку.',
+  edit:'Изменить',saveKey:'Сохранить',editHint:'Здесь показано то, что действует сейчас. Пустое поле — без ограничения. Правка не меняет ссылку.',
+  noDeadline:'Без срока',leftLabel:'осталось',outOf:'из',noCap:'без лимита',dayForms:['день','дня','дней'],
+  limitsNow:'Ограничения',shareSec:'Ссылка',actionsSec:'Действия',
   select:'Выбрать',deleteSelected:'Удалить выбранные',confirmDelete:'Точно удалить?',deletedN:'удалено:',clearSel:'Снять',
   nameEmpty:'имя не может быть пустым',pickProto:'выбери хотя бы один протокол',keyCreated:'ключ создан',errPrefix:'ошибка: ',
   all:'Все',devices:'Устройств сразу',noLimit:'без лимита',monthlyReset:'Сброс трафика',monthlyResetOn:'каждый месяц',
@@ -607,7 +626,9 @@ const I18N={
   hyDown:'Hysteria2 is not answering — presence for the other protocols is inferred from traffic and may lag.',
   speed:'Speed',speedRun:'Run test',speedNote:'Measured between this browser and the server across several parallel streams.',
   ping:'Ping',jitter:'Jitter',down:'Download',up:'Upload',measuring:'Measuring',speedDone:'Done',
-  edit:'Edit',saveKey:'Save',editHint:'An empty field lifts the limit. Editing never changes the link.',
+  edit:'Edit',saveKey:'Save',editHint:'These are the limits in force now. An empty field means no limit. Editing never changes the link.',
+  noDeadline:'No deadline',leftLabel:'left',outOf:'of',noCap:'no cap',dayForms:['day','days'],
+  limitsNow:'Limits',shareSec:'Link',actionsSec:'Actions',
   select:'Select',deleteSelected:'Delete selected',confirmDelete:'Delete for good?',deletedN:'deleted:',clearSel:'Clear',
   nameEmpty:'name cannot be empty',pickProto:'pick at least one protocol',keyCreated:'key created',errPrefix:'error: ',
   all:'All',devices:'Devices at once',noLimit:'no limit',monthlyReset:'Traffic reset',monthlyResetOn:'every month',
@@ -1029,24 +1050,36 @@ function renderHomeDetail(id){
   if(!box||!u)return;
   currentDetail=u;
   const months=u.months||[],mx=Math.max(...months.map(m=>m.bytes),1);
-  let h='<div class="dgrid">'+
-    '<div class="dcell"><div class="dcl">'+t('used')+'</div><div class="dcv">'+u.protocols.map(p=>'<span class="tag">'+(PROTO_NAMES[p]||p)+'</span>').join(' ')+'</div></div>'+
-    '<div class="dcell-row">'+
-      '<div class="dcell"><div class="dcl">'+t('created')+'</div><div class="dcv">'+(u.created?new Date(u.created).toLocaleDateString('ru'):'—')+'</div></div>'+
-      '<div class="dcell"><div class="dcl">'+t('lastSeen')+'</div><div class="dcv">'+(u.banned?'забанен':ago(u.lastSeen))+'</div></div>'+
-      '<div class="dcell"><div class="dcl">'+t('traffic')+'</div><div class="dcv">'+fmtBytes(u.traffic)+'</div></div>'+
-    '</div>'+
+  const days=u.expiresAt?Math.max(0,Math.ceil((new Date(u.expiresAt)-Date.now())/864e5)):null;
+  const pct=u.limit?Math.min(100,u.traffic/u.limit*100):0;
+
+  // What is true right now, stated plainly and large enough to read at a
+  // glance — the days left used to be 11px grey and easy to miss entirely.
+  let h='<div class="kfacts">'+
+    '<div class="kfact"><div class="kfact-v">'+(days===null?t('noDeadline'):days+' '+plural(days,t('dayForms')))+'</div>'+
+      '<div class="kfact-l">'+(days===null?'&nbsp;':t('leftLabel'))+'</div></div>'+
+    '<div class="kfact"><div class="kfact-v">'+fmtBytes(u.traffic)+'</div>'+
+      '<div class="kfact-l">'+(u.limit?t('outOf')+' '+fmtBytes(u.limit):t('noCap'))+'</div></div>'+
   '</div>';
-  if(u.limit){const pct=Math.min(100,u.traffic/u.limit*100);h+='<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--t2);margin-bottom:4px"><span>'+fmtBytes(u.traffic)+' из '+fmtBytes(u.limit)+'</span><span>'+Math.round(pct)+'%</span></div><div class="sc-meter"><div class="sc-meter-fill" style="width:'+pct+'%"></div></div></div>'}
-  if(u.expiresAt){const d=Math.max(0,Math.ceil((new Date(u.expiresAt)-Date.now())/864e5));h+='<div style="font-size:11px;color:var(--t2);margin-bottom:8px">'+d+'д осталось</div>'}
+  if(u.limit)h+='<div class="sc-meter kmeter"><div class="sc-meter-fill" style="width:'+pct+'%"></div></div>';
+
+  h+='<div class="kmeta">'+
+    '<span>'+u.protocols.map(p=>'<span class="tag">'+(PROTO_NAMES[p]||p)+'</span>').join('')+'</span>'+
+    '<span class="kmeta-r">'+t('lastSeen').toLowerCase()+': '+(u.banned?t('banned').toLowerCase():ago(u.lastSeen))+'</span>'+
+  '</div>';
+
   // One month is a rectangle, not a chart — it says nothing and reads as a
   // rendering fault. The bars start being worth drawing at two.
   if(months.length>1)h+='<div class="bars">'+months.map(m=>'<div class="bar" style="height:'+Math.max(4,m.bytes/mx*100)+'%" title="'+m.month+': '+fmtBytes(m.bytes)+'"></div>').join('')+'</div>';
-  h+='<div class="kedit">'+
+
+  // The boxes are filled with what is in force, so there is no guessing
+  // whether they show the current limits or empty slots for new ones.
+  h+='<div class="ksec">'+t('limitsNow')+'</div>'+
+     '<div class="kedit">'+
        '<div class="set-label">'+t('name')+'</div><input class="fi" id="ed-name-'+id+'" autocomplete="off" value="'+esc(u.name)+'">'+
        '<div class="kedit-row">'+
-         '<div><div class="set-label">'+t('period')+'</div><input class="fi" id="ed-time-'+id+'" autocomplete="off" placeholder="30d"></div>'+
-         '<div><div class="set-label">'+t('trafficLimit')+'</div><input class="fi" id="ed-traffic-'+id+'" autocomplete="off" placeholder="50gb"></div>'+
+         '<div><div class="set-label">'+t('period')+'</div><input class="fi" id="ed-time-'+id+'" autocomplete="off" placeholder="'+t('noLimit')+'" value="'+(days===null?'':days+'d')+'"></div>'+
+         '<div><div class="set-label">'+t('trafficLimit')+'</div><input class="fi" id="ed-traffic-'+id+'" autocomplete="off" placeholder="'+t('noLimit')+'" value="'+fmtLimitInput(u.limit)+'"></div>'+
        '</div>'+
        '<div class="kedit-row">'+
          '<div><div class="set-label">'+t('devices')+'</div><input class="fi" id="ed-ip-'+id+'" inputmode="numeric" autocomplete="off" placeholder="'+t('noLimit')+'" value="'+(u.ipLimit||'')+'"></div>'+
@@ -1058,17 +1091,42 @@ function renderHomeDetail(id){
        '<div class="set-note">'+t('editHint')+'</div>'+
        '<div class="set-note">'+t('devicesHint')+'</div>'+
        '<button class="btn btn-sm" onclick="saveKeyEdit(\''+id+'\')">'+t('saveKey')+'</button>'+
-     '</div>'+
-     '<div class="dact"><button class="btn btn-sm" onclick="toggleHomeQR(\''+id+'\')">'+t('qr')+'</button></div>'+
-     '<div class="qr-w hidden" id="uh-qr-'+id+'"><div class="qr-b" id="uh-qr-box-'+id+'"></div></div>'+
-     '<div class="dact"><button class="btn btn-sm" onclick="toggleBan()">'+(u.banned?t('enable'):t('disable'))+'</button><button class="btn btn-sm" onclick="resetTraffic()">'+t('resetTraffic')+'</button></div>'+
-     '<div class="linkhint">'+t('linkHint')+'</div>'+
+     '</div>';
+
+  h+='<div class="ksec">'+t('shareSec')+'</div>'+
      '<div class="linkrow" onclick="copyMainLink()" title="'+t('copyLink')+'">'+
        '<span class="linkrow-text">'+esc(u.subLink||u.link||'')+'</span>'+
        '<svg class="linkrow-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>'+
      '</div>'+
-     '<div class="dbtns"><button class="btn btn-r" style="flex:1" onclick="deleteUser()">'+t('delete')+'</button></div>';
+     '<div class="linkhint">'+t('linkHint')+'</div>'+
+     '<div class="dact"><button class="btn btn-sm" onclick="toggleHomeQR(\''+id+'\')">'+t('qr')+'</button></div>'+
+     '<div class="qr-w hidden" id="uh-qr-'+id+'"><div class="qr-b" id="uh-qr-box-'+id+'"></div></div>';
+
+  h+='<div class="ksec">'+t('actionsSec')+'</div>'+
+     '<div class="dact"><button class="btn btn-sm" onclick="toggleBan()">'+(u.banned?t('enable'):t('disable'))+'</button>'+
+     '<button class="btn btn-sm" onclick="resetTraffic()">'+t('resetTraffic')+'</button>'+
+     '<button class="btn btn-sm btn-r" onclick="deleteUser()">'+t('delete')+'</button></div>';
   box.innerHTML=h;
+}
+
+// Bytes back into the shorthand the box accepts, so saving without touching
+// the field cannot change the value it was showing.
+function fmtLimitInput(b){
+  if(!b)return '';
+  const gb=b/(1<<30);
+  if(gb>=1024)return +(gb/1024).toFixed(2)+'tb';
+  if(gb>=1)return +gb.toFixed(2)+'gb';
+  return Math.round(b/(1<<20))+'mb';
+}
+
+// Russian needs three forms for a counted noun; English gets two.
+function plural(n,forms){
+  if(forms.length<3)return forms[n===1?0:1];
+  const a=Math.abs(n)%100, b=a%10;
+  if(a>10&&a<20)return forms[2];
+  if(b>1&&b<5)return forms[1];
+  if(b===1)return forms[0];
+  return forms[2];
 }
 // Editing sends only what the fields say. Empty period/traffic mean "no
 // limit", which is why they go as empty strings rather than being skipped.
