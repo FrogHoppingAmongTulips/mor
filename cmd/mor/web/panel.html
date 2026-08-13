@@ -190,7 +190,7 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
 .uh-name.ban{color:var(--t3);text-decoration:line-through}
 .uh-status{flex-shrink:0}
 .uh-seen{font-size:11px;color:var(--t3);white-space:nowrap}
-.uh-pill{font-size:10px;color:var(--t2);background:var(--card-h);padding:3px 9px;border-radius:999px;white-space:nowrap}
+.uh-pill{font-size:11px;font-weight:500;color:var(--t1);background:var(--card-h);padding:5px 13px;border-radius:999px;white-space:nowrap}
 .uh-pill.on{color:var(--t1)}
 .uh-val{font-size:12px;color:var(--t2);font-variant-numeric:tabular-nums;flex-shrink:0}
 .uh-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .42s cubic-bezier(.32,.72,0,1)}
@@ -270,6 +270,13 @@ details.grp[open]>summary{margin-bottom:14px}
 /* Key detail — three named sections instead of one undifferentiated pile:
    what is true now, what can be changed, and what can be done. */
 .kfacts{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:12px}
+/* Units past the first are collapsed to zero width and expand when asked —
+   the number grows in place instead of the layout jumping. */
+.cdown{cursor:pointer;display:inline-flex;align-items:baseline}
+.cd-u{display:inline-block;overflow:hidden;white-space:nowrap;max-width:0;opacity:0;margin-left:0;
+  transition:max-width .38s cubic-bezier(.32,.72,0,1),opacity .3s ease,margin-left .38s cubic-bezier(.32,.72,0,1)}
+.cd-u:first-child,.cdown.lvl-2 .cd-u:nth-child(-n+2),.cdown.lvl-3 .cd-u:nth-child(-n+3),.cdown.lvl-4 .cd-u:nth-child(-n+4){max-width:6ch;opacity:1}
+.cdown.lvl-2 .cd-u:nth-child(2),.cdown.lvl-3 .cd-u:nth-child(-n+3):not(:first-child),.cdown.lvl-4 .cd-u:nth-child(-n+4):not(:first-child){margin-left:.32em}
 .kfact-v{font-size:21px;font-weight:600;letter-spacing:-.02em;line-height:1.15}
 .kfact-l{font-size:11px;color:var(--t3);margin-top:3px}
 .ksec{font-size:10px;font-weight:600;color:var(--t1);text-transform:uppercase;letter-spacing:.07em;margin:20px 0 12px}
@@ -309,7 +316,9 @@ details.grp[open]>summary{margin-bottom:14px}
 .fl{font-size:12px;font-weight:400;color:var(--t3);margin-bottom:6px}
 /* Boxed fields, not underlines: a rule running the width of the panel reads
    as a divider between sections rather than as the edge of one input. */
-.fi{width:100%;background:var(--card);border:1px solid var(--card-border);color:var(--t1);font-family:var(--font);font-size:14px;font-weight:300;padding:9px 12px;border-radius:9px;outline:none;transition:border-color .15s}
+/* Block, not inline: once max-width made the boxes narrower than the panel,
+   two inputs in a row started sharing a line instead of stacking. */
+.fi{display:block;width:100%;background:var(--card);border:1px solid var(--card-border);color:var(--t1);font-family:var(--font);font-size:14px;font-weight:300;padding:9px 12px;border-radius:9px;outline:none;transition:border-color .15s}
 .fi:focus{border-bottom-color:var(--t2)}
 .fi::placeholder{color:var(--t4)}
 .fr{display:flex;gap:12px}
@@ -545,7 +554,7 @@ details.grp[open]>summary{margin-bottom:14px}
       <div class="set-field">
         <div class="set-label" data-i18n="panelPassword">Пароль панели</div>
         <input class="fi" id="setPwCur" type="password" data-i18n-ph="currentPassword" placeholder="текущий пароль" autocomplete="off">
-        <input class="fi" id="setPwNew" type="password" data-i18n-ph="newPassword" placeholder="новый, минимум 8 символов" autocomplete="off" style="margin-top:8px">
+        <input class="fi" id="setPwNew" type="password" data-i18n-ph="newPassword" placeholder="новый, минимум 8 символов" autocomplete="off" style="margin-top:18px">
         <button class="btn btn-sm" style="margin-top:12px" data-i18n="changePassword" onclick="changePassword()">Сменить пароль</button>
       </div>
     </details>
@@ -643,7 +652,7 @@ const I18N={
   delete:'Удалить',lastSeen:'Заходил',
   noKeys:'ключей нет',noTraffic:'трафика пока нет',
   allOff:'все протоколы выключены',total:'всего',onlineShort:'онлайн',expired:'истекли',
-  offline:'офлайн',banned:'забанен',expiredS:'истёк',limit:'лимит',
+  offline:'офлайн',banned:'заблокирован',expiredS:'кончилось время',limit:'кончился трафик',moreDetail:'подробнее',secShort:'с',
   working:'Всё работает',problem:'Есть проблема',
   port:'Порт',protocol:'Протокол',off:'выкл',
   nobodyConnected:'Сейчас никто не подключён',connectedNow:'Сейчас подключено:',
@@ -691,7 +700,7 @@ const I18N={
   delete:'Delete',lastSeen:'Last seen',
   noKeys:'no keys yet',noTraffic:'no traffic yet',
   allOff:'all protocols are off',total:'total',onlineShort:'online',expired:'expired',
-  offline:'offline',banned:'banned',expiredS:'expired',limit:'over cap',
+  offline:'offline',banned:'blocked',expiredS:'time ran out',limit:'data ran out',moreDetail:'more detail',secShort:'s',
   working:'Everything works',problem:'There is a problem',
   port:'Port',protocol:'Protocol',off:'off',
   nobodyConnected:'Nobody is connected',connectedNow:'Connected now:',
@@ -1127,10 +1136,9 @@ function renderHomeDetail(id){
   // glance — the days left used to be 11px grey and easy to miss entirely.
   let h='<div class="kcard">'+
     '<div class="kfacts">'+
-      '<div class="kfact"><div class="kfact-v" id="kcount">'+countdown(u.expiresAt)+'</div>'+
-        '<div class="kfact-l">'+(u.expiresAt?t('leftLabel'):'&nbsp;')+'</div></div>'+
+      '<div class="kfact">'+countdownHTML(u.expiresAt)+'</div>'+
       '<div class="kfact"><div class="kfact-v">'+(u.limit?fmtBytes(Math.max(0,u.limit-u.traffic)):fmtBytes(u.traffic))+'</div>'+
-        '<div class="kfact-l">'+(u.limit?t('leftOf')+' '+fmtBytes(u.limit):t('noCap'))+'</div></div>'+
+        (u.limit?'':'<div class="kfact-l">'+t('noCap')+'</div>')+'</div>'+
     '</div>';
   // One month is a rectangle, not a chart — it says nothing and reads as a
   // rendering fault. The bars start being worth drawing at two.
@@ -1200,24 +1208,49 @@ function fmtLimitInput(b){
 
 // A deadline is read as a countdown: days and hours while they matter,
 // hours and minutes on the last day — "22 дня" told you nothing at 23:50.
-function countdown(iso){
-  if(!iso)return t('noDeadline');
+// The remaining time, split into units and trimmed of leading zeros: a key
+// with two days left starts at days, one with hours left starts at hours.
+function countdownUnits(iso){
   const ms=new Date(iso)-Date.now();
-  if(ms<=0)return t('expiredS');
-  const d=Math.floor(ms/864e5), h=Math.floor(ms%864e5/36e5),
-        m=Math.floor(ms%36e5/6e4), sec=Math.floor(ms%6e4/1000);
+  if(ms<=0)return [];
   const two=n=>String(n).padStart(2,'0');
-  return (d>0?d+t('days')+' ':'')+two(h)+':'+two(m)+':'+two(sec);
+  const all=[[Math.floor(ms/864e5),t('days')],[Math.floor(ms%864e5/36e5),t('hours')],
+             [Math.floor(ms%36e5/6e4),t('minShort')],[Math.floor(ms%6e4/1000),t('secShort')]];
+  while(all.length>1&&all[0][0]===0)all.shift();
+  return all.map(([v,u],i)=>(i===0?v:two(v))+u);
 }
 
-// The deadline is a clock, so it has to move. Only the one element is
-// rewritten — re-rendering the card every second would fight anything being
-// typed into it.
+// How many units the countdown is currently showing. One by default: the
+// whole number is rarely wanted, and revealing it on demand keeps the card
+// calm without hiding anything.
+let cdLevel=1;
+function countdownHTML(iso){
+  if(!iso)return '<div class="kfact-v">'+t('noDeadline')+'</div>';
+  const parts=countdownUnits(iso);
+  if(!parts.length)return '<div class="kfact-v">'+t('expiredS')+'</div>';
+  if(cdLevel>parts.length)cdLevel=1;
+  return '<div class="kfact-v cdown lvl-'+cdLevel+'" id="kcount" onclick="cycleCountdown()" title="'+t('moreDetail')+'">'+
+    parts.map(p=>'<span class="cd-u">'+p+'</span>').join('')+'</div>';
+}
+function cycleCountdown(){
+  const el=document.getElementById('kcount');
+  if(!el)return;
+  const n=el.querySelectorAll('.cd-u').length;
+  cdLevel=cdLevel>=n?1:cdLevel+1;
+  el.className='kfact-v cdown lvl-'+cdLevel;
+}
+
+// The deadline is a clock, so it has to move. Only the unit texts are
+// rewritten — replacing the element would restart the reveal animation and
+// fight anything being typed into the card.
 setInterval(()=>{
   const el=document.getElementById('kcount');
   if(!el||!homeExpanded)return;
   const u=detailCache.get(homeExpanded);
-  if(u&&u.expiresAt)el.textContent=countdown(u.expiresAt);
+  if(!u||!u.expiresAt)return;
+  const parts=countdownUnits(u.expiresAt), spans=el.querySelectorAll('.cd-u');
+  if(parts.length!==spans.length){renderHomeDetail(homeExpanded);return}
+  parts.forEach((p,i)=>{if(spans[i].textContent!==p)spans[i].textContent=p});
 },1000);
 
 // Russian needs three forms for a counted noun; English gets two.
