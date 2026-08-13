@@ -62,8 +62,10 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
 /* A fixed column count, not auto-fill: seven tiles left to fit themselves
    spread into a thin row of six with one orphan underneath. Four columns give
    an even 4+3. */
-.squares{width:min(46%,430px);flex-shrink:0;display:grid;grid-template-columns:repeat(2,1fr);gap:14px;align-content:start;min-width:0;overflow-y:auto}
-.sq{aspect-ratio:1;background:var(--card);border:1px solid var(--card-border);border-radius:var(--r);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;min-width:0;cursor:pointer;transition:background .15s,border-color .15s}
+/* Rows share the column height so the grid reaches the bottom of the
+   screen instead of leaving dead space under it. */
+.squares{width:min(46%,430px);flex-shrink:0;display:grid;grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(3,1fr);gap:14px;min-width:0;min-height:0}
+.sq{background:var(--card);border:1px solid var(--card-border);border-radius:var(--r);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;min-width:0;cursor:pointer;transition:background .15s,border-color .15s}
 .sq:hover{background:var(--card-h)}
 .sq.on{background:var(--card-h);border-color:var(--border2)}
 .sq-icon{width:30px;height:30px;stroke:var(--t3);stroke-width:1.25;fill:none;stroke-linecap:round;stroke-linejoin:round;transition:stroke .15s}
@@ -83,7 +85,7 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
   .detail{width:auto}
 }
 
-.sec{font-size:10px;font-weight:500;color:var(--t2);margin-bottom:14px;letter-spacing:.14em;text-transform:uppercase}
+.sec{font-size:10px;font-weight:500;color:var(--t1);margin-bottom:14px;letter-spacing:.14em;text-transform:uppercase}
 
 .sc-meter{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:10px}
 .sc-meter-fill{height:100%;background:var(--t3);border-radius:2px;transition:width .3s}
@@ -111,11 +113,12 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
 
 /* SYSTEM — a real chart per metric: filled area under a hairline, a percent
    axis on the left and clock labels underneath, so a number has a shape. */
+#pane-system{max-width:560px}
 .chart{margin-bottom:26px}
 .chart-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px}
-.chart-name{font-size:11px;font-weight:500;color:var(--t2);text-transform:uppercase;letter-spacing:.14em}
+.chart-name{font-size:11px;font-weight:500;color:var(--t1);text-transform:uppercase;letter-spacing:.14em}
 .chart-now{font-size:22px;font-weight:200;letter-spacing:-.02em}
-.chart-svg{width:100%;height:110px;display:block;overflow:visible}
+.chart-svg{width:100%;height:auto;display:block;overflow:visible}
 .chart-grid{stroke:var(--card-border);stroke-width:1;vector-effect:non-scaling-stroke}
 .chart-axis{fill:var(--t4);font-size:9px}
 .chart-line{fill:none;stroke:var(--t1);stroke-width:1.5;vector-effect:non-scaling-stroke;stroke-linejoin:round}
@@ -211,10 +214,10 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
 /* Settings as separated cards rather than one long scroll — each group is a
    subject you can look at without reading the ones around it. */
 .grp{background:var(--bg2);border:1px solid var(--card-border);border-radius:14px;padding:18px;margin-bottom:14px}
-.grp-title{font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px}
+.grp-title{font-size:11px;font-weight:600;color:var(--t1);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px}
 .grp-hint{font-size:12px;color:var(--t3);line-height:1.55;margin-bottom:16px}
 .grp .set-field:last-child{margin-bottom:0}
-details.grp>summary{cursor:pointer;font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.07em;list-style:none}
+details.grp>summary{cursor:pointer;font-size:11px;font-weight:600;color:var(--t1);text-transform:uppercase;letter-spacing:.07em;list-style:none}
 details.grp>summary::-webkit-details-marker{display:none}
 details.grp>summary::before{content:'+ ';color:var(--t3)}
 details.grp[open]>summary::before{content:'– '}
@@ -225,7 +228,7 @@ details.grp[open]>summary{margin-bottom:14px}
 .portrow-name{flex:1;font-size:13px;color:var(--t2);min-width:0}
 /* .fi sets width:100% and is declared later, so this needs the extra class
    to win rather than relying on source order. */
-.fi.portrow-in{width:92px;flex-shrink:0;text-align:right}
+.fi.portrow-in{width:92px;flex-shrink:0;text-align:right;border-bottom:none;background:var(--card);border-radius:8px;padding:7px 10px}
 
 /* Version sits in the bar, dim — present when wanted, invisible otherwise */
 .ver{font-size:11px;color:var(--t4);margin-right:14px;font-variant-numeric:tabular-nums}
@@ -261,7 +264,7 @@ details.grp[open]>summary{margin-bottom:14px}
 .kmeter{margin-bottom:14px}
 .kmeta{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--t3);padding-bottom:16px;border-bottom:1px solid var(--card-border)}
 .kmeta-r{white-space:nowrap}
-.ksec{font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin:20px 0 12px}
+.ksec{font-size:10px;font-weight:600;color:var(--t1);text-transform:uppercase;letter-spacing:.07em;margin:20px 0 12px}
 .set-sep{height:1px;background:var(--card-border);margin:24px 0 18px}
 
 /* Bulk selection */
@@ -275,8 +278,8 @@ details.grp[open]>summary{margin-bottom:14px}
 .bulkbar.show{display:flex}
 
 /* Restart pane — the warning and the button need room to read as two steps */
-#pane-restart{display:flex;flex-direction:column;gap:16px;align-items:flex-start}
-#pane-restart .rs-warn{margin:0}
+/* Restart lives in a settings group now; the pane it used to have is gone. */
+.rs-warn{font-size:13px;color:var(--t1);margin-bottom:16px;line-height:1.5}
 
 
 
@@ -387,7 +390,6 @@ details.grp[open]>summary{margin-bottom:14px}
 <div class="dash" id="dashboard">
   <div class="topbar">
     <div class="topbar-r">
-      <span class="ver" id="verTag"></span>
       <button class="btn-plus" data-i18n="create" onclick="showCreateModal()">Создать</button>
       <button class="sw-txt" onclick="toggleLang()"><span id="langRu">ru</span><span id="langEn">en</span></button>
       <button class="theme-sw" onclick="toggleTheme()">
@@ -449,6 +451,7 @@ details.grp[open]>summary{margin-bottom:14px}
   </div>
   <div id="pane-status">
     <div class="status-line" id="statusLine"></div>
+    <div id="updNote"></div>
     <div class="status-probs" id="statusProbs"></div>
     <div id="attnBox"></div>
     <div id="statusProtos"></div>
@@ -456,12 +459,12 @@ details.grp[open]>summary{margin-bottom:14px}
   <div id="pane-system">
     <div class="chart">
       <div class="chart-head"><span class="chart-name">CPU</span><span class="chart-now" id="sysVal-cpu">0%</span></div>
-      <svg class="chart-svg" id="chart-cpu" viewBox="0 0 320 120" preserveAspectRatio="none"></svg>
+      <svg class="chart-svg" id="chart-cpu" viewBox="0 0 320 120"></svg>
       <div class="chart-x" id="chartx-cpu"></div>
     </div>
     <div class="chart">
       <div class="chart-head"><span class="chart-name">RAM</span><span class="chart-now" id="sysVal-ram">0%</span></div>
-      <svg class="chart-svg" id="chart-ram" viewBox="0 0 320 120" preserveAspectRatio="none"></svg>
+      <svg class="chart-svg" id="chart-ram" viewBox="0 0 320 120"></svg>
       <div class="chart-x" id="chartx-ram"></div>
     </div>
     <div class="disk">
@@ -479,13 +482,22 @@ details.grp[open]>summary{margin-bottom:14px}
   </div>
   <div id="pane-actions"><div id="auditBody" class="audit-list"></div></div>
   <div id="pane-settings">
-
     <div class="grp">
       <div class="grp-title" data-i18n="protocols">Протоколы</div>
       <div class="grp-hint" data-i18n="protocolsHint">Выключенный протокол перестаёт слушать порт. Ключи не удаляются.</div>
       <div id="protoRows"></div>
     </div>
-
+    <div class="grp">
+      <div class="grp-title" data-i18n="portsGroup">Порты</div>
+      <div class="grp-hint" data-i18n="portsHint">«Подобрать» перебирает привычные порты и проверяет снаружи, доходит ли до сервера — порт бывает свободен, но обрезан по дороге. Найденный подставляется в поле, применяется после «Сохранить».</div>
+      <div id="portRows"></div>
+    </div>
+    <div class="grp">
+      <div class="grp-title" data-i18n="subsGroup">Подписка</div>
+      <div class="grp-hint" data-i18n="subsHint">Подписка — одна ссылка, которую получает человек. Приложение открывает её и само берёт рабочий протокол. Без неё ключи придётся раздавать по одному на каждый протокол.</div>
+      <div class="set-field"><div class="set-label" data-i18n="subPort">Порт подписок</div><input class="fi" id="setSubPort" inputmode="numeric"></div>
+      <div class="swrow"><div class="tog" id="setSubOn" onclick="this.classList.toggle('on')"></div><span class="swrow-label" data-i18n="subOn">раздавать подписки</span></div>
+    </div>
     <div class="grp">
       <div class="grp-title" data-i18n="general">Основное</div>
       <div class="set-field">
@@ -494,25 +506,16 @@ details.grp[open]>summary{margin-bottom:14px}
         <div class="set-note" data-i18n="dnsNote">Какой DNS используют клиенты. Безопасно менять в любой момент.</div>
       </div>
     </div>
-
-    <div class="grp">
-      <div class="grp-title" data-i18n="subsGroup">Подписка</div>
-      <div class="grp-hint" data-i18n="subsHint">Подписка — одна ссылка, которую получает человек. Приложение открывает её и само берёт рабочий протокол. Без неё ключи придётся раздавать по одному на каждый протокол.</div>
-      <div class="set-field"><div class="set-label" data-i18n="subPort">Порт подписок</div><input class="fi" id="setSubPort" inputmode="numeric"></div>
-      <div class="swrow"><div class="tog" id="setSubOn" onclick="this.classList.toggle('on')"></div><span class="swrow-label" data-i18n="subOn">раздавать подписки</span></div>
-    </div>
-
-    <div class="grp">
-      <div class="grp-title" data-i18n="portsGroup">Порты</div>
-      <div class="grp-hint" data-i18n="portsHint">«Подобрать» перебирает привычные порты и проверяет снаружи, доходит ли до сервера — порт бывает свободен, но обрезан по дороге. Найденный подставляется в поле, применяется после «Сохранить».</div>
-      <div id="portRows"></div>
-    </div>
-
     <div class="grp">
       <div class="grp-title" data-i18n="restart">Перезапуск</div>
       <div class="rs-warn" id="rsWarn"></div>
       <button class="btn btn-sm btn-r" id="rsBtn" data-i18n="restartBtn" onclick="restartEngines()">Перезапустить</button>
     </div>
+
+
+
+
+
 
     <details class="grp set-adv">
       <summary data-i18n="advanced">Дополнительно</summary>
@@ -535,22 +538,20 @@ details.grp[open]>summary{margin-bottom:14px}
     <div class="pane-actions">
       <button class="btn btn-w btn-sm" data-i18n="save" onclick="saveSettings()">Сохранить</button>
     </div>
-
-    <div id="updNote"></div>
   </div>
 </div>
 
 <!-- CREATE -->
 <div class="ov" id="createModal">
   <form class="modal" autocomplete="off" onsubmit="return false">
-    <div class="mt">Создать ключ</div>
-    <div class="fld"><div class="fl">Имя</div><input class="fi" id="createName" autocomplete="off"></div>
-    <div class="fld"><div class="fl">Протоколы</div><div class="pchk" id="createProtos"></div></div>
+    <div class="mt" data-i18n="createKey">Создать ключ</div>
+    <div class="fld"><div class="fl" data-i18n="name">Имя</div><input class="fi" id="createName" autocomplete="off"></div>
+    <div class="fld"><div class="fl" data-i18n="protocols">Протоколы</div><div class="pchk" id="createProtos"></div></div>
     <div class="fr">
-      <div class="fld"><div class="fl">Срок</div><input class="fi" id="createTime" autocomplete="off" placeholder="30d"></div>
-      <div class="fld"><div class="fl">Лимит трафика</div><input class="fi" id="createTraffic" autocomplete="off" placeholder="50gb"></div>
+      <div class="fld"><div class="fl" data-i18n="period">Срок</div><input class="fi" id="createTime" autocomplete="off" placeholder="30d"></div>
+      <div class="fld"><div class="fl" data-i18n="trafficLimit">Лимит трафика</div><input class="fi" id="createTraffic" autocomplete="off" placeholder="50gb"></div>
     </div>
-    <div class="mbtn"><button type="button" class="btn" onclick="hideCreateModal()">Отмена</button><button type="button" class="btn btn-w" onclick="createUser()">Создать</button></div>
+    <div class="mbtn"><button type="button" class="btn" onclick="hideCreateModal()" data-i18n="cancel">Отмена</button><button type="button" class="btn btn-w" onclick="createUser()" data-i18n="create">Создать</button></div>
   </form>
 </div>
 
@@ -608,32 +609,32 @@ document.getElementById('loginScreen').addEventListener('click',()=>loginInput.f
 
 /* ---- i18n ---- */
 const I18N={
- ru:{create:'Создать',logout:'выйти',keys:'Ключи',status:'Статус',online:'Сейчас в сети',
+ ru:{create:'Создать',createKey:'Создать ключ',cancel:'Отмена',logout:'выйти',keys:'Ключи',status:'Статус',
   system:'Система',disk:'Диск',traffic:'Трафик за месяц',restart:'Перезапуск',
-  restartBtn:'Перезапустить',restartNote:'Перезапускает движки. Все текущие подключения оборвутся, клиенты переподключатся сами.',
-  settings:'Настройки',openSettings:'Открыть настройки',protocols:'Протоколы',
+  restartBtn:'Перезапустить',
+  settings:'Настройки',protocols:'Протоколы',
   protocolsHint:'Выключенный протокол перестаёт слушать порт. Ключи не удаляются.',
   general:'Основное',dnsNote:'Какой DNS используют клиенты. Безопасно менять в любой момент.',
   panelPassword:'Пароль панели',currentPassword:'текущий пароль',newPassword:'новый, минимум 8 символов',
   changePassword:'Сменить пароль',advanced:'Дополнительно',
   advancedWarn:'Эти значения зашиты в уже выданные ссылки. После смены старые ссылки перестанут работать — придётся раздать заново.',
   serverAddress:'Адрес сервера',hyObfs:'Обфускация Hysteria2',realityDest:'Reality маскируется под',
-  subPort:'Порт подписок',panelPort:'Порт панели',subOff:'выключить раздачу подписок',
-  close:'Закрыть',save:'Сохранить',
-  createKey:'Создать ключ',name:'Имя',period:'Срок',trafficLimit:'Лимит трафика',cancel:'Отмена',
-  qr:'QR-код',copyLink:'Скопировать ссылку',ban:'Бан',unban:'Разбан',resetTraffic:'Сброс трафика',
-  delete:'Удалить',created:'Создан',lastSeen:'Заходил',
-  noKeys:'ключей нет',nobodyOnline:'никто не подключён',noTraffic:'трафика пока нет',
+  subPort:'Порт подписок',panelPort:'Порт панели',
+  save:'Сохранить',
+  name:'Имя',period:'Срок',trafficLimit:'Лимит трафика',
+  qr:'QR-код',copyLink:'Скопировать ссылку',resetTraffic:'Сброс трафика',
+  delete:'Удалить',lastSeen:'Заходил',
+  noKeys:'ключей нет',noTraffic:'трафика пока нет',
   allOff:'все протоколы выключены',total:'всего',onlineShort:'онлайн',expired:'истекли',
-  offline:'офлайн',banned:'забанен',expiredS:'истёк',limit:'лимит',connected:'подключён',
-  byTraffic:'по трафику',working:'Всё работает',problem:'Есть проблема',
-  port:'Порт',protocol:'Протокол',off:'выкл',free:'свободно из',topTraffic:'Больше всех трафика',
+  offline:'офлайн',banned:'забанен',expiredS:'истёк',limit:'лимит',
+  working:'Всё работает',problem:'Есть проблема',
+  port:'Порт',protocol:'Протокол',off:'выкл',
   nobodyConnected:'Сейчас никто не подключён',connectedNow:'Сейчас подключено:',
   never:'не заходил',ago:'назад',days:'д',hours:'ч',
-  hyDown:'Hysteria2 не отвечает — присутствие по остальным протоколам определяется по трафику и может отставать.',
-  speed:'Скорость',speedRun:'Запустить замер',speedNote:'Замер между этим браузером и сервером, в несколько параллельных потоков.',
-  ping:'Пинг',jitter:'Джиттер',down:'Скачивание',up:'Отдача',measuring:'Измеряю',speedDone:'Готово',
-  edit:'Изменить',saveKey:'Сохранить',editHint:'Здесь показано то, что действует сейчас. Пустое поле — без ограничения. Правка не меняет ссылку.',
+  
+  
+  
+  saveKey:'Сохранить',
   usedPct:'использовано',protoOn:'работает',protoOff:'выключен на сервере',
   pickPort:'Подобрать',picking:'Ищу…',portFound:'подходит порт',badPort:'порт — число от 1 до 65535',settingsSaved:'настройки сохранены',
   subsGroup:'Подписка',subsHint:'Подписка — одна ссылка, которую получает человек. Приложение открывает её и само берёт рабочий протокол. Без неё ключи придётся раздавать по одному на каждый протокол.',
@@ -644,7 +645,7 @@ const I18N={
   select:'Выбрать',deleteSelected:'Удалить выбранные',confirmDelete:'Точно удалить?',deletedN:'удалено:',clearSel:'Снять',
   nameEmpty:'имя не может быть пустым',pickProto:'выбери хотя бы один протокол',keyCreated:'ключ создан',errPrefix:'ошибка: ',
   all:'Все',devices:'Устройств сразу',noLimit:'без лимита',monthlyReset:'Сброс трафика',monthlyResetOn:'каждый месяц',
-  devicesHint:'Лимит устройств работает только на Hysteria2 — остальные протоколы не сообщают о подключениях.',
+  
   recentActions:'Последние действия',noActions:'пока пусто',
   pClock:'часы сервера не синхронизированы — рукопожатия и сроки ключей могут сбоить',
   pDiskUnknown:'не смог проверить место на диске',
@@ -652,36 +653,36 @@ const I18N={
   pDiskBusy:'диск занят на',pFirewall:'закрыт в firewall:',
   tooMany:'слишком много попыток — подожди',
   updateAvailable:'Доступно обновление',updateHow:'Обновить: mor update в терминале сервера.',
-  used:'Используются',disable:'Отключить',enable:'Включить',actions:'Последние действия',
+  disable:'Отключить',enable:'Включить',actions:'Последние действия',
   linkHint:'Одна ссылка на все протоколы. Открывается в любом приложении — формат подбирается сам.',
   whatStored:'Что занимает место',counting:'Считаю…',diskUsed:'Занято',diskOf:'из',
   derivedNote:'«По трафику» — Reality, Encryption и Shadowsocks не сообщают о подключениях, присутствие определено по недавнему трафику.'},
- en:{create:'Create',logout:'sign out',keys:'Keys',status:'Status',online:'Online now',
+ en:{create:'Create',createKey:'New key',cancel:'Cancel',logout:'sign out',keys:'Keys',status:'Status',
   system:'System',disk:'Disk',traffic:'Traffic this month',restart:'Restart',
-  restartBtn:'Restart',restartNote:'Restarts the engines. Every live connection drops; clients reconnect on their own.',
-  settings:'Settings',openSettings:'Open settings',protocols:'Protocols',
+  restartBtn:'Restart',
+  settings:'Settings',protocols:'Protocols',
   protocolsHint:'A protocol that is off stops listening. Keys are not deleted.',
   general:'General',dnsNote:'Which DNS the clients use. Safe to change at any time.',
   panelPassword:'Panel password',currentPassword:'current password',newPassword:'new, at least 8 characters',
   changePassword:'Change password',advanced:'Advanced',
   advancedWarn:'These values are baked into links already handed out. Changing them breaks those links — you will have to share them again.',
   serverAddress:'Server address',hyObfs:'Hysteria2 obfuscation',realityDest:'Reality masquerades as',
-  subPort:'Subscription port',panelPort:'Panel port',subOff:'turn off subscription serving',
-  close:'Close',save:'Save',
-  createKey:'New key',name:'Name',period:'Expires in',trafficLimit:'Traffic cap',cancel:'Cancel',
-  qr:'QR code',copyLink:'Copy link',ban:'Ban',unban:'Unban',resetTraffic:'Reset traffic',
-  delete:'Delete',created:'Created',lastSeen:'Last seen',
-  noKeys:'no keys yet',nobodyOnline:'nobody connected',noTraffic:'no traffic yet',
+  subPort:'Subscription port',panelPort:'Panel port',
+  save:'Save',
+  name:'Name',period:'Expires in',trafficLimit:'Traffic cap',
+  qr:'QR code',copyLink:'Copy link',resetTraffic:'Reset traffic',
+  delete:'Delete',lastSeen:'Last seen',
+  noKeys:'no keys yet',noTraffic:'no traffic yet',
   allOff:'all protocols are off',total:'total',onlineShort:'online',expired:'expired',
-  offline:'offline',banned:'banned',expiredS:'expired',limit:'over cap',connected:'connected',
-  byTraffic:'by traffic',working:'Everything works',problem:'There is a problem',
-  port:'Port',protocol:'Protocol',off:'off',free:'free of',topTraffic:'Heaviest traffic',
+  offline:'offline',banned:'banned',expiredS:'expired',limit:'over cap',
+  working:'Everything works',problem:'There is a problem',
+  port:'Port',protocol:'Protocol',off:'off',
   nobodyConnected:'Nobody is connected',connectedNow:'Connected now:',
   never:'never',ago:'ago',days:'d',hours:'h',
-  hyDown:'Hysteria2 is not answering — presence for the other protocols is inferred from traffic and may lag.',
-  speed:'Speed',speedRun:'Run test',speedNote:'Measured between this browser and the server across several parallel streams.',
-  ping:'Ping',jitter:'Jitter',down:'Download',up:'Upload',measuring:'Measuring',speedDone:'Done',
-  edit:'Edit',saveKey:'Save',editHint:'These are the limits in force now. An empty field means no limit. Editing never changes the link.',
+  
+  
+  
+  saveKey:'Save',
   usedPct:'used',protoOn:'active',protoOff:'off on server',
   pickPort:'Find one',picking:'Probing…',portFound:'port found:',badPort:'port must be 1–65535',settingsSaved:'settings saved',
   subsGroup:'Subscription',subsHint:'A subscription is the single link a person receives. Their app opens it and picks a protocol that works. Without it every protocol has to be handed out separately.',
@@ -692,7 +693,7 @@ const I18N={
   select:'Select',deleteSelected:'Delete selected',confirmDelete:'Delete for good?',deletedN:'deleted:',clearSel:'Clear',
   nameEmpty:'name cannot be empty',pickProto:'pick at least one protocol',keyCreated:'key created',errPrefix:'error: ',
   all:'All',devices:'Devices at once',noLimit:'no limit',monthlyReset:'Traffic reset',monthlyResetOn:'every month',
-  devicesHint:'The device limit only works on Hysteria2 — the other protocols never report connections.',
+  
   recentActions:'Recent actions',noActions:'nothing yet',
   pClock:'the server clock is not synchronised — handshakes and key deadlines may misbehave',
   pDiskUnknown:'could not check disk space',
@@ -700,7 +701,7 @@ const I18N={
   pDiskBusy:'disk is',pFirewall:'blocked by firewall:',
   tooMany:'too many attempts — wait a moment',
   updateAvailable:'Update available',updateHow:'To update: run mor update on the server.',
-  used:'In use',disable:'Disable',enable:'Enable',actions:'Recent actions',
+  disable:'Disable',enable:'Enable',actions:'Recent actions',
   linkHint:'One link for every protocol. Opens in any app — the format is picked automatically.',
   whatStored:'What is using space',counting:'Counting…',diskUsed:'Used',diskOf:'of',
   derivedNote:'"By traffic" — Reality, Encryption and Shadowsocks do not report connections; presence is inferred from recent traffic.'}
@@ -837,8 +838,6 @@ async function loadStats(){
   lastSys=s;
   renderStat();
   renderSysVals();
-  const v=document.getElementById('verTag');
-  if(v&&s.version)v.textContent=s.version;
 }
 
 // Bottom-right stat card — this month's traffic across every key.
@@ -1153,8 +1152,6 @@ function renderHomeDetail(id){
            '<span class="swrow-label">'+t('monthlyResetOn')+'</span></div>'+
          '</div>'+
        '</div>'+
-       '<div class="set-note">'+t('editHint')+'</div>'+
-       '<div class="set-note">'+t('devicesHint')+'</div>'+
        '<button class="btn btn-w btn-sm kwide" onclick="saveKeyEdit(\''+id+'\')">'+t('saveKey')+'</button>'+
      '</div></div>';
 
@@ -1306,7 +1303,8 @@ function select(which){
   document.getElementById('detailTitle').textContent=t(which);
   document.getElementById('detailBody').appendChild(pane);
   document.querySelectorAll('.sq').forEach(sq=>sq.classList.toggle('on',sq.dataset.pane===which));
-  if(which==='settings'){loadConfig();renderUpdNote()}
+  if(which==='settings')loadConfig();
+  if(which==='status')renderUpdNote();
   if(which==='actions')loadAudit();
 }
 
