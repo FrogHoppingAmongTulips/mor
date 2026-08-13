@@ -272,6 +272,9 @@ type webUser struct {
 	Months    []webMonth `json:"months,omitempty"`
 	SubLink   string     `json:"subLink,omitempty"`
 	Link      string     `json:"link,omitempty"`
+	// Links is one direct link per protocol, for handing out a single
+	// protocol instead of the subscription that carries all of them.
+	Links map[string]string `json:"links,omitempty"`
 }
 
 // sparkHours is how far back a key's row-level traffic sparkline reaches. A
@@ -347,6 +350,12 @@ func toWebUser(e *env, g []*store.User, detail bool) webUser {
 		u.Months = out
 		u.SubLink = subURL(e, g[0])
 		u.Link = keyText(e.cfg, g[0])
+		u.Links = make(map[string]string, len(g))
+		for _, k := range g {
+			if text := keyText(e.cfg, k); text != "" {
+				u.Links[k.Proto] = text
+			}
+		}
 	}
 	return u
 }
@@ -569,9 +578,22 @@ func (ws *webServer) handleQR(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
-	text := subURL(ws.e, g[0])
-	if text == "" {
-		text = keyText(ws.e.cfg, g[0])
+	text := ""
+	if proto := r.URL.Query().Get("proto"); proto != "" {
+		for _, k := range g {
+			if k.Proto == proto {
+				text = keyText(ws.e.cfg, k)
+			}
+		}
+		if text == "" {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+	} else {
+		text = subURL(ws.e, g[0])
+		if text == "" {
+			text = keyText(ws.e.cfg, g[0])
+		}
 	}
 	png, err := qrcode.Encode(text, qrcode.Medium, 296)
 	if err != nil {

@@ -113,7 +113,12 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
 
 /* SYSTEM — a real chart per metric: filled area under a hairline, a percent
    axis on the left and clock labels underneath, so a number has a shape. */
-#pane-system{max-width:560px}
+/* Charts on the left, disk beside them — the disk figure is the one an
+   operator checks most and it used to be below the fold. */
+#pane-system{max-width:1000px}
+.syscols{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:26px;align-items:start}
+.syscol{min-width:0}
+@media(max-width:1100px){.syscols{grid-template-columns:1fr}}
 .chart{margin-bottom:26px}
 .chart-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px}
 .chart-name{font-size:11px;font-weight:500;color:var(--t1);text-transform:uppercase;letter-spacing:.14em}
@@ -126,7 +131,7 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
 .chart-x{display:flex;justify-content:space-between;font-size:9px;color:var(--t4);margin-top:6px;padding-left:26px;font-variant-numeric:tabular-nums}
 .chart-empty{font-size:12px;color:var(--t4);padding:34px 0;text-align:center}
 
-.disk{margin-top:4px}
+.disk{margin-top:0}
 .disk-bar{height:4px;background:var(--card-h);border-radius:2px;overflow:hidden;margin:4px 0 10px}
 .disk-bar-fill{height:100%;background:var(--t2);border-radius:2px;transition:width .3s}
 .disk-legend{font-size:12px;color:var(--t3);margin-bottom:14px}
@@ -224,11 +229,13 @@ details.grp[open]>summary::before{content:'– '}
 details.grp[open]>summary{margin-bottom:14px}
 
 .portrow{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+/* Fixed width so swapping the label for "probing" cannot resize the button. */
+.portrow .btn{min-width:104px;justify-content:center}
 .portrow:last-child{margin-bottom:0}
 .portrow-name{flex:1;font-size:13px;color:var(--t2);min-width:0}
 /* .fi sets width:100% and is declared later, so this needs the extra class
    to win rather than relying on source order. */
-.fi.portrow-in{width:92px;flex-shrink:0;text-align:right;border-bottom:none;background:var(--card);border-radius:8px;padding:7px 10px}
+.fi.portrow-in{width:92px;flex-shrink:0;text-align:right}
 
 /* Version sits in the bar, dim — present when wanted, invisible otherwise */
 .ver{font-size:11px;color:var(--t4);margin-right:14px;font-variant-numeric:tabular-nums}
@@ -243,7 +250,7 @@ details.grp[open]>summary{margin-bottom:14px}
 .kcard:last-child{margin-bottom:0}
 .kcard .ksec{margin:0 0 14px}
 .kused{font-size:11px;color:var(--t3);margin-top:-8px;margin-bottom:14px}
-.kwide{width:100%;justify-content:center}
+.kwide{width:100%;justify-content:center;margin-top:20px}
 .kdanger{margin-top:12px;padding-top:14px;border-top:1px solid var(--card-border)}
 .btn-danger{border-color:var(--border2);color:var(--t2)}
 .btn-danger:hover{border-color:var(--t2);color:var(--t1);background:var(--card-h)}
@@ -299,7 +306,9 @@ details.grp[open]>summary{margin-bottom:14px}
 .sp-status{font-size:12px;color:var(--t3);line-height:1.5;margin-bottom:14px}
 .fld{margin-bottom:16px}
 .fl{font-size:12px;font-weight:400;color:var(--t3);margin-bottom:6px}
-.fi{width:100%;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--t1);font-family:var(--font);font-size:14px;font-weight:300;padding:8px 0;border-radius:0;outline:none;transition:border-color .15s}
+/* Boxed fields, not underlines: a rule running the width of the panel reads
+   as a divider between sections rather than as the edge of one input. */
+.fi{width:100%;background:var(--card);border:1px solid var(--card-border);color:var(--t1);font-family:var(--font);font-size:14px;font-weight:300;padding:9px 12px;border-radius:9px;outline:none;transition:border-color .15s}
 .fi:focus{border-bottom-color:var(--t2)}
 .fi::placeholder{color:var(--t4)}
 .fr{display:flex;gap:12px}
@@ -358,7 +367,11 @@ details.grp[open]>summary{margin-bottom:14px}
 .linkrow-icon{width:15px;height:15px;flex-shrink:0;stroke:var(--t3);stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round;transition:stroke .15s}
 .kedit{margin:16px 0;padding:16px 0;border-top:1px solid var(--card-border);border-bottom:1px solid var(--card-border)}
 .kedit .fi{margin-bottom:10px}
-.kedit-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+/* Fields spaced as separate settings rather than a wall. The gap lives on the
+   rows, not on the labels: a label inside a row is its parent's first child,
+   so a :first-child rule there would zero every one of them. */
+.kedit-row{margin-top:22px;display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.kedit>.fi{margin-bottom:2px}
 .kedit .set-note{margin:2px 0 12px}
 .audit-list{max-height:190px;overflow-y:auto}
 .audit-row{display:flex;align-items:baseline;gap:10px;font-size:12px;padding:6px 0;border-bottom:1px solid var(--card-border)}
@@ -451,12 +464,13 @@ details.grp[open]>summary{margin-bottom:14px}
   </div>
   <div id="pane-status">
     <div class="status-line" id="statusLine"></div>
-    <div id="updNote"></div>
     <div class="status-probs" id="statusProbs"></div>
     <div id="attnBox"></div>
     <div id="statusProtos"></div>
   </div>
   <div id="pane-system">
+   <div class="syscols">
+    <div class="syscol">
     <div class="chart">
       <div class="chart-head"><span class="chart-name">CPU</span><span class="chart-now" id="sysVal-cpu">0%</span></div>
       <svg class="chart-svg" id="chart-cpu" viewBox="0 0 320 120"></svg>
@@ -467,13 +481,15 @@ details.grp[open]>summary{margin-bottom:14px}
       <svg class="chart-svg" id="chart-ram" viewBox="0 0 320 120"></svg>
       <div class="chart-x" id="chartx-ram"></div>
     </div>
-    <div class="disk">
+    </div>
+    <div class="syscol disk">
       <div class="chart-head"><span class="chart-name" data-i18n="disk">Диск</span><span class="chart-now" id="sysVal-disk">—</span></div>
       <div class="disk-bar"><div class="disk-bar-fill" id="diskFill"></div></div>
       <div class="disk-legend" id="diskLegend"></div>
       <button class="btn btn-sm" id="diskBtn" data-i18n="whatStored" onclick="loadDisk()">Что занимает место</button>
       <div id="diskBreakdown"></div>
     </div>
+   </div>
   </div>
   <div id="pane-traffic">
     <div class="bstat-val" id="statTraffic">0</div>
@@ -538,6 +554,8 @@ details.grp[open]>summary{margin-bottom:14px}
     <div class="pane-actions">
       <button class="btn btn-w btn-sm" data-i18n="save" onclick="saveSettings()">Сохранить</button>
     </div>
+
+    <div id="updNote"></div>
   </div>
 </div>
 
@@ -635,7 +653,7 @@ const I18N={
   
   
   saveKey:'Сохранить',
-  usedPct:'использовано',protoOn:'работает',protoOff:'выключен на сервере',
+  usedPct:'использовано',oneProtoHint:'Ссылка только на этот протокол.',noLink:'ссылки нет',copied:'ссылка скопирована',copyFail:'не удалось скопировать',protoOn:'работает',protoOff:'выключен на сервере',
   pickPort:'Подобрать',picking:'Ищу…',portFound:'подходит порт',badPort:'порт — число от 1 до 65535',settingsSaved:'настройки сохранены',
   subsGroup:'Подписка',subsHint:'Подписка — одна ссылка, которую получает человек. Приложение открывает её и само берёт рабочий протокол. Без неё ключи придётся раздавать по одному на каждый протокол.',
   subOn:'раздавать подписки',portsGroup:'Порты',portsHint:'«Подобрать» перебирает привычные порты и проверяет снаружи, доходит ли до сервера — порт бывает свободен, но обрезан по дороге. Найденный подставляется в поле, применяется после «Сохранить».',
@@ -644,7 +662,7 @@ const I18N={
   limitsNow:'Ограничения',shareSec:'Ссылка',actionsSec:'Действия',
   select:'Выбрать',deleteSelected:'Удалить выбранные',confirmDelete:'Точно удалить?',deletedN:'удалено:',clearSel:'Снять',
   nameEmpty:'имя не может быть пустым',pickProto:'выбери хотя бы один протокол',keyCreated:'ключ создан',errPrefix:'ошибка: ',
-  all:'Все',devices:'Устройств сразу',noLimit:'без лимита',monthlyReset:'Сброс трафика',monthlyResetOn:'каждый месяц',
+  all:'Все',devices:'Устройств сразу',noLimit:'без лимита',monthlyReset:'Обновление лимита',monthlyResetOn:'каждый месяц заново',
   
   recentActions:'Последние действия',noActions:'пока пусто',
   pClock:'часы сервера не синхронизированы — рукопожатия и сроки ключей могут сбоить',
@@ -683,7 +701,7 @@ const I18N={
   
   
   saveKey:'Save',
-  usedPct:'used',protoOn:'active',protoOff:'off on server',
+  usedPct:'used',oneProtoHint:'A link to this protocol only.',noLink:'no link',copied:'link copied',copyFail:'could not copy',protoOn:'active',protoOff:'off on server',
   pickPort:'Find one',picking:'Probing…',portFound:'port found:',badPort:'port must be 1–65535',settingsSaved:'settings saved',
   subsGroup:'Subscription',subsHint:'A subscription is the single link a person receives. Their app opens it and picks a protocol that works. Without it every protocol has to be handed out separately.',
   subOn:'serve subscriptions',portsGroup:'Ports',portsHint:'“Find one” walks the usual ports and checks from outside whether they reach the server — a port can be free here and still be cut on the way. The result fills the box and applies on Save.',
@@ -692,7 +710,7 @@ const I18N={
   limitsNow:'Limits',shareSec:'Link',actionsSec:'Actions',
   select:'Select',deleteSelected:'Delete selected',confirmDelete:'Delete for good?',deletedN:'deleted:',clearSel:'Clear',
   nameEmpty:'name cannot be empty',pickProto:'pick at least one protocol',keyCreated:'key created',errPrefix:'error: ',
-  all:'All',devices:'Devices at once',noLimit:'no limit',monthlyReset:'Traffic reset',monthlyResetOn:'every month',
+  all:'All',devices:'Devices at once',noLimit:'no limit',monthlyReset:'Limit renewal',monthlyResetOn:'renews every month',
   
   recentActions:'Recent actions',noActions:'nothing yet',
   pClock:'the server clock is not synchronised — handshakes and key deadlines may misbehave',
@@ -1156,9 +1174,13 @@ function renderHomeDetail(id){
      '</div></div>';
 
   h+='<div class="kcard"><div class="ksec">'+t('shareSec')+'</div>'+
-     '<div class="linkhint">'+t('linkHint')+'</div>'+
-     '<div class="linkrow" onclick="copyMainLink()" title="'+t('copyLink')+'">'+
-       '<span class="linkrow-text">'+esc(u.subLink||u.link||'')+'</span>'+
+     '<div class="pchk lchoice" id="lch-'+id+'">'+
+       '<span class="pchip on" data-l="" onclick="pickLink(\''+id+'\',\'\')">'+t('all')+'</span>'+
+       u.protocols.map(p=>'<span class="pchip" data-l="'+p+'" onclick="pickLink(\''+id+'\',\''+p+'\')">'+(PROTO_NAMES[p]||p)+'</span>').join('')+
+     '</div>'+
+     '<div class="linkhint" id="lhint-'+id+'">'+t('linkHint')+'</div>'+
+     '<div class="linkrow" onclick="copyShown(\''+id+'\')" title="'+t('copyLink')+'">'+
+       '<span class="linkrow-text" id="ltext-'+id+'">'+esc(u.subLink||u.link||'')+'</span>'+
        '<svg class="linkrow-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>'+
      '</div>'+
      '<div class="dact"><button class="btn btn-sm" onclick="toggleHomeQR(\''+id+'\')">'+t('qr')+'</button></div>'+
@@ -1217,10 +1239,31 @@ async function saveKeyEdit(id){
     loadUsers();
   }catch(e){toast((lang==='ru'?'ошибка: ':'error: ')+e.message)}
 }
+// Which protocol the link card is showing; empty means the subscription that
+// carries all of them.
+const linkPick=new Map();
+function pickLink(id,proto){
+  linkPick.set(id,proto);
+  const u=detailCache.get(id);if(!u)return;
+  document.querySelectorAll('#lch-'+id+' .pchip').forEach(c=>c.classList.toggle('on',c.dataset.l===proto));
+  document.getElementById('ltext-'+id).textContent=proto?(u.links&&u.links[proto]||''):(u.subLink||u.link||'');
+  document.getElementById('lhint-'+id).textContent=proto?t('oneProtoHint'):t('linkHint');
+  // The QR belongs to whatever link is on screen, so it is dropped and
+  // refetched rather than left showing the previous protocol.
+  const box=document.getElementById('uh-qr-box-'+id);
+  if(box)box.innerHTML='';
+  document.getElementById('uh-qr-'+id).classList.add('hidden');
+}
+function copyShown(id){
+  const text=document.getElementById('ltext-'+id).textContent;
+  if(!text){toast(t('noLink'));return}
+  navigator.clipboard.writeText(text).then(()=>toast(t('copied'))).catch(()=>toast(t('copyFail')));
+}
 function toggleHomeQR(id){
   const wrap=document.getElementById('uh-qr-'+id),box=document.getElementById('uh-qr-box-'+id);
   const show=wrap.classList.contains('hidden');
-  if(show&&!box.innerHTML)box.innerHTML='<img src="/api/qr/'+encodeURIComponent(id)+'.png?t='+Date.now()+'" alt="QR">';
+  const proto=linkPick.get(id)||'';
+  if(show&&!box.innerHTML)box.innerHTML='<img src="/api/qr/'+encodeURIComponent(id)+'.png?t='+Date.now()+(proto?'&proto='+encodeURIComponent(proto):'')+'" alt="QR">';
   wrap.classList.toggle('hidden',!show);
 }
 // Ban, reset and delete all change what the opened key shows, so the list is
@@ -1303,8 +1346,7 @@ function select(which){
   document.getElementById('detailTitle').textContent=t(which);
   document.getElementById('detailBody').appendChild(pane);
   document.querySelectorAll('.sq').forEach(sq=>sq.classList.toggle('on',sq.dataset.pane===which));
-  if(which==='settings')loadConfig();
-  if(which==='status')renderUpdNote();
+  if(which==='settings'){loadConfig();renderUpdNote()}
   if(which==='actions')loadAudit();
 }
 
