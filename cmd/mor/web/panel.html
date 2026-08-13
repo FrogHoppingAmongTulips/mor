@@ -234,6 +234,25 @@ details.grp[open]>summary{margin-bottom:14px}
 .audit-day{font-size:11px;font-weight:600;color:var(--t2);margin:18px 0 8px;text-transform:capitalize}
 .audit-day:first-child{margin-top:0}
 
+/* Key detail — one card per subject, matching the settings groups. Monochrome
+   throughout: state is carried by weight and dimming, never by hue. */
+.kcard{background:var(--bg2);border:1px solid var(--card-border);border-radius:14px;padding:18px;margin-bottom:12px}
+.kcard:last-child{margin-bottom:0}
+.kcard .ksec{margin:0 0 14px}
+.kused{font-size:11px;color:var(--t3);margin-top:-8px;margin-bottom:14px}
+.kwide{width:100%;justify-content:center}
+.kdanger{margin-top:12px;padding-top:14px;border-top:1px solid var(--card-border)}
+.btn-danger{border-color:var(--border2);color:var(--t2)}
+.btn-danger:hover{border-color:var(--t2);color:var(--t1);background:var(--card-h)}
+
+/* Protocol cells: which of this key's protocols the server still serves */
+.pgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.pcell{display:flex;flex-direction:column;gap:3px;padding:11px 13px;background:var(--card);border:1px solid var(--card-border);border-radius:10px}
+.pcell-name{font-size:13px;color:var(--t1)}
+.pcell-state{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em}
+.pcell.off{opacity:.45}
+.pcell.off .pcell-name{text-decoration:line-through}
+
 /* Key detail — three named sections instead of one undifferentiated pile:
    what is true now, what can be changed, and what can be done. */
 .kfacts{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:12px}
@@ -615,6 +634,7 @@ const I18N={
   speed:'Скорость',speedRun:'Запустить замер',speedNote:'Замер между этим браузером и сервером, в несколько параллельных потоков.',
   ping:'Пинг',jitter:'Джиттер',down:'Скачивание',up:'Отдача',measuring:'Измеряю',speedDone:'Готово',
   edit:'Изменить',saveKey:'Сохранить',editHint:'Здесь показано то, что действует сейчас. Пустое поле — без ограничения. Правка не меняет ссылку.',
+  usedPct:'использовано',protoOn:'работает',protoOff:'выключен на сервере',
   pickPort:'Подобрать',picking:'Ищу…',portFound:'подходит порт',badPort:'порт — число от 1 до 65535',settingsSaved:'настройки сохранены',
   subsGroup:'Подписка',subsHint:'Подписка — одна ссылка, которую получает человек. Приложение открывает её и само берёт рабочий протокол. Без неё ключи придётся раздавать по одному на каждый протокол.',
   subOn:'раздавать подписки',portsGroup:'Порты',portsHint:'«Подобрать» перебирает привычные порты и проверяет снаружи, доходит ли до сервера — порт бывает свободен, но обрезан по дороге. Найденный подставляется в поле, применяется после «Сохранить».',
@@ -662,6 +682,7 @@ const I18N={
   speed:'Speed',speedRun:'Run test',speedNote:'Measured between this browser and the server across several parallel streams.',
   ping:'Ping',jitter:'Jitter',down:'Download',up:'Upload',measuring:'Measuring',speedDone:'Done',
   edit:'Edit',saveKey:'Save',editHint:'These are the limits in force now. An empty field means no limit. Editing never changes the link.',
+  usedPct:'used',protoOn:'active',protoOff:'off on server',
   pickPort:'Find one',picking:'Probing…',portFound:'port found:',badPort:'port must be 1–65535',settingsSaved:'settings saved',
   subsGroup:'Subscription',subsHint:'A subscription is the single link a person receives. Their app opens it and picks a protocol that works. Without it every protocol has to be handed out separately.',
   subOn:'serve subscriptions',portsGroup:'Ports',portsHint:'“Find one” walks the usual ports and checks from outside whether they reach the server — a port can be free here and still be cut on the way. The result fills the box and applies on Save.',
@@ -1088,26 +1109,37 @@ function renderHomeDetail(id){
 
   // What is true right now, stated plainly and large enough to read at a
   // glance — the days left used to be 11px grey and easy to miss entirely.
-  let h='<div class="kfacts">'+
-    '<div class="kfact"><div class="kfact-v">'+(days===null?t('noDeadline'):days+' '+plural(days,t('dayForms')))+'</div>'+
-      '<div class="kfact-l">'+(days===null?'&nbsp;':t('leftLabel'))+'</div></div>'+
-    '<div class="kfact"><div class="kfact-v">'+fmtBytes(u.traffic)+'</div>'+
-      '<div class="kfact-l">'+(u.limit?t('outOf')+' '+fmtBytes(u.limit):t('noCap'))+'</div></div>'+
-  '</div>';
-  if(u.limit)h+='<div class="sc-meter kmeter"><div class="sc-meter-fill" style="width:'+pct+'%"></div></div>';
-
-  h+='<div class="kmeta">'+
-    '<span>'+u.protocols.map(p=>'<span class="tag">'+(PROTO_NAMES[p]||p)+'</span>').join('')+'</span>'+
-    '<span class="kmeta-r">'+t('lastSeen').toLowerCase()+': '+(u.banned?t('banned').toLowerCase():ago(u.lastSeen))+'</span>'+
-  '</div>';
-
+  let h='<div class="kcard">'+
+    '<div class="kfacts">'+
+      '<div class="kfact"><div class="kfact-v">'+(days===null?t('noDeadline'):days+' '+plural(days,t('dayForms')))+'</div>'+
+        '<div class="kfact-l">'+(days===null?'&nbsp;':t('leftLabel'))+'</div></div>'+
+      '<div class="kfact"><div class="kfact-v">'+fmtBytes(u.traffic)+'</div>'+
+        '<div class="kfact-l">'+(u.limit?t('outOf')+' '+fmtBytes(u.limit):t('noCap'))+'</div></div>'+
+    '</div>';
+  if(u.limit){
+    h+='<div class="sc-meter kmeter"><div class="sc-meter-fill" style="width:'+pct+'%"></div></div>'+
+       '<div class="kused">'+Math.round(pct)+'% '+t('usedPct')+'</div>';
+  }
+  h+='<div class="kmeta"><span class="kmeta-r">'+t('lastSeen').toLowerCase()+': '+
+       (u.banned?t('banned').toLowerCase():ago(u.lastSeen))+'</span></div>';
   // One month is a rectangle, not a chart — it says nothing and reads as a
   // rendering fault. The bars start being worth drawing at two.
   if(months.length>1)h+='<div class="bars">'+months.map(m=>'<div class="bar" style="height:'+Math.max(4,m.bytes/mx*100)+'%" title="'+m.month+': '+fmtBytes(m.bytes)+'"></div>').join('')+'</div>';
+  h+='</div>';
+
+  // A key can carry a protocol the server has since switched off. Saying which
+  // of its protocols actually work today is the point of listing them at all.
+  const liveIds=new Set(protocols.filter(p=>p.on).map(p=>p.id));
+  h+='<div class="kcard"><div class="ksec">'+t('protocols')+'</div>'+
+     '<div class="pgrid">'+u.protocols.map(p=>{
+       const on=liveIds.has(p);
+       return '<div class="pcell'+(on?'':' off')+'"><span class="pcell-name">'+(PROTO_NAMES[p]||p)+'</span>'+
+              '<span class="pcell-state">'+(on?t('protoOn'):t('protoOff'))+'</span></div>';
+     }).join('')+'</div></div>';
 
   // The boxes are filled with what is in force, so there is no guessing
   // whether they show the current limits or empty slots for new ones.
-  h+='<div class="ksec">'+t('limitsNow')+'</div>'+
+  h+='<div class="kcard"><div class="ksec">'+t('limitsNow')+'</div>'+
      '<div class="kedit">'+
        '<div class="set-label">'+t('name')+'</div><input class="fi" id="ed-name-'+id+'" autocomplete="off" value="'+esc(u.name)+'">'+
        '<div class="kedit-row">'+
@@ -1123,22 +1155,25 @@ function renderHomeDetail(id){
        '</div>'+
        '<div class="set-note">'+t('editHint')+'</div>'+
        '<div class="set-note">'+t('devicesHint')+'</div>'+
-       '<button class="btn btn-sm" onclick="saveKeyEdit(\''+id+'\')">'+t('saveKey')+'</button>'+
-     '</div>';
+       '<button class="btn btn-w btn-sm kwide" onclick="saveKeyEdit(\''+id+'\')">'+t('saveKey')+'</button>'+
+     '</div></div>';
 
-  h+='<div class="ksec">'+t('shareSec')+'</div>'+
+  h+='<div class="kcard"><div class="ksec">'+t('shareSec')+'</div>'+
+     '<div class="linkhint">'+t('linkHint')+'</div>'+
      '<div class="linkrow" onclick="copyMainLink()" title="'+t('copyLink')+'">'+
        '<span class="linkrow-text">'+esc(u.subLink||u.link||'')+'</span>'+
        '<svg class="linkrow-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>'+
      '</div>'+
-     '<div class="linkhint">'+t('linkHint')+'</div>'+
      '<div class="dact"><button class="btn btn-sm" onclick="toggleHomeQR(\''+id+'\')">'+t('qr')+'</button></div>'+
-     '<div class="qr-w hidden" id="uh-qr-'+id+'"><div class="qr-b" id="uh-qr-box-'+id+'"></div></div>';
+     '<div class="qr-w hidden" id="uh-qr-'+id+'"><div class="qr-b" id="uh-qr-box-'+id+'"></div></div></div>';
 
-  h+='<div class="ksec">'+t('actionsSec')+'</div>'+
+  // Delete sits apart from the reversible two: banning and resetting can be
+  // undone, this cannot.
+  h+='<div class="kcard"><div class="ksec">'+t('actionsSec')+'</div>'+
      '<div class="dact"><button class="btn btn-sm" onclick="toggleBan()">'+(u.banned?t('enable'):t('disable'))+'</button>'+
-     '<button class="btn btn-sm" onclick="resetTraffic()">'+t('resetTraffic')+'</button>'+
-     '<button class="btn btn-sm btn-r" onclick="deleteUser()">'+t('delete')+'</button></div>';
+     '<button class="btn btn-sm" onclick="resetTraffic()">'+t('resetTraffic')+'</button></div>'+
+     '<div class="kdanger"><button class="btn btn-sm btn-danger kwide" onclick="deleteUser()">'+t('delete')+'</button></div>'+
+     '</div>';
   box.innerHTML=h;
 }
 
