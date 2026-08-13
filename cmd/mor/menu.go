@@ -94,7 +94,14 @@ func runMenu() {
 
 func (m *menu) draw() {
 	fmt.Print(clearScreen)
-	fmt.Printf("\n  %sMOR%s  %s%s%s\n\n", bold, reset, dim, m.e.cfg.PublicHost, reset)
+	fmt.Printf("\n  %sMOR%s  %s%s%s\n", bold, reset, dim, m.e.cfg.PublicHost, reset)
+	// The panel's address is not guessable from the host alone — it depends on
+	// a port the owner may have changed — so the header spells it out rather
+	// than leaving them to remember it.
+	if m.e.cfg.WebOn() {
+		fmt.Printf("  %shttp://%s:%d%s\n", dim, m.e.cfg.PublicHost, m.e.cfg.WebPort, reset)
+	}
+	fmt.Println()
 
 	for _, it := range menuItems {
 		if it.key == "" {

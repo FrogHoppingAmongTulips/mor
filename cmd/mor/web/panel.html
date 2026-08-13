@@ -37,7 +37,7 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
 .sw-txt span.on{color:var(--t1)}
 .topbar-r{display:flex;align-items:center;gap:26px;margin-left:auto}
 .btn-plus{background:var(--t1);color:var(--bg);border:none;font-family:var(--font);font-size:13px;font-weight:400;padding:7px 20px;border-radius:8px;cursor:pointer;transition:opacity .15s;letter-spacing:-.01em}
-.btn-plus:hover{opacity:.85}
+.btn-plus:hover{background:var(--t1)}
 .theme-sw{cursor:pointer;background:none;border:none;padding:0;display:flex;align-items:center}
 .theme-icon{width:16px;height:16px;color:var(--t2);transition:color .3s}
 .theme-icon:hover{color:var(--t1)}
@@ -228,6 +228,10 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
 .pchip{font-size:12px;color:var(--t3);background:var(--card-h);border:1px solid transparent;padding:7px 14px;border-radius:999px;cursor:pointer;user-select:none;transition:background .15s,color .15s}
 .pchip:hover{color:var(--t2)}
 .pchip.on{background:var(--t1);color:var(--bg);font-weight:500}
+/* "All" is a control, not a protocol — outlined so it reads as a different
+   kind of thing next to the chips it drives. */
+.pchip-all{background:transparent;border-color:var(--border2)}
+.pchip-all.on{background:var(--t1);border-color:var(--t1)}
 
 .dgrid{display:flex;flex-direction:column;gap:14px;margin-bottom:18px}
 .dcell{padding:0}
@@ -344,12 +348,12 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
         <div class="sq-label" data-i18n="restart">Перезапуск</div>
       </div>
         <div class="sq" onclick="select('actions')" data-pane="actions">
-          <svg class="sq-icon" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/><circle cx="19" cy="17" r="2"/></svg>
+          <svg class="sq-icon" viewBox="0 0 24 24"><path d="M3.5 9A9 9 0 1112 21a9 9 0 01-7.5-4"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></svg>
           <div class="sq-label" data-i18n="recentActions">Последние действия</div>
         </div>
 
         <div class="sq" onclick="select('settings')" data-pane="settings">
-        <svg class="sq-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>
+        <svg class="sq-icon" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
         <div class="sq-label" data-i18n="settings">Настройки</div>
       </div>
       </div>
@@ -540,7 +544,7 @@ const I18N={
   speed:'Скорость',speedRun:'Запустить замер',speedNote:'Замер между этим браузером и сервером, в несколько параллельных потоков.',
   ping:'Пинг',jitter:'Джиттер',down:'Скачивание',up:'Отдача',measuring:'Измеряю',speedDone:'Готово',
   edit:'Изменить',saveKey:'Сохранить',editHint:'Пустое поле снимает ограничение. Правка не меняет ссылку.',
-  devices:'Устройств сразу',noLimit:'без лимита',monthlyReset:'Сброс трафика',monthlyResetOn:'каждый месяц',
+  all:'Все',devices:'Устройств сразу',noLimit:'без лимита',monthlyReset:'Сброс трафика',monthlyResetOn:'каждый месяц',
   devicesHint:'Лимит устройств работает только на Hysteria2 — остальные протоколы не сообщают о подключениях.',
   recentActions:'Последние действия',noActions:'пока пусто',
   pClock:'часы сервера не синхронизированы — рукопожатия и сроки ключей могут сбоить',
@@ -579,7 +583,7 @@ const I18N={
   speed:'Speed',speedRun:'Run test',speedNote:'Measured between this browser and the server across several parallel streams.',
   ping:'Ping',jitter:'Jitter',down:'Download',up:'Upload',measuring:'Measuring',speedDone:'Done',
   edit:'Edit',saveKey:'Save',editHint:'An empty field lifts the limit. Editing never changes the link.',
-  devices:'Devices at once',noLimit:'no limit',monthlyReset:'Traffic reset',monthlyResetOn:'every month',
+  all:'All',devices:'Devices at once',noLimit:'no limit',monthlyReset:'Traffic reset',monthlyResetOn:'every month',
   devicesHint:'The device limit only works on Hysteria2 — the other protocols never report connections.',
   recentActions:'Recent actions',noActions:'nothing yet',
   pClock:'the server clock is not synchronised — handshakes and key deadlines may misbehave',
@@ -1016,7 +1020,8 @@ async function loadProtocols(){
   const cp=document.getElementById('createProtos');
   const live=protocols.filter(p=>p.on);
   cp.innerHTML=live.length
-    ? live.map(p=>'<span class="pchip" data-proto="'+p.id+'" onclick="this.classList.toggle(\'on\')">'+(PROTO_NAMES[p.id]||p.id)+'</span>').join('')
+    ? '<span class="pchip pchip-all" onclick="toggleAllProtos()">'+t('all')+'</span>'+
+      live.map(p=>'<span class="pchip" data-proto="'+p.id+'" onclick="this.classList.toggle(\'on\');syncAllChip()">'+(PROTO_NAMES[p.id]||p.id)+'</span>').join('')
     : '<span class="empty">'+t('allOff')+'</span>';
   renderStatusProtos();
 }
@@ -1140,6 +1145,20 @@ function showCreateModal(){
   document.getElementById('createTraffic').value='';
   document.querySelectorAll('#createProtos .pchip').forEach(c=>c.classList.remove('on'));
   setTimeout(()=>document.getElementById('createName').focus(),100);
+  syncAllChip();
+}
+// "All" is a shortcut, not a fifth protocol: it mirrors the state of the real
+// chips rather than holding one of its own, so the two can never disagree.
+function toggleAllProtos(){
+  const chips=[...document.querySelectorAll('#createProtos .pchip[data-proto]')];
+  const turnOn=!chips.every(c=>c.classList.contains('on'));
+  chips.forEach(c=>c.classList.toggle('on',turnOn));
+  syncAllChip();
+}
+function syncAllChip(){
+  const chips=[...document.querySelectorAll('#createProtos .pchip[data-proto]')];
+  const all=document.querySelector('#createProtos .pchip-all');
+  if(all)all.classList.toggle('on',chips.length>0&&chips.every(c=>c.classList.contains('on')));
 }
 function hideCreateModal(){document.getElementById('createModal').classList.remove('show')}
 document.getElementById('createModal').addEventListener('click',e=>{if(e.target===e.currentTarget)hideCreateModal()});
