@@ -264,6 +264,8 @@ type webUser struct {
 	Limit     uint64     `json:"limit,omitempty"`
 	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
 	Banned    bool       `json:"banned"`
+	IPLimit   int        `json:"ipLimit,omitempty"`
+	AutoReset bool       `json:"autoReset"`
 	Spark     []uint64   `json:"spark"`
 	Months    []webMonth `json:"months,omitempty"`
 	SubLink   string     `json:"subLink,omitempty"`
@@ -325,7 +327,8 @@ func toWebUser(e *env, g []*store.User, detail bool) webUser {
 	u := webUser{
 		ID: groupID(g), Name: g[0].Name, Protocols: protos,
 		Created: g[0].CreatedAt, Traffic: q.used, Limit: q.limit,
-		Banned: g[0].Banned, Spark: sparkline(e, g),
+		Banned: g[0].Banned, IPLimit: g[0].IPLimit, AutoReset: g[0].AutoReset,
+		Spark: sparkline(e, g),
 	}
 	if !entry.LastSeen.IsZero() {
 		u.LastSeen = &entry.LastSeen

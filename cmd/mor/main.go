@@ -440,7 +440,10 @@ func serve() {
 	}
 
 	log.Printf("mor %s: проверка ключей на 127.0.0.1:%d", version, hysteria.AuthPort)
-	if err := hysteria.StartAuthServer(ctx, e.st, g.has); err != nil {
+	tooMany := func(u *store.User, addr string) bool {
+		return !e.ipLimits.Allow(u.ID, addr, u.IPLimit)
+	}
+	if err := hysteria.StartAuthServer(ctx, e.st, g.has, tooMany); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -514,6 +517,10 @@ type env struct {
 	hist  *stats.History
 	audit *auditlog.Log
 	paths config.Paths
+
+	// ipLimits lives only in memory: counting concurrent devices needs no
+	// history, and keeping one would mean recording where people connect from.
+	ipLimits *hysteria.IPTracker
 }
 
 func load() (*env, error) {
@@ -540,14 +547,15 @@ func load() (*env, error) {
 		return nil, err
 	}
 	return &env{
-		cfg:   cfg,
-		st:    st,
-		hy:    hysteria.New(cfg, paths),
-		xr:    xray.New(cfg, paths),
-		stats: st2,
-		hist:  hist,
-		audit: al,
-		paths: paths,
+		cfg:      cfg,
+		st:       st,
+		hy:       hysteria.New(cfg, paths),
+		xr:       xray.New(cfg, paths),
+		stats:    st2,
+		hist:     hist,
+		audit:    al,
+		paths:    paths,
+		ipLimits: hysteria.NewIPTracker(),
 	}, nil
 }
 

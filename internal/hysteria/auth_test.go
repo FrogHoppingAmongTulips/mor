@@ -19,7 +19,7 @@ func authTestServer(t *testing.T) (*httptest.Server, *store.Store, *store.User) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := httptest.NewServer(authHandler(st, nil))
+	srv := httptest.NewServer(authHandler(st, nil, nil))
 	t.Cleanup(srv.Close)
 	return srv, st, u
 }
@@ -74,7 +74,7 @@ func TestAuthRejectsSpent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := httptest.NewServer(authHandler(st, func(id string) bool { return id == u.ID }))
+	srv := httptest.NewServer(authHandler(st, func(id string) bool { return id == u.ID }, nil))
 	defer srv.Close()
 
 	got := postAuth(t, srv.URL, `{"addr":"198.51.100.1:5000","auth":"valid-token"}`)

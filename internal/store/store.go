@@ -63,6 +63,22 @@ type User struct {
 	// Banned is a manual kill switch, independent of expiry and traffic —
 	// the owner cut this person off on purpose, not because a number ran out.
 	Banned bool `json:"banned,omitempty"`
+
+	// IPLimit caps how many devices may hold a connection at once, so one key
+	// handed round a dozen people stops working for the twelfth. Zero means no
+	// cap. Only Hysteria2 can enforce it: the Xray protocols never report a
+	// per-connection address, so there is nothing there to count.
+	IPLimit int `json:"ip_limit,omitempty"`
+
+	// AutoReset zeroes this person's traffic when the calendar month turns, so
+	// a monthly allowance renews itself instead of waiting to be cleared by hand.
+	AutoReset bool `json:"auto_reset,omitempty"`
+
+	// ResetMonth is the month ("2006-01") the counter was last cleared for.
+	// Keeping the month rather than a timestamp is what makes the reset safe to
+	// re-run: a server that was off on the first of the month catches up when it
+	// comes back, and a server that ticks all day still only resets once.
+	ResetMonth string `json:"reset_month,omitempty"`
 }
 
 func (u *User) Expired() bool {
@@ -210,6 +226,47 @@ func (s *Store) SetLimit(id string, bytes uint64) error {
 		return ErrNotFound
 	}
 	u.Limit = bytes
+	return s.persistLocked()
+}
+
+func (s *Store) SetIPLimit(id string, n int) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.reloadIfChangedLocked()
+	u, ok := s.users[id]
+	if !ok {
+		return ErrNotFound
+	}
+	if n < 0 {
+		n = 0
+	}
+	u.IPLimit = n
+	return s.persistLocked()
+}
+
+func (s *Store) SetAutoReset(id string, on bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.reloadIfChangedLocked()
+	u, ok := s.users[id]
+	if !ok {
+		return ErrNotFound
+	}
+	u.AutoReset = on
+	return s.persistLocked()
+}
+
+// SetResetMonth records that this key's counter has been cleared for a given
+// month, so the monthly reset runs once and not on every tick of that month.
+func (s *Store) SetResetMonth(id, month string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.reloadIfChangedLocked()
+	u, ok := s.users[id]
+	if !ok {
+		return ErrNotFound
+	}
+	u.ResetMonth = month
 	return s.persistLocked()
 }
 

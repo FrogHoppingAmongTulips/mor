@@ -34,6 +34,7 @@ func collectLoop(ctx context.Context, e *env, g *guard) {
 			return
 		case <-t.C:
 			collect(e)
+			autoReset(e)
 			enforce(e, g, cut)
 			if err := e.stats.Save(); err != nil {
 				log.Printf("предупреждение: запись статистики: %v", err)
@@ -48,6 +49,32 @@ func collectLoop(ctx context.Context, e *env, g *guard) {
 				}
 			}
 		}
+	}
+}
+
+// autoReset zeroes the counter of everyone on a monthly allowance once the
+// calendar month turns.
+//
+// The month already cleared is stored on the key rather than a timestamp,
+// which is what makes this safe to call every minute: a server that was off on
+// the first catches up the moment it comes back, and one that has been up all
+// day still resets exactly once. A key cut off for spending its cap is let
+// back in by the same enforce pass that cut it.
+func autoReset(e *env) {
+	month := time.Now().Format("2006-01")
+	for _, u := range e.st.List() {
+		if !u.AutoReset || u.ResetMonth == month {
+			continue
+		}
+		if err := e.stats.Reset(u.ID); err != nil {
+			log.Printf("предупреждение: сброс трафика «%s»: %v", u.Name, err)
+			continue
+		}
+		if err := e.st.SetResetMonth(u.ID, month); err != nil {
+			log.Printf("предупреждение: отметка сброса «%s»: %v", u.Name, err)
+			continue
+		}
+		log.Printf("«%s»: трафик обнулён на новый месяц", u.Name)
 	}
 }
 

@@ -130,9 +130,11 @@ func (ws *webServer) handleUserEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Name    *string `json:"name"`
-		Time    *string `json:"time"`
-		Traffic *string `json:"traffic"`
+		Name      *string `json:"name"`
+		Time      *string `json:"time"`
+		Traffic   *string `json:"traffic"`
+		IPLimit   *int    `json:"ipLimit"`
+		AutoReset *bool   `json:"autoReset"`
 	}
 	if err := readJSON(r, &req); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
@@ -185,6 +187,37 @@ func (ws *webServer) handleUserEdit(w http.ResponseWriter, r *http.Request) {
 			for _, u := range g {
 				_ = ws.e.st.SetLimit(u.ID, lim.bytes)
 			}
+		}
+	}
+
+	if req.IPLimit != nil {
+		for _, u := range g {
+			if err := ws.e.st.SetIPLimit(u.ID, *req.IPLimit); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
+		// Devices already counted were admitted under the old cap; forgetting
+		// them lets the new one take effect from the next connection instead of
+		// leaving somebody locked out by a number that no longer applies.
+		for _, u := range g {
+			ws.e.ipLimits.Forget(u.ID)
+		}
+	}
+
+	if req.AutoReset != nil {
+		// Stamping the current month when switching on means the counter starts
+		// renewing next month rather than being wiped the moment it is enabled.
+		month := ""
+		if *req.AutoReset {
+			month = time.Now().Format("2006-01")
+		}
+		for _, u := range g {
+			if err := ws.e.st.SetAutoReset(u.ID, *req.AutoReset); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			_ = ws.e.st.SetResetMonth(u.ID, month)
 		}
 	}
 
