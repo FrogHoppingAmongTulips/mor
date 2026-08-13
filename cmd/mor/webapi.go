@@ -389,15 +389,20 @@ func (ws *webServer) handleUsersCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, errText(err), http.StatusBadRequest)
 		return
 	}
-	if l := fmt.Sprintf("%s %s", req.Time, req.Traffic); req.Time != "" || req.Traffic != "" {
-		lim, err := parseLimits(l, time.Now())
+	if req.Time != "" || req.Traffic != "" {
+		until, err := parsePeriodField(req.Time, time.Now())
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, "срок: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		bytes, err := parseTrafficField(req.Traffic)
+		if err != nil {
+			http.Error(w, "лимит трафика: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 		for _, u := range made {
-			_ = ws.e.st.SetExpiry(u.ID, lim.until)
-			_ = ws.e.st.SetLimit(u.ID, lim.bytes)
+			_ = ws.e.st.SetExpiry(u.ID, until)
+			_ = ws.e.st.SetLimit(u.ID, bytes)
 		}
 		_ = applyLive(ws.e, made)
 	}

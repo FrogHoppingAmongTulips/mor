@@ -158,35 +158,23 @@ func (ws *webServer) handleUserEdit(w http.ResponseWriter, r *http.Request) {
 	// An empty string clears the limit; an absent field leaves it alone. The
 	// two have to stay distinguishable or "remove the cap" becomes impossible.
 	if req.Time != nil {
-		if strings.TrimSpace(*req.Time) == "" {
-			for _, u := range g {
-				_ = ws.e.st.SetExpiry(u.ID, time.Time{})
-			}
-		} else {
-			lim, err := parseLimits(*req.Time, time.Now())
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-			for _, u := range g {
-				_ = ws.e.st.SetExpiry(u.ID, lim.until)
-			}
+		until, err := parsePeriodField(*req.Time, time.Now())
+		if err != nil {
+			http.Error(w, "срок: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		for _, u := range g {
+			_ = ws.e.st.SetExpiry(u.ID, until)
 		}
 	}
 	if req.Traffic != nil {
-		if strings.TrimSpace(*req.Traffic) == "" {
-			for _, u := range g {
-				_ = ws.e.st.SetLimit(u.ID, 0)
-			}
-		} else {
-			lim, err := parseLimits(*req.Traffic, time.Now())
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-			for _, u := range g {
-				_ = ws.e.st.SetLimit(u.ID, lim.bytes)
-			}
+		bytes, err := parseTrafficField(*req.Traffic)
+		if err != nil {
+			http.Error(w, "лимит трафика: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		for _, u := range g {
+			_ = ws.e.st.SetLimit(u.ID, bytes)
 		}
 	}
 

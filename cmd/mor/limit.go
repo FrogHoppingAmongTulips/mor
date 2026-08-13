@@ -42,6 +42,48 @@ func (l limits) text() string {
 
 // parseLimits reads both halves off one line, in either order and either
 // alphabet: "30d", "10гб", "30d 10гб", "10 дней 10 гигабайт".
+// The panel asks for the deadline and the traffic cap in two labelled boxes,
+// unlike the terminal's single line where both are written together. A box
+// that already says what it wants leaves no ambiguity to resolve, so a bare
+// number in it means the obvious unit — days for a deadline, gigabytes for a
+// cap — instead of being guessed at by shape.
+func isBareNumber(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// parsePeriodField reads the panel's deadline box. Empty means no deadline.
+func parsePeriodField(s string, now time.Time) (time.Time, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return time.Time{}, nil
+	}
+	if isBareNumber(s) {
+		s += "d"
+	}
+	sp, err := period.Parse(s)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return sp.Add(now), nil
+}
+
+// parseTrafficField reads the panel's traffic-cap box. Empty means no cap.
+func parseTrafficField(s string) (uint64, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, nil
+	}
+	return stats.Parse(s)
+}
+
 func parseLimits(s string, now time.Time) (limits, error) {
 	var out limits
 	for _, tok := range limitTokens(s) {

@@ -1021,10 +1021,15 @@ async function loadProtocols(){
   });
   const cp=document.getElementById('createProtos');
   const live=protocols.filter(p=>p.on);
+  // The background refresh rebuilds these chips every 15s, which would wipe a
+  // half-filled form under the operator's hands — so what was ticked is carried
+  // across the rebuild.
+  const picked=new Set([...cp.querySelectorAll('.pchip[data-proto].on')].map(c=>c.dataset.proto));
   cp.innerHTML=live.length
     ? '<span class="pchip pchip-all" onclick="toggleAllProtos()">'+t('all')+'</span>'+
-      live.map(p=>'<span class="pchip" data-proto="'+p.id+'" onclick="this.classList.toggle(\'on\');syncAllChip()">'+(PROTO_NAMES[p.id]||p.id)+'</span>').join('')
+      live.map(p=>'<span class="pchip'+(picked.has(p.id)?' on':'')+'" data-proto="'+p.id+'" onclick="this.classList.toggle(\'on\');syncAllChip()">'+(PROTO_NAMES[p.id]||p.id)+'</span>').join('')
     : '<span class="empty">'+t('allOff')+'</span>';
+  syncAllChip();
   renderStatusProtos();
 }
 // Fills the Статус card with something to look at even when nothing's
