@@ -319,6 +319,50 @@ func (ws *webServer) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]bool{"ok": true})
 }
 
+// handlePortPick finds a port that is free here and actually reachable from
+// outside, for one protocol. The terminal has had this for a while; the panel
+// only ever offered typing a number, which is guesswork — a port can be free
+// on the box and still cut somewhere along the way.
+//
+// It does not apply the port: the reply is a suggestion the operator saves
+// like any other setting, so nothing moves under a running server by surprise.
+func (ws *webServer) handlePortPick(w http.ResponseWriter, r *http.Request) {
+	proto := r.PathValue("proto")
+	var udp bool
+	found := false
+	for _, row := range portRows(ws.e) {
+		if row.proto == proto {
+			udp, found = row.kind == "udp", true
+		}
+	}
+	if !found {
+		http.Error(w, "unknown protocol", http.StatusBadRequest)
+		return
+	}
+
+	// Every configured port counts as busy, on or off: a switched-off protocol
+	// still owns its port in the config, and so does the subscription server.
+	busy := map[int]bool{}
+	for _, row := range portRows(ws.e) {
+		busy[row.port] = true
+	}
+	busy[ws.e.cfg.SubPort] = true
+	busy[ws.e.cfg.WebPort] = true
+
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Minute)
+	defer cancel()
+	port, err := findPort(ctx, ws.e.cfg.PublicHost, busy, udp, nil)
+	if err != nil {
+		http.Error(w, "проверка снаружи не отвечает — попробуй позже", http.StatusServiceUnavailable)
+		return
+	}
+	if port == 0 {
+		http.Error(w, "свободного рабочего порта не нашлось", http.StatusNotFound)
+		return
+	}
+	writeJSON(w, map[string]any{"port": port})
+}
+
 // handlePassword changes the panel password. The current one is required —
 // a stolen open session should not be enough to lock the owner out.
 func (ws *webServer) handlePassword(w http.ResponseWriter, r *http.Request) {

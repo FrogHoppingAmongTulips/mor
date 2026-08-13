@@ -110,6 +110,7 @@ func (ws *webServer) routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/restart", ws.auth(ws.handleRestart))
 	mux.HandleFunc("PUT /api/config", ws.auth(ws.handleConfigSave))
 	mux.HandleFunc("POST /api/password", ws.auth(ws.handlePassword))
+	mux.HandleFunc("POST /api/ports/{proto}/pick", ws.auth(ws.handlePortPick))
 }
 
 func (ws *webServer) handleIndex(w http.ResponseWriter, r *http.Request) {
@@ -211,6 +212,7 @@ func (ws *webServer) handleStats(w http.ResponseWriter, r *http.Request) {
 		},
 		"monthTraffic":    ws.monthTraffic(),
 		"updateAvailable": ws.checkUpdate(),
+		"version":         version,
 	})
 }
 

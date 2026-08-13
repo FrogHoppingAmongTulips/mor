@@ -62,9 +62,7 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
 /* A fixed column count, not auto-fill: seven tiles left to fit themselves
    spread into a thin row of six with one orphan underneath. Four columns give
    an even 4+3. */
-.squares{flex:1;display:grid;grid-template-columns:repeat(4,1fr);gap:14px;align-content:start;min-width:0;overflow-y:auto}
-@media(max-width:1280px){.squares{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:900px){.squares{grid-template-columns:repeat(2,1fr)}}
+.squares{width:min(46%,430px);flex-shrink:0;display:grid;grid-template-columns:repeat(2,1fr);gap:14px;align-content:start;min-width:0;overflow-y:auto}
 .sq{aspect-ratio:1;background:var(--card);border:1px solid var(--card-border);border-radius:var(--r);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;min-width:0;cursor:pointer;transition:background .15s,border-color .15s}
 .sq:hover{background:var(--card-h)}
 .sq.on{background:var(--card-h);border-color:var(--border2)}
@@ -75,7 +73,7 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
 
 /* The detail column keeps whatever was picked open — no modal to dismiss and
    nothing to re-open when you glance away. */
-.detail{width:460px;flex-shrink:0;background:var(--card);border:1px solid var(--card-border);border-radius:var(--r);display:flex;flex-direction:column;min-height:0}
+.detail{flex:1;min-width:0;background:var(--card);border:1px solid var(--card-border);border-radius:var(--r);display:flex;flex-direction:column;min-height:0}
 .detail-title{font-size:11px;font-weight:500;color:var(--t3);text-transform:uppercase;letter-spacing:.14em;padding:20px 22px 14px;flex-shrink:0}
 .detail-body{flex:1;min-height:0;overflow-y:auto;padding:0 22px 22px}
 @media(max-width:900px){
@@ -209,6 +207,32 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
    form you submit. These are settings. */
 .swrow{display:flex;align-items:center;gap:10px;height:38px}
 .swrow-label{font-size:13px;color:var(--t2)}
+
+/* Settings as separated cards rather than one long scroll — each group is a
+   subject you can look at without reading the ones around it. */
+.grp{background:var(--bg2);border:1px solid var(--card-border);border-radius:14px;padding:18px;margin-bottom:14px}
+.grp-title{font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px}
+.grp-hint{font-size:12px;color:var(--t3);line-height:1.55;margin-bottom:16px}
+.grp .set-field:last-child{margin-bottom:0}
+details.grp>summary{cursor:pointer;font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.07em;list-style:none}
+details.grp>summary::-webkit-details-marker{display:none}
+details.grp>summary::before{content:'+ ';color:var(--t3)}
+details.grp[open]>summary::before{content:'– '}
+details.grp[open]>summary{margin-bottom:14px}
+
+.portrow{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.portrow:last-child{margin-bottom:0}
+.portrow-name{flex:1;font-size:13px;color:var(--t2);min-width:0}
+/* .fi sets width:100% and is declared later, so this needs the extra class
+   to win rather than relying on source order. */
+.fi.portrow-in{width:92px;flex-shrink:0;text-align:right}
+
+/* Version sits in the bar, dim — present when wanted, invisible otherwise */
+.ver{font-size:11px;color:var(--t4);margin-right:14px;font-variant-numeric:tabular-nums}
+
+/* Audit log, grouped by day like browser history */
+.audit-day{font-size:11px;font-weight:600;color:var(--t2);margin:18px 0 8px;text-transform:capitalize}
+.audit-day:first-child{margin-top:0}
 
 /* Key detail — three named sections instead of one undifferentiated pile:
    what is true now, what can be changed, and what can be done. */
@@ -344,6 +368,7 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
 <div class="dash" id="dashboard">
   <div class="topbar">
     <div class="topbar-r">
+      <span class="ver" id="verTag"></span>
       <button class="btn-plus" data-i18n="create" onclick="showCreateModal()">Создать</button>
       <button class="sw-txt" onclick="toggleLang()"><span id="langRu">ru</span><span id="langEn">en</span></button>
       <button class="theme-sw" onclick="toggleTheme()">
@@ -367,10 +392,6 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
         <div class="sq" onclick="select('status')" data-pane="status">
         <svg class="sq-icon" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6l7-3z"/></svg>
         <div class="sq-label" data-i18n="status">Статус</div>
-      </div>
-        <div class="sq" onclick="select('online')" data-pane="online">
-        <svg class="sq-icon" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 8.5a4 4 0 010 7"/></svg>
-        <div class="sq-label" data-i18n="online">Сейчас в сети</div>
       </div>
         <div class="sq" onclick="select('system')" data-pane="system">
         <svg class="sq-icon" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4"/></svg>
@@ -413,7 +434,6 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
     <div id="attnBox"></div>
     <div id="statusProtos"></div>
   </div>
-  <div id="pane-online"><div id="onlineBody"></div></div>
   <div id="pane-system">
     <div class="chart">
       <div class="chart-head"><span class="chart-name">CPU</span><span class="chart-now" id="sysVal-cpu">0%</span></div>
@@ -440,53 +460,64 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
   </div>
   <div id="pane-actions"><div id="auditBody" class="audit-list"></div></div>
   <div id="pane-settings">
-    <div id="updNote"></div>
 
-    <div class="sec" data-i18n="protocols">Протоколы</div>
-    <div class="set-hint" data-i18n="protocolsHint">Выключенный протокол перестаёт слушать порт. Ключи не удаляются.</div>
-    <div id="protoRows"></div>
-
-    <div class="sec" style="margin-top:24px" data-i18n="general">Основное</div>
-    <div class="set-field">
-      <div class="set-label">DNS</div>
-      <input class="fi" id="setDns" autocomplete="off">
-      <div class="set-note" data-i18n="dnsNote">Какой DNS используют клиенты. Безопасно менять в любой момент.</div>
-    </div>
-    <div class="set-field">
-      <div class="set-label" data-i18n="panelPassword">Пароль панели</div>
-      <input class="fi" id="setPwCur" type="password" data-i18n-ph="currentPassword" placeholder="текущий пароль" autocomplete="off">
-      <input class="fi" id="setPwNew" type="password" data-i18n-ph="newPassword" placeholder="новый, минимум 8 символов" autocomplete="off" style="margin-top:8px">
-      <button class="btn btn-sm" style="margin-top:12px" data-i18n="changePassword" onclick="changePassword()">Сменить пароль</button>
+    <div class="grp">
+      <div class="grp-title" data-i18n="protocols">Протоколы</div>
+      <div class="grp-hint" data-i18n="protocolsHint">Выключенный протокол перестаёт слушать порт. Ключи не удаляются.</div>
+      <div id="protoRows"></div>
     </div>
 
-    <details class="set-adv">
+    <div class="grp">
+      <div class="grp-title" data-i18n="general">Основное</div>
+      <div class="set-field">
+        <div class="set-label">DNS</div>
+        <input class="fi" id="setDns" autocomplete="off">
+        <div class="set-note" data-i18n="dnsNote">Какой DNS используют клиенты. Безопасно менять в любой момент.</div>
+      </div>
+    </div>
+
+    <div class="grp">
+      <div class="grp-title" data-i18n="subsGroup">Подписка</div>
+      <div class="grp-hint" data-i18n="subsHint">Подписка — одна ссылка, которую получает человек. Приложение открывает её и само берёт рабочий протокол. Без неё ключи придётся раздавать по одному на каждый протокол.</div>
+      <div class="set-field"><div class="set-label" data-i18n="subPort">Порт подписок</div><input class="fi" id="setSubPort" inputmode="numeric"></div>
+      <div class="swrow"><div class="tog" id="setSubOn" onclick="this.classList.toggle('on')"></div><span class="swrow-label" data-i18n="subOn">раздавать подписки</span></div>
+    </div>
+
+    <div class="grp">
+      <div class="grp-title" data-i18n="portsGroup">Порты</div>
+      <div class="grp-hint" data-i18n="portsHint">«Подобрать» перебирает привычные порты и проверяет снаружи, доходит ли до сервера — порт бывает свободен, но обрезан по дороге. Найденный подставляется в поле, применяется после «Сохранить».</div>
+      <div id="portRows"></div>
+    </div>
+
+    <div class="grp">
+      <div class="grp-title" data-i18n="restart">Перезапуск</div>
+      <div class="rs-warn" id="rsWarn"></div>
+      <button class="btn btn-sm btn-r" id="rsBtn" data-i18n="restartBtn" onclick="restartEngines()">Перезапустить</button>
+    </div>
+
+    <details class="grp set-adv">
       <summary data-i18n="advanced">Дополнительно</summary>
       <div class="set-note danger" data-i18n="advancedWarn">Эти значения зашиты в уже выданные ссылки. После смены старые ссылки перестанут работать — придётся раздать заново.</div>
       <div class="set-field"><div class="set-label" data-i18n="serverAddress">Адрес сервера</div><input class="fi" id="setHost" autocomplete="off"></div>
       <div class="set-field"><div class="set-label">SNI</div><input class="fi" id="setSni" autocomplete="off"></div>
       <div class="set-field"><div class="set-label" data-i18n="hyObfs">Обфускация Hysteria2</div><input class="fi" id="setObfs" autocomplete="off"></div>
-      <div class="set-grid">
-        <div class="set-field"><div class="set-label">Hysteria2</div><input class="fi" id="setVpnPort" inputmode="numeric"></div>
-        <div class="set-field"><div class="set-label">Reality</div><input class="fi" id="setRealityPort" inputmode="numeric"></div>
-        <div class="set-field"><div class="set-label">Encryption</div><input class="fi" id="setEncPort" inputmode="numeric"></div>
-        <div class="set-field"><div class="set-label">Shadowsocks</div><input class="fi" id="setSsPort" inputmode="numeric"></div>
-      </div>
       <div class="set-field"><div class="set-label" data-i18n="realityDest">Reality маскируется под</div><input class="fi" id="setRealityDest" autocomplete="off"></div>
-      <div class="set-grid">
-        <div class="set-field"><div class="set-label" data-i18n="subPort">Порт подписок</div><input class="fi" id="setSubPort" inputmode="numeric"></div>
-        <div class="set-field"><div class="set-label" data-i18n="panelPort">Порт панели</div><input class="fi" id="setWebPort" inputmode="numeric"></div>
+      <div class="set-field"><div class="set-label" data-i18n="panelPort">Порт панели</div><input class="fi" id="setWebPort" inputmode="numeric">
+        <div class="set-note" data-i18n="panelPortNote">Применится при следующем запуске mor.</div></div>
+      <div class="set-sep"></div>
+      <div class="set-field">
+        <div class="set-label" data-i18n="panelPassword">Пароль панели</div>
+        <input class="fi" id="setPwCur" type="password" data-i18n-ph="currentPassword" placeholder="текущий пароль" autocomplete="off">
+        <input class="fi" id="setPwNew" type="password" data-i18n-ph="newPassword" placeholder="новый, минимум 8 символов" autocomplete="off" style="margin-top:8px">
+        <button class="btn btn-sm" style="margin-top:12px" data-i18n="changePassword" onclick="changePassword()">Сменить пароль</button>
       </div>
-      <label class="set-check"><input type="checkbox" id="setSubOff"> <span data-i18n="subOff">выключить раздачу подписок</span></label>
     </details>
 
     <div class="pane-actions">
       <button class="btn btn-w btn-sm" data-i18n="save" onclick="saveSettings()">Сохранить</button>
     </div>
 
-    <div class="set-sep"></div>
-    <div class="set-label" data-i18n="restart">Перезапуск</div>
-    <div class="rs-warn" id="rsWarn"></div>
-    <button class="btn btn-sm btn-r" id="rsBtn" data-i18n="restartBtn" onclick="restartEngines()">Перезапустить</button>
+    <div id="updNote"></div>
   </div>
 </div>
 
@@ -584,6 +615,10 @@ const I18N={
   speed:'Скорость',speedRun:'Запустить замер',speedNote:'Замер между этим браузером и сервером, в несколько параллельных потоков.',
   ping:'Пинг',jitter:'Джиттер',down:'Скачивание',up:'Отдача',measuring:'Измеряю',speedDone:'Готово',
   edit:'Изменить',saveKey:'Сохранить',editHint:'Здесь показано то, что действует сейчас. Пустое поле — без ограничения. Правка не меняет ссылку.',
+  pickPort:'Подобрать',picking:'Ищу…',portFound:'подходит порт',badPort:'порт — число от 1 до 65535',settingsSaved:'настройки сохранены',
+  subsGroup:'Подписка',subsHint:'Подписка — одна ссылка, которую получает человек. Приложение открывает её и само берёт рабочий протокол. Без неё ключи придётся раздавать по одному на каждый протокол.',
+  subOn:'раздавать подписки',portsGroup:'Порты',portsHint:'«Подобрать» перебирает привычные порты и проверяет снаружи, доходит ли до сервера — порт бывает свободен, но обрезан по дороге. Найденный подставляется в поле, применяется после «Сохранить».',
+  panelPortNote:'Применится при следующем запуске mor.',today:'Сегодня',yesterday:'Вчера',
   noDeadline:'Без срока',leftLabel:'осталось',outOf:'из',noCap:'без лимита',dayForms:['день','дня','дней'],
   limitsNow:'Ограничения',shareSec:'Ссылка',actionsSec:'Действия',
   select:'Выбрать',deleteSelected:'Удалить выбранные',confirmDelete:'Точно удалить?',deletedN:'удалено:',clearSel:'Снять',
@@ -627,6 +662,10 @@ const I18N={
   speed:'Speed',speedRun:'Run test',speedNote:'Measured between this browser and the server across several parallel streams.',
   ping:'Ping',jitter:'Jitter',down:'Download',up:'Upload',measuring:'Measuring',speedDone:'Done',
   edit:'Edit',saveKey:'Save',editHint:'These are the limits in force now. An empty field means no limit. Editing never changes the link.',
+  pickPort:'Find one',picking:'Probing…',portFound:'port found:',badPort:'port must be 1–65535',settingsSaved:'settings saved',
+  subsGroup:'Subscription',subsHint:'A subscription is the single link a person receives. Their app opens it and picks a protocol that works. Without it every protocol has to be handed out separately.',
+  subOn:'serve subscriptions',portsGroup:'Ports',portsHint:'“Find one” walks the usual ports and checks from outside whether they reach the server — a port can be free here and still be cut on the way. The result fills the box and applies on Save.',
+  panelPortNote:'Takes effect the next time mor starts.',today:'Today',yesterday:'Yesterday',
   noDeadline:'No deadline',leftLabel:'left',outOf:'of',noCap:'no cap',dayForms:['day','days'],
   limitsNow:'Limits',shareSec:'Link',actionsSec:'Actions',
   select:'Select',deleteSelected:'Delete selected',confirmDelete:'Delete for good?',deletedN:'deleted:',clearSel:'Clear',
@@ -696,25 +735,16 @@ async function refreshAll(){
    labelled as such — a confident dot over a guess would be a lie. Nothing
    here records where anyone connects from; that is the point of the VPN. */
 let onlineCount=0;
+// Real presence, keyed by key id. Only Hysteria2 reports connections; for the
+// Xray protocols this stays empty and the list falls back to "moved traffic
+// recently", which is a guess and is drawn as the dimmer dot.
+let onlineIds=new Set();
 async function loadOnline(){
   let d;try{d=await api('/online')}catch(e){d={live:false,keys:[]}}
-  const w=document.getElementById('onlineBody');
   onlineCount=d.keys.length;
+  onlineIds=new Set(d.keys.filter(k=>k.source==='live').map(k=>k.id));
   renderRestartWarn();
-  if(!d.keys.length){
-    w.innerHTML='<div class="empty">'+t('nobodyOnline')+'</div>'+
-      (d.live?'':'<div class="on-note">'+t('hyDown')+'</div>');
-    return;
-  }
-  const guessed=d.keys.some(k=>k.source==='derived');
-  w.innerHTML=d.keys.map(k=>
-    '<div class="on-row"><span class="on-dot'+(k.source==='derived'?' guess':'')+'"></span>'+
-    '<span class="on-name">'+esc(k.name)+'</span>'+
-    '<span class="on-meta">'+(k.source==='live'
-      ? (k.sessions>1?k.sessions:t('connected'))
-      : t('byTraffic'))+'</span></div>'
-  ).join('')+
-  (guessed?'<div class="on-note">'+t('derivedNote')+'</div>':'');
+  renderHome();
 }
 
 /* ---- restart ---- */
@@ -786,6 +816,8 @@ async function loadStats(){
   lastSys=s;
   renderStat();
   renderSysVals();
+  const v=document.getElementById('verTag');
+  if(v&&s.version)v.textContent=s.version;
 }
 
 // Bottom-right stat card — this month's traffic across every key.
@@ -944,7 +976,8 @@ function renderHome(){
   for(const id of [...picked])if(!users.some(u=>u.id===id))picked.delete(id);
   w.innerHTML='';
   users.forEach(u=>{
-    const on=!u.banned&&ago(u.lastSeen)==='онлайн';
+    // A live session beats the traffic guess: Hysteria2 says so outright.
+    const on=!u.banned&&(onlineIds.has(u.id)||ago(u.lastSeen)==='онлайн');
     const isOpen=homeExpanded===u.id;
     const card=document.createElement('div');card.className='uh'+(isOpen?' open':'');
     card.innerHTML=
@@ -1217,6 +1250,9 @@ async function toggleProto(id,el){
 // so loading and saving can never drift apart.
 const SET_TEXT={setHost:'host',setSni:'sni',setDns:'dns',setObfs:'hyObfs',setRealityDest:'realityDest'};
 const SET_NUM={setVpnPort:'vpnPort',setRealityPort:'realityPort',setEncPort:'encPort',setSsPort:'ssPort',setSubPort:'subPort',setWebPort:'webPort'};
+// Which config key each protocol's port field carries, so the rendered rows
+// and the save payload cannot drift apart.
+const PORT_FIELD={hy2:'setVpnPort',reality:'setRealityPort',enc:'setEncPort',ss:'setSsPort'};
 
 /* ---- master-detail ----
    Panes are moved into the detail column, not cloned, so exactly one of each
@@ -1262,12 +1298,31 @@ async function loadAudit(){
   let events;try{events=await api('/audit')}catch(e){events=[]}
   const b=document.getElementById('auditBody');
   if(!events.length){b.innerHTML='<div class="empty">'+t('noActions')+'</div>';return}
-  b.innerHTML=events.slice(0,25).map(ev=>
-    '<div class="audit-row"><span class="audit-act">'+esc(ev.action)+'</span>'+
-    '<span class="audit-target">'+esc(ev.target||'')+'</span>'+
-    '<span class="audit-time">'+ago(ev.at)+'</span></div>'
-  ).join('');
+  // Grouped under day headings the way a browser's history is: "3 часа назад"
+  // alone never answers "was that today or last week".
+  let html='',lastDay='';
+  for(const ev of events.slice(0,60)){
+    const d=new Date(ev.at), day=dayKey(d);
+    if(day!==lastDay){lastDay=day;html+='<div class="audit-day">'+day+'</div>'}
+    html+='<div class="audit-row"><span class="audit-time">'+clockOf(d)+'</span>'+
+      '<span class="audit-act">'+esc(ev.action)+'</span>'+
+      '<span class="audit-target">'+esc(ev.target||'')+'</span></div>';
+  }
+  b.innerHTML=html;
 }
+
+// Today and yesterday get names; anything older gets its date, so the heading
+// is meaningful without doing arithmetic.
+function dayKey(d){
+  const midnight=x=>new Date(x.getFullYear(),x.getMonth(),x.getDate()).getTime();
+  const diff=Math.round((midnight(new Date())-midnight(d))/864e5);
+  if(diff===0)return t('today');
+  if(diff===1)return t('yesterday');
+  const loc=lang==='ru'?'ru-RU':'en-GB';
+  return d.toLocaleDateString(loc,{day:'numeric',month:'long',
+    ...(d.getFullYear()!==new Date().getFullYear()?{year:'numeric'}:{})});
+}
+function clockOf(d){return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
 
 let lastCfg=null;
 async function loadConfig(){
@@ -1275,24 +1330,62 @@ async function loadConfig(){
   // Same reason as renderHome: never overwrite a field being typed into.
   if(editing('#pane-settings')&&lastCfg)return;
   lastCfg=c;
+  renderPortRows();
   for(const id in SET_TEXT)document.getElementById(id).value=c[SET_TEXT[id]]||'';
-  for(const id in SET_NUM)document.getElementById(id).value=c[SET_NUM[id]]||'';
-  document.getElementById('setSubOff').checked=!!c.subOff;
+  for(const id in SET_NUM){const el=document.getElementById(id);if(el)el.value=c[SET_NUM[id]]||''}
+  // Stored as "off" but shown as "on": a switch reading "disable subscriptions"
+  // is answered backwards by everyone who has ever met one.
+  document.getElementById('setSubOn').classList.toggle('on',!c.subOff);
+}
+
+// One row per protocol: its port and a button that goes and finds a working
+// one instead of leaving the operator to guess a number.
+function renderPortRows(){
+  const w=document.getElementById('portRows');
+  if(!w)return;
+  w.innerHTML=protocols.map(p=>{
+    const id=PORT_FIELD[p.id];
+    if(!id)return '';
+    return '<div class="portrow">'+
+      '<span class="portrow-name">'+(PROTO_NAMES[p.id]||p.id)+'</span>'+
+      '<input class="fi portrow-in" id="'+id+'" inputmode="numeric" value="'+(lastCfg?lastCfg[SET_NUM[id]]||'':'')+'">'+
+      '<button class="btn btn-sm" id="pick-'+p.id+'" onclick="pickPort(\''+p.id+'\')">'+t('pickPort')+'</button>'+
+    '</div>';
+  }).join('');
+}
+
+// The probe takes up to a minute — it asks outside hosts to knock on each
+// candidate — so the button says what it is doing and stays disabled meanwhile.
+async function pickPort(proto){
+  const btn=document.getElementById('pick-'+proto);
+  const was=btn.textContent;
+  btn.disabled=true;btn.textContent=t('picking');
+  try{
+    const r=await api('/ports/'+proto+'/pick',{method:'POST'});
+    const el=document.getElementById(PORT_FIELD[proto]);
+    if(el)el.value=r.port;
+    toast(t('portFound')+' '+r.port);
+  }catch(e){toast(t('errPrefix')+e.message)}
+  btn.disabled=false;btn.textContent=was;
 }
 
 async function saveSettings(){
-  const body={subOff:document.getElementById('setSubOff').checked};
+  const body={subOff:!document.getElementById('setSubOn').classList.contains('on')};
   for(const id in SET_TEXT)body[SET_TEXT[id]]=document.getElementById(id).value.trim();
   for(const id in SET_NUM){
-    const n=parseInt(document.getElementById(id).value,10);
-    if(!n||n<1||n>65535){toast('порт — число от 1 до 65535');return}
+    // Port rows are rendered from the protocol list, so a field can be absent
+    // if that protocol is not configured — send only what is on screen.
+    const el=document.getElementById(id);
+    if(!el)continue;
+    const n=parseInt(el.value,10);
+    if(!n||n<1||n>65535){toast(t('badPort'));return}
     body[SET_NUM[id]]=n;
   }
   try{
     const r=await api('/config',{method:'PUT',body:JSON.stringify(body)});
-    toast(r.warning||'настройки сохранены');
+    toast(r.warning||t('settingsSaved'));
     await Promise.all([loadConfig(),loadProtocols(),loadUsers()]);
-  }catch(e){toast('ошибка: '+e.message)}
+  }catch(e){toast(t('errPrefix')+e.message)}
 }
 
 async function changePassword(){
