@@ -189,6 +189,7 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
 .uh-name{font-size:14px;font-weight:400;letter-spacing:-.01em;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .uh-name.ban{color:var(--t3);text-decoration:line-through}
 .uh-status{flex-shrink:0}
+.uh-seen{font-size:11px;color:var(--t3);white-space:nowrap}
 .uh-pill{font-size:10px;color:var(--t2);background:var(--card-h);padding:3px 9px;border-radius:999px;white-space:nowrap}
 .uh-pill.on{color:var(--t1)}
 .uh-val{font-size:12px;color:var(--t2);font-variant-numeric:tabular-nums;flex-shrink:0}
@@ -250,7 +251,7 @@ details.grp[open]>summary{margin-bottom:14px}
 .kcard:last-child{margin-bottom:0}
 .kcard .ksec{margin:0 0 14px}
 .kused{font-size:11px;color:var(--t3);margin-top:-8px;margin-bottom:14px}
-.kwide{width:100%;justify-content:center;margin-top:20px}
+.kwide{justify-content:center;margin-top:20px;padding:8px 28px}
 .kdanger{margin-top:12px;padding-top:14px;border-top:1px solid var(--card-border)}
 .btn-danger{border-color:var(--border2);color:var(--t2)}
 .btn-danger:hover{border-color:var(--t2);color:var(--t1);background:var(--card-h)}
@@ -269,8 +270,6 @@ details.grp[open]>summary{margin-bottom:14px}
 .kfact-v{font-size:21px;font-weight:600;letter-spacing:-.02em;line-height:1.15}
 .kfact-l{font-size:11px;color:var(--t3);margin-top:3px}
 .kmeter{margin-bottom:14px}
-.kmeta{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--t3);padding-bottom:16px;border-bottom:1px solid var(--card-border)}
-.kmeta-r{white-space:nowrap}
 .ksec{font-size:10px;font-weight:600;color:var(--t1);text-transform:uppercase;letter-spacing:.07em;margin:20px 0 12px}
 .set-sep{height:1px;background:var(--card-border);margin:24px 0 18px}
 
@@ -356,7 +355,7 @@ details.grp[open]>summary{margin-bottom:14px}
    a three-column grid wrap mid-word. */
 
 
-.upd-note{background:var(--card-h);border-radius:12px;padding:12px 14px;margin-bottom:20px;font-size:13px;color:var(--t1)}
+.upd-note{background:var(--card-h);border-radius:12px;padding:12px 14px;margin-top:26px;font-size:13px;color:var(--t1)}
 .upd-note b{font-weight:600}
 .upd-note .set-note{margin-top:4px}
 .pane-actions{margin-top:22px;padding-top:16px;border-top:1px solid var(--card-border)}
@@ -370,7 +369,9 @@ details.grp[open]>summary{margin-bottom:14px}
 /* Fields spaced as separate settings rather than a wall. The gap lives on the
    rows, not on the labels: a label inside a row is its parent's first child,
    so a :first-child rule there would zero every one of them. */
-.kedit-row{margin-top:22px;display:grid;grid-template-columns:1fr 1fr;gap:22px}
+/* Fields sized to what people actually type — 10000mb, not a novel. */
+.kedit-row{margin-top:22px;display:grid;grid-template-columns:repeat(2,minmax(0,220px));gap:22px}
+.kedit>.fi{max-width:462px}
 .kedit>.fi{margin-bottom:2px}
 .kedit .set-note{margin:2px 0 12px}
 .audit-list{max-height:190px;overflow-y:auto}
@@ -500,17 +501,14 @@ details.grp[open]>summary{margin-bottom:14px}
   <div id="pane-settings">
     <div class="grp">
       <div class="grp-title" data-i18n="protocols">Протоколы</div>
-      <div class="grp-hint" data-i18n="protocolsHint">Выключенный протокол перестаёт слушать порт. Ключи не удаляются.</div>
       <div id="protoRows"></div>
     </div>
     <div class="grp">
       <div class="grp-title" data-i18n="portsGroup">Порты</div>
-      <div class="grp-hint" data-i18n="portsHint">«Подобрать» перебирает привычные порты и проверяет снаружи, доходит ли до сервера — порт бывает свободен, но обрезан по дороге. Найденный подставляется в поле, применяется после «Сохранить».</div>
       <div id="portRows"></div>
     </div>
     <div class="grp">
       <div class="grp-title" data-i18n="subsGroup">Подписка</div>
-      <div class="grp-hint" data-i18n="subsHint">Подписка — одна ссылка, которую получает человек. Приложение открывает её и само берёт рабочий протокол. Без неё ключи придётся раздавать по одному на каждый протокол.</div>
       <div class="set-field"><div class="set-label" data-i18n="subPort">Порт подписок</div><input class="fi" id="setSubPort" inputmode="numeric"></div>
       <div class="swrow"><div class="tog" id="setSubOn" onclick="this.classList.toggle('on')"></div><span class="swrow-label" data-i18n="subOn">раздавать подписки</span></div>
     </div>
@@ -519,7 +517,6 @@ details.grp[open]>summary{margin-bottom:14px}
       <div class="set-field">
         <div class="set-label">DNS</div>
         <input class="fi" id="setDns" autocomplete="off">
-        <div class="set-note" data-i18n="dnsNote">Какой DNS используют клиенты. Безопасно менять в любой момент.</div>
       </div>
     </div>
     <div class="grp">
@@ -541,7 +538,7 @@ details.grp[open]>summary{margin-bottom:14px}
       <div class="set-field"><div class="set-label" data-i18n="hyObfs">Обфускация Hysteria2</div><input class="fi" id="setObfs" autocomplete="off"></div>
       <div class="set-field"><div class="set-label" data-i18n="realityDest">Reality маскируется под</div><input class="fi" id="setRealityDest" autocomplete="off"></div>
       <div class="set-field"><div class="set-label" data-i18n="panelPort">Порт панели</div><input class="fi" id="setWebPort" inputmode="numeric">
-        <div class="set-note" data-i18n="panelPortNote">Применится при следующем запуске mor.</div></div>
+</div>
       <div class="set-sep"></div>
       <div class="set-field">
         <div class="set-label" data-i18n="panelPassword">Пароль панели</div>
@@ -653,7 +650,7 @@ const I18N={
   
   
   saveKey:'Сохранить',
-  usedPct:'использовано',oneProtoHint:'Ссылка только на этот протокол.',noLink:'ссылки нет',copied:'ссылка скопирована',copyFail:'не удалось скопировать',protoOn:'работает',protoOff:'выключен на сервере',
+  usedPct:'использовано',leftOf:'осталось из',minShort:'м',oneProtoHint:'Ссылка только на этот протокол.',noLink:'ссылки нет',copied:'ссылка скопирована',copyFail:'не удалось скопировать',protoOn:'работает',protoOff:'выключен на сервере',
   pickPort:'Подобрать',picking:'Ищу…',portFound:'подходит порт',badPort:'порт — число от 1 до 65535',settingsSaved:'настройки сохранены',
   subsGroup:'Подписка',subsHint:'Подписка — одна ссылка, которую получает человек. Приложение открывает её и само берёт рабочий протокол. Без неё ключи придётся раздавать по одному на каждый протокол.',
   subOn:'раздавать подписки',portsGroup:'Порты',portsHint:'«Подобрать» перебирает привычные порты и проверяет снаружи, доходит ли до сервера — порт бывает свободен, но обрезан по дороге. Найденный подставляется в поле, применяется после «Сохранить».',
@@ -701,7 +698,7 @@ const I18N={
   
   
   saveKey:'Save',
-  usedPct:'used',oneProtoHint:'A link to this protocol only.',noLink:'no link',copied:'link copied',copyFail:'could not copy',protoOn:'active',protoOff:'off on server',
+  usedPct:'used',leftOf:'left of',minShort:'m',oneProtoHint:'A link to this protocol only.',noLink:'no link',copied:'link copied',copyFail:'could not copy',protoOn:'active',protoOff:'off on server',
   pickPort:'Find one',picking:'Probing…',portFound:'port found:',badPort:'port must be 1–65535',settingsSaved:'settings saved',
   subsGroup:'Subscription',subsHint:'A subscription is the single link a person receives. Their app opens it and picks a protocol that works. Without it every protocol has to be handed out separately.',
   subOn:'serve subscriptions',portsGroup:'Ports',portsHint:'“Find one” walks the usual ports and checks from outside whether they reach the server — a port can be free here and still be cut on the way. The result fills the box and applies on Save.',
@@ -1095,13 +1092,14 @@ async function toggleHomeUser(id){
 }
 // One word for the key's state, in the order that matters: a ban outranks an
 // expiry, an expiry outranks a quota, and only a healthy key reports presence.
+// The row's status column: a pill only when there is a real state to shout
+// about; otherwise the quiet useful fact — when they were last seen.
 function statusPill(u,online){
-  let text=t('offline'),cls='';
-  if(u.banned)text=t('banned');
-  else if(u.expiresAt&&new Date(u.expiresAt)<=Date.now())text=t('expiredS');
-  else if(u.limit&&u.traffic>=u.limit)text=t('limit');
-  else if(online){text=t('onlineShort');cls=' on'}
-  return '<span class="uh-pill'+cls+'">'+text+'</span>';
+  if(u.banned)return '<span class="uh-pill">'+t('banned')+'</span>';
+  if(u.expiresAt&&new Date(u.expiresAt)<=Date.now())return '<span class="uh-pill">'+t('expiredS')+'</span>';
+  if(u.limit&&u.traffic>=u.limit)return '<span class="uh-pill">'+t('limit')+'</span>';
+  if(online)return '<span class="uh-pill on">'+t('onlineShort')+'</span>';
+  return '<span class="uh-seen">'+ago(u.lastSeen)+'</span>';
 }
 // 24h of hourly traffic as a bare line — scaled to its own peak, since one
 // key's busy day and another's idle one are not worth comparing pixel to pixel.
@@ -1128,17 +1126,15 @@ function renderHomeDetail(id){
   // glance — the days left used to be 11px grey and easy to miss entirely.
   let h='<div class="kcard">'+
     '<div class="kfacts">'+
-      '<div class="kfact"><div class="kfact-v">'+(days===null?t('noDeadline'):days+' '+plural(days,t('dayForms')))+'</div>'+
-        '<div class="kfact-l">'+(days===null?'&nbsp;':t('leftLabel'))+'</div></div>'+
-      '<div class="kfact"><div class="kfact-v">'+fmtBytes(u.traffic)+'</div>'+
-        '<div class="kfact-l">'+(u.limit?t('outOf')+' '+fmtBytes(u.limit):t('noCap'))+'</div></div>'+
+      '<div class="kfact"><div class="kfact-v">'+countdown(u.expiresAt)+'</div>'+
+        '<div class="kfact-l">'+(u.expiresAt?t('leftLabel'):'&nbsp;')+'</div></div>'+
+      '<div class="kfact"><div class="kfact-v">'+(u.limit?fmtBytes(Math.max(0,u.limit-u.traffic)):fmtBytes(u.traffic))+'</div>'+
+        '<div class="kfact-l">'+(u.limit?t('leftOf')+' '+fmtBytes(u.limit):t('noCap'))+'</div></div>'+
     '</div>';
   if(u.limit){
     h+='<div class="sc-meter kmeter"><div class="sc-meter-fill" style="width:'+pct+'%"></div></div>'+
        '<div class="kused">'+Math.round(pct)+'% '+t('usedPct')+'</div>';
   }
-  h+='<div class="kmeta"><span class="kmeta-r">'+t('lastSeen').toLowerCase()+': '+
-       (u.banned?t('banned').toLowerCase():ago(u.lastSeen))+'</span></div>';
   // One month is a rectangle, not a chart — it says nothing and reads as a
   // rendering fault. The bars start being worth drawing at two.
   if(months.length>1)h+='<div class="bars">'+months.map(m=>'<div class="bar" style="height:'+Math.max(4,m.bytes/mx*100)+'%" title="'+m.month+': '+fmtBytes(m.bytes)+'"></div>').join('')+'</div>';
@@ -1178,7 +1174,6 @@ function renderHomeDetail(id){
        '<span class="pchip on" data-l="" onclick="pickLink(\''+id+'\',\'\')">'+t('all')+'</span>'+
        u.protocols.map(p=>'<span class="pchip" data-l="'+p+'" onclick="pickLink(\''+id+'\',\''+p+'\')">'+(PROTO_NAMES[p]||p)+'</span>').join('')+
      '</div>'+
-     '<div class="linkhint" id="lhint-'+id+'">'+t('linkHint')+'</div>'+
      '<div class="linkrow" onclick="copyShown(\''+id+'\')" title="'+t('copyLink')+'">'+
        '<span class="linkrow-text" id="ltext-'+id+'">'+esc(u.subLink||u.link||'')+'</span>'+
        '<svg class="linkrow-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>'+
@@ -1204,6 +1199,16 @@ function fmtLimitInput(b){
   if(gb>=1024)return +(gb/1024).toFixed(2)+'tb';
   if(gb>=1)return +gb.toFixed(2)+'gb';
   return Math.round(b/(1<<20))+'mb';
+}
+
+// A deadline is read as a countdown: days and hours while they matter,
+// hours and minutes on the last day — "22 дня" told you nothing at 23:50.
+function countdown(iso){
+  if(!iso)return t('noDeadline');
+  let ms=new Date(iso)-Date.now();
+  if(ms<=0)return t('expiredS');
+  const d=Math.floor(ms/864e5), h=Math.floor(ms%864e5/36e5), m=Math.floor(ms%36e5/6e4);
+  return d>0?d+t('days')+' '+h+t('hours'):h>0?h+t('hours')+' '+m+t('minShort'):m+t('minShort');
 }
 
 // Russian needs three forms for a counted noun; English gets two.
@@ -1247,7 +1252,6 @@ function pickLink(id,proto){
   const u=detailCache.get(id);if(!u)return;
   document.querySelectorAll('#lch-'+id+' .pchip').forEach(c=>c.classList.toggle('on',c.dataset.l===proto));
   document.getElementById('ltext-'+id).textContent=proto?(u.links&&u.links[proto]||''):(u.subLink||u.link||'');
-  document.getElementById('lhint-'+id).textContent=proto?t('oneProtoHint'):t('linkHint');
   // The QR belongs to whatever link is on screen, so it is dropped and
   // refetched rather than left showing the previous protocol.
   const box=document.getElementById('uh-qr-box-'+id);
