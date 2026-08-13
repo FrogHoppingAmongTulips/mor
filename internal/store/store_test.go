@@ -1,46 +1,10 @@
 package store
 
-import "testing"
-
-func TestSetSNI(t *testing.T) {
-	s, err := Open(t.TempDir() + "/users.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	u, err := s.Add(&User{Name: "phone"})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := s.SetSNI(u.ID, "kernel.org"); err != nil {
-		t.Fatal(err)
-	}
-	if got := s.List()[0]; got.SNI != "kernel.org" {
-		t.Fatalf("SNI = %q", got.SNI)
-	}
-
-	if err := s.SetSNI(u.ID, ""); err != nil {
-		t.Fatal(err)
-	}
-	if got := s.List()[0]; got.SNI != "" {
-		t.Fatalf("SNI should have been cleared, got %q", got.SNI)
-	}
-
-	if err := s.SetSNI("nope", "kernel.org"); err == nil {
-		t.Fatal("expected ErrNotFound")
-	}
-
-	if err := s.SetSNI(u.ID, "www.apple.com"); err != nil {
-		t.Fatal(err)
-	}
-	s2, err := Open(s.path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := s2.List()[0]; got.Name != "phone" || got.SNI != "www.apple.com" {
-		t.Fatalf("after reload: %+v", got)
-	}
-}
+import (
+	"os"
+	"strings"
+	"testing"
+)
 
 func TestFindByHyTokenIgnoresOtherProtos(t *testing.T) {
 	s, err := Open(t.TempDir() + "/users.json")
@@ -55,5 +19,28 @@ func TestFindByHyTokenIgnoresOtherProtos(t *testing.T) {
 	}
 	if s.FindByHyToken("") != nil {
 		t.Fatal("an empty token must never match")
+	}
+}
+
+// A key without a deadline must not claim to have expired in year one: the file
+// is read by people and by scripts, and a zero timestamp misleads both.
+func TestNoDeadlineWritesNothing(t *testing.T) {
+	path := t.TempDir() + "/users.json"
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Add(&User{Name: "телефон", Proto: ProtoHy2, HyToken: "t"}); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "0001-01-01") {
+		t.Errorf("бессрочный ключ записан как истёкший:\n%s", raw)
+	}
+	if s.List()[0].Expired() {
+		t.Error("бессрочный ключ считается истёкшим")
 	}
 }

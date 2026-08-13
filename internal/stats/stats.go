@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
+
+	"mor/internal/fsutil"
 )
 
 type Entry struct {
@@ -17,11 +20,10 @@ type Entry struct {
 }
 
 type Stats struct {
-	mu      sync.Mutex
-	path    string
-	keys    map[string]*Entry
-	modTime time.Time
-	size    int64
+	mu    sync.Mutex
+	path  string
+	keys  map[string]*Entry
+	state fsutil.FileState
 }
 
 func Open(path string) (*Stats, error) {
@@ -36,20 +38,13 @@ func Open(path string) (*Stats, error) {
 	if err := json.Unmarshal(b, &s.keys); err != nil {
 		return s, nil
 	}
-	s.rememberLocked()
+	s.state.Remember(s.path)
 	return s, nil
 }
 
 func (s *Stats) reloadLocked() {
-	fi, err := os.Stat(s.path)
-	if err != nil {
-		return
-	}
-	if fi.ModTime().Equal(s.modTime) && fi.Size() == s.size {
-		return
-	}
-	b, err := os.ReadFile(s.path)
-	if err != nil {
+	b, changed := s.state.Changed(s.path)
+	if !changed {
 		return
 	}
 	keys := map[string]*Entry{}
@@ -57,15 +52,6 @@ func (s *Stats) reloadLocked() {
 		return
 	}
 	s.keys = keys
-	s.modTime = fi.ModTime()
-	s.size = fi.Size()
-}
-
-func (s *Stats) rememberLocked() {
-	if fi, err := os.Stat(s.path); err == nil {
-		s.modTime = fi.ModTime()
-		s.size = fi.Size()
-	}
 }
 
 // Add records bytes used by a key. Zero deltas only keep the entry alive.
@@ -119,12 +105,51 @@ func (s *Stats) Get(id string) Entry {
 	return cp
 }
 
+// Sum folds several keys into one entry — the protocols of one person add up to
+// what that person spent. It reads the file once, not once per key.
+func (s *Stats) Sum(ids []string) Entry {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.reloadLocked()
+
+	out := Entry{Months: map[string]uint64{}}
+	for _, id := range ids {
+		e := s.keys[id]
+		if e == nil {
+			continue
+		}
+		out.Total += e.Total
+		for m, v := range e.Months {
+			out.Months[m] += v
+		}
+		if e.LastSeen.After(out.LastSeen) {
+			out.LastSeen = e.LastSeen
+		}
+	}
+	return out
+}
+
 func (s *Stats) Delete(id string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.reloadLocked()
 	delete(s.keys, id)
 	_ = s.saveLocked()
+}
+
+// Reset clears what a key has spent, keeping LastSeen — a wiped counter is
+// not the same thing as a key that never connected.
+func (s *Stats) Reset(id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.reloadLocked()
+	e := s.keys[id]
+	if e == nil {
+		return nil
+	}
+	e.Total = 0
+	e.Months = map[string]uint64{}
+	return s.saveLocked()
 }
 
 func (s *Stats) Save() error {
@@ -138,19 +163,10 @@ func (s *Stats) saveLocked() error {
 	if err != nil {
 		return err
 	}
-	if dir := filepath.Dir(s.path); dir != "" {
-		if err := os.MkdirAll(dir, 0o700); err != nil {
-			return err
-		}
-	}
-	tmp := s.path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o600); err != nil {
+	if err := fsutil.WriteAtomic(s.path, b, 0o600); err != nil {
 		return err
 	}
-	if err := os.Rename(tmp, s.path); err != nil {
-		return err
-	}
-	s.rememberLocked()
+	s.state.Remember(s.path)
 	return nil
 }
 
@@ -183,6 +199,51 @@ func Human(b uint64) string {
 	default:
 		return fmt.Sprintf("%.0f ГБ", float64(b)/1024/1024/1024)
 	}
+}
+
+// sizeUnits are the ways a person writes a traffic cap, in both alphabets and
+// spelled out — "10 гигабайт" is what someone types who has never used a CLI.
+var sizeUnits = map[string]uint64{
+	"кб": 1 << 10, "kb": 1 << 10, "k": 1 << 10, "к": 1 << 10,
+	"килобайт": 1 << 10, "килобайта": 1 << 10, "килобайтов": 1 << 10,
+	"мб": 1 << 20, "mb": 1 << 20, "m": 1 << 20, "м": 1 << 20,
+	"мегабайт": 1 << 20, "мегабайта": 1 << 20, "мегабайтов": 1 << 20,
+	"гб": 1 << 30, "gb": 1 << 30, "g": 1 << 30, "г": 1 << 30,
+	"гигабайт": 1 << 30, "гигабайта": 1 << 30, "гигабайтов": 1 << 30,
+	"тб": 1 << 40, "tb": 1 << 40, "t": 1 << 40, "т": 1 << 40,
+	"терабайт": 1 << 40, "терабайта": 1 << 40, "терабайтов": 1 << 40,
+}
+
+// Parse reads a traffic cap the way a person writes it: 10гб, 500 МБ, 1.5tb.
+// A bare number means gigabytes — nobody caps anyone at 50 bytes.
+func Parse(s string) (uint64, error) {
+	s = strings.ToLower(strings.TrimSpace(s))
+	s = strings.ReplaceAll(s, ",", ".")
+	if s == "" {
+		return 0, fmt.Errorf("пусто")
+	}
+	i := 0
+	for i < len(s) && (s[i] >= '0' && s[i] <= '9' || s[i] == '.') {
+		i++
+	}
+	n, err := strconv.ParseFloat(s[:i], 64)
+	if err != nil || n <= 0 {
+		return 0, fmt.Errorf("сначала число: 10gb, 500mb, 1.5tb")
+	}
+	unit := strings.TrimSpace(s[i:])
+	mult := uint64(1 << 30)
+	if unit != "" {
+		m, ok := sizeUnits[unit]
+		if !ok {
+			return 0, fmt.Errorf("не понимаю «%s» — можно kb, mb, gb, tb", unit)
+		}
+		mult = m
+	}
+	const maxBytes = 1 << 50 // a petabyte: past this it is a typo, not a plan
+	if n*float64(mult) > maxBytes {
+		return 0, fmt.Errorf("слишком много — столько не бывает")
+	}
+	return uint64(n * float64(mult)), nil
 }
 
 // MonthName turns 2026-07 into июль 2026.

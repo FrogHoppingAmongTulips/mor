@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	"mor/internal/fsutil"
 	"mor/internal/keys"
 )
 
@@ -18,13 +18,21 @@ var ErrNotFound = errors.New("ключ не найден")
 const (
 	ProtoHy2     = "hy2"
 	ProtoReality = "reality"
+	ProtoEnc     = "enc"
+	ProtoSS      = "ss"
 )
 
 func ProtoName(p string) string {
-	if p == ProtoReality {
-		return "VLESS Reality"
+	switch p {
+	case ProtoReality:
+		return "VLESS+Reality"
+	case ProtoEnc:
+		return "VLESS Encryption"
+	case ProtoSS:
+		return "Shadowsocks"
+	default:
+		return "Hysteria2"
 	}
-	return "Hysteria2"
 }
 
 type User struct {
@@ -33,12 +41,28 @@ type User struct {
 	Proto     string    `json:"proto"`
 	CreatedAt time.Time `json:"created_at"`
 
-	HyToken string `json:"hy_token,omitempty"`
-	SNI     string `json:"sni,omitempty"`
+	// Sub ties together the keys of one person. Every protocol gets its own key
+	// and its own secret, but they share this token and one subscription link.
+	Sub string `json:"sub,omitempty"`
 
-	UUID string `json:"uuid,omitempty"`
+	HyToken    string `json:"hy_token,omitempty"`
+	UUID       string `json:"uuid,omitempty"`
+	SSPassword string `json:"ss_password,omitempty"`
 
-	ExpiresAt time.Time `json:"expires_at,omitempty"`
+	// SNI is this key's own cover site. Empty means the server-wide one.
+	SNI string `json:"sni,omitempty"`
+
+	ExpiresAt time.Time `json:"expires_at,omitzero"`
+
+	// Limit caps how much traffic this person may spend, in bytes. It is stored
+	// on every key of one person and counted across all of them together, so
+	// switching protocols cannot be used to spend the cap twice. Zero means no
+	// cap at all.
+	Limit uint64 `json:"limit,omitempty"`
+
+	// Banned is a manual kill switch, independent of expiry and traffic —
+	// the owner cut this person off on purpose, not because a number ran out.
+	Banned bool `json:"banned,omitempty"`
 }
 
 func (u *User) Expired() bool {
@@ -46,11 +70,10 @@ func (u *User) Expired() bool {
 }
 
 type Store struct {
-	mu      sync.Mutex
-	path    string
-	users   map[string]*User
-	modTime time.Time
-	size    int64
+	mu    sync.Mutex
+	path  string
+	users map[string]*User
+	state fsutil.FileState
 }
 
 func Open(path string) (*Store, error) {
@@ -69,7 +92,7 @@ func Open(path string) (*Store, error) {
 	for _, u := range list {
 		s.users[u.ID] = u
 	}
-	s.rememberFileStateLocked()
+	s.state.Remember(path)
 	return s, nil
 }
 
@@ -87,15 +110,8 @@ func decode(b []byte) ([]*User, error) {
 }
 
 func (s *Store) reloadIfChangedLocked() {
-	fi, err := os.Stat(s.path)
-	if err != nil {
-		return
-	}
-	if fi.ModTime().Equal(s.modTime) && fi.Size() == s.size {
-		return
-	}
-	b, err := os.ReadFile(s.path)
-	if err != nil {
+	b, changed := s.state.Changed(s.path)
+	if !changed {
 		return
 	}
 	list, err := decode(b)
@@ -107,15 +123,6 @@ func (s *Store) reloadIfChangedLocked() {
 		users[u.ID] = u
 	}
 	s.users = users
-	s.modTime = fi.ModTime()
-	s.size = fi.Size()
-}
-
-func (s *Store) rememberFileStateLocked() {
-	if fi, err := os.Stat(s.path); err == nil {
-		s.modTime = fi.ModTime()
-		s.size = fi.Size()
-	}
 }
 
 func (s *Store) List() []*User {
@@ -178,7 +185,10 @@ func (s *Store) SetExpiry(id string, at time.Time) error {
 	return s.persistLocked()
 }
 
-func (s *Store) SetSNI(id, sni string) error {
+// SetName renames one key. The name is a label for the owner's benefit only —
+// nothing in the engines or the links is keyed by it, so renaming never
+// invalidates anything already handed out.
+func (s *Store) SetName(id, name string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.reloadIfChangedLocked()
@@ -186,7 +196,61 @@ func (s *Store) SetSNI(id, sni string) error {
 	if !ok {
 		return ErrNotFound
 	}
-	u.SNI = strings.TrimSpace(sni)
+	u.Name = name
+	return s.persistLocked()
+}
+
+// SetLimit caps a key's traffic. Zero lifts the cap.
+func (s *Store) SetLimit(id string, bytes uint64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.reloadIfChangedLocked()
+	u, ok := s.users[id]
+	if !ok {
+		return ErrNotFound
+	}
+	u.Limit = bytes
+	return s.persistLocked()
+}
+
+// SetBanned flips the manual kill switch on one key.
+func (s *Store) SetBanned(id string, banned bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.reloadIfChangedLocked()
+	u, ok := s.users[id]
+	if !ok {
+		return ErrNotFound
+	}
+	u.Banned = banned
+	return s.persistLocked()
+}
+
+// BySub returns every live key of one person, ordered as they were created.
+// Expired keys are left out: a subscription must not offer dead endpoints.
+func (s *Store) BySub(token string) []*User {
+	if token == "" {
+		return nil
+	}
+	out := []*User{}
+	for _, u := range s.List() {
+		if u.Sub == token && !u.Expired() {
+			out = append(out, u)
+		}
+	}
+	return out
+}
+
+// SetSub stamps a key with a subscription token.
+func (s *Store) SetSub(id, token string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.reloadIfChangedLocked()
+	u, ok := s.users[id]
+	if !ok {
+		return ErrNotFound
+	}
+	u.Sub = token
 	return s.persistLocked()
 }
 
@@ -219,18 +283,9 @@ func (s *Store) persistLocked() error {
 	if err != nil {
 		return err
 	}
-	if dir := filepath.Dir(s.path); dir != "" {
-		if err := os.MkdirAll(dir, 0o700); err != nil {
-			return err
-		}
-	}
-	tmp := s.path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o600); err != nil {
+	if err := fsutil.WriteAtomic(s.path, b, 0o600); err != nil {
 		return err
 	}
-	if err := os.Rename(tmp, s.path); err != nil {
-		return err
-	}
-	s.rememberFileStateLocked()
+	s.state.Remember(s.path)
 	return nil
 }

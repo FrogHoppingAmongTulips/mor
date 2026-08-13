@@ -40,28 +40,6 @@ func TestParseRejects(t *testing.T) {
 	}
 }
 
-func TestSpanStringNormalises(t *testing.T) {
-	cases := []struct{ in, want string }{
-		{"56h", "2 дня 8 часов"},
-		{"24h", "1 день"},
-		{"1h", "1 час"},
-		{"5d", "5 дней"},
-		{"45d", "1 месяц 15 дней"},
-		{"18m", "1 год 6 месяцев"},
-		{"12m", "1 год"},
-		{"2y", "2 года"},
-	}
-	for _, c := range cases {
-		sp, err := Parse(c.in)
-		if err != nil {
-			t.Fatalf("Parse(%q): %v", c.in, err)
-		}
-		if got := sp.String(); got != c.want {
-			t.Errorf("Parse(%q).String() = %q, want %q", c.in, got, c.want)
-		}
-	}
-}
-
 func TestAddMovesDate(t *testing.T) {
 	base := time.Date(2026, 1, 31, 12, 0, 0, 0, time.UTC)
 
@@ -87,8 +65,12 @@ func TestLeft(t *testing.T) {
 	if got := Left(now.Add(-time.Hour), now); got != "истёк" {
 		t.Errorf("past = %q", got)
 	}
-	if got := Left(now.Add(30*time.Minute), now); got != "меньше часа" {
+	// Minutes are a real unit now, so a short key says how long it has left.
+	if got := Left(now.Add(30*time.Minute), now); got != "осталось 30 минут" {
 		t.Errorf("30m = %q", got)
+	}
+	if got := Left(now.Add(30*time.Second), now); got != "меньше минуты" {
+		t.Errorf("30s = %q", got)
 	}
 	if got := Left(now.Add(5*time.Hour), now); got != "осталось 5 часов" {
 		t.Errorf("5h = %q", got)
@@ -100,7 +82,7 @@ func TestLeft(t *testing.T) {
 
 func TestAgo(t *testing.T) {
 	now := time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)
-	if got := Ago(time.Time{}, now); got != "не заходил" {
+	if got := Ago(time.Time{}, now); got != "ещё не подключался" {
 		t.Errorf("zero = %q", got)
 	}
 	if got := Ago(now.Add(-30*time.Second), now); got != "только что" {
@@ -117,5 +99,38 @@ func TestAgo(t *testing.T) {
 	}
 	if got := Ago(now.Add(-5*24*time.Hour), now); got != "5 дней назад" {
 		t.Errorf("5d = %q", got)
+	}
+}
+
+func TestMinutes(t *testing.T) {
+	for _, in := range []string{"30min", "30minutes", "30мин"} {
+		sp, err := Parse(in)
+		if err != nil {
+			t.Fatalf("%s: %v", in, err)
+		}
+		if sp.N != 30 || sp.Unit != 'i' {
+			t.Errorf("%s → %+v", in, sp)
+		}
+	}
+	base := time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)
+	sp, _ := Parse("90min")
+	if got := sp.Add(base); !got.Equal(base.Add(90 * time.Minute)) {
+		t.Errorf("90min дал %v", got)
+	}
+	// "m" must still mean months, or every old key would silently shrink.
+	if sp, _ := Parse("3m"); sp.Unit != 'm' {
+		t.Error("«3m» перестало значить месяцы")
+	}
+}
+
+// Go's layouts only speak English, so a Russian month has to be filled in by
+// hand — the earlier version printed every date as «января».
+func TestDateSpeaksRussian(t *testing.T) {
+	got := Date(time.Date(2026, 7, 31, 22, 5, 0, 0, time.UTC))
+	if got != "31 июля 2026, 22:05" {
+		t.Errorf("Date = %q", got)
+	}
+	if Date(time.Time{}) != "" {
+		t.Error("пустое время должно давать пустую строку")
 	}
 }

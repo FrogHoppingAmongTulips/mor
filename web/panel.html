@@ -1,0 +1,40 @@
+<title>MOR</title>
+<style>
+:root{
+  --bg:#0b0b0b;--bg2:#111;--bg3:#181818;
+  --border:#1e1e1e;--border2:#2e2e2e;
+  --t1:#e8e8e8;--t2:#888;--t3:#555;--t4:#333;
+  --font:-apple-system,BlinkMacSystemFont,'Helvetica Neue',system-ui,sans-serif;
+}
+:root[data-theme="light"]{
+  --bg:#f7f7f7;--bg2:#fff;--bg3:#eee;
+  --border:#ddd;--border2:#bbb;
+  --t1:#111;--t2:#666;--t3:#999;--t4:#ccc;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--font);font-size:13px;-webkit-font-smoothing:antialiased}
+
+/* LOGIN — DO NOT MODIFY */
+.login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000;transition:opacity .4s,visibility .4s}
+.login.hidden{opacity:0;visibility:hidden;pointer-events:none}
+.login-box{position:relative;width:100%}
+.login-line{display:inline-flex;align-items:center;position:absolute}
+.login-typed{color:var(--t1);font-family:var(--font);font-size:18px;font-weight:300;white-space:pre;letter-spacing:.02em}
+.login-cursor{width:1.5px;height:22px;background:var(--t1);animation:blink 1s step-end infinite;flex-shrink:0}
+.login-ph{color:var(--t3);font-family:var(--font);font-size:18px;font-weight:300;margin-left:1px;letter-spacing:.02em}
+.login-line.typing .login-ph{display:none}
+.login-err{color:var(--t3);font-size:12px;margin-top:20px;opacity:0;transition:opacity .2s;text-align:center;font-weight:300}
+.login-err.show{opacity:1}
+.login-inp{position:fixed;left:-9999px;top:-9999px;opacity:0}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+/* END LOGIN */
+</style>
+
+<!-- LOGIN — DO NOT MODIFY -->
+<div class="login hidden" id="loginScreen">
+  <div class="login-box">
+    <div class="login-line" id="loginLine"><span class="login-typed" id="loginTyped"></span><span class="login-cursor"></span><span class="login-ph">password</span></div>
+    <input type="text" class="login-inp" id="loginInput" autocomplete="off" autofocus>
+    <div class="login-err" id="loginError"></div>
+  </div>
+</div>

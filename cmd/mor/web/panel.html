@@ -1,0 +1,1171 @@
+<title>MOR</title>
+<style>
+:root{
+  --bg:#000;--bg2:#0a0a0a;--card:#141414;--card-h:#1e1e1e;
+  --border:#262626;--border2:#373737;--card-border:rgba(255,255,255,.04);
+  --t1:#fafafa;--t2:#a3a3a3;--t3:#525252;--t4:#373737;
+  --r:20px;
+  --font:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text','Helvetica Neue',system-ui,sans-serif;
+}
+:root[data-theme="light"]{
+  --bg:#ffffff;--bg2:#fafafa;--card:#f0f0f0;--card-h:#e8e8e8;
+  --border:#e5e5e5;--border2:#d4d4d4;--card-border:rgba(0,0,0,.03);
+  --t1:#0a0a0a;--t2:#525252;--t3:#8a8a8a;--t4:#d4d4d4;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--font);font-size:14px;font-weight:300;letter-spacing:-.005em;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;overflow:hidden}
+
+/* LOGIN — DO NOT MODIFY */
+.login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000;transition:opacity .4s,visibility .4s}
+.login.hidden{opacity:0;visibility:hidden;pointer-events:none}
+.login-box{position:relative;width:100%;display:flex;flex-direction:column;align-items:center}
+.login-line{display:inline-flex;align-items:center;position:relative}
+.login-typed{color:var(--t1);font-family:var(--font);font-size:18px;font-weight:300;white-space:pre;letter-spacing:.02em}
+.login-cursor{width:1.5px;height:22px;background:var(--t1);animation:blink 1s step-end infinite;flex-shrink:0}
+.login-ph{color:var(--t3);font-family:var(--font);font-size:18px;font-weight:300;margin-left:1px;letter-spacing:.02em}
+.login-line.typing .login-ph{display:none}
+.login-err{color:var(--t3);font-size:12px;margin-top:20px;opacity:0;transition:opacity .2s;text-align:center;font-weight:300}
+.login-err.show{opacity:1}
+.login-inp{position:fixed;left:-9999px;top:-9999px;opacity:0}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+/* END LOGIN */
+
+/* TOPBAR */
+.topbar{position:fixed;top:0;left:0;right:0;height:52px;background:var(--bg);display:flex;align-items:center;padding:0 28px;z-index:100}
+.sw-txt{background:none;border:none;font-family:var(--font);font-size:11px;font-weight:500;letter-spacing:.04em;color:var(--t4);cursor:pointer;padding:0;display:flex;gap:7px}
+.sw-txt span{transition:color .15s}
+.sw-txt span.on{color:var(--t1)}
+.topbar-r{display:flex;align-items:center;gap:26px;margin-left:auto}
+.btn-plus{background:var(--t1);color:var(--bg);border:none;font-family:var(--font);font-size:13px;font-weight:400;padding:7px 20px;border-radius:8px;cursor:pointer;transition:opacity .15s;letter-spacing:-.01em}
+.btn-plus:hover{opacity:.85}
+.theme-sw{cursor:pointer;background:none;border:none;padding:0;display:flex;align-items:center}
+.theme-icon{width:16px;height:16px;color:var(--t2);transition:color .3s}
+.theme-icon:hover{color:var(--t1)}
+.logout-btn{background:none;border:none;font-family:var(--font);font-size:12px;color:var(--t3);cursor:pointer}
+.logout-btn:hover{color:var(--t1)}
+
+/* MAIN */
+.dash{display:none;position:fixed;top:52px;left:0;right:0;bottom:0}
+.dash.on{display:flex}
+.page{display:none;width:100%;height:100%;overflow-y:auto;padding:24px 28px}
+.page.on{display:block}
+
+/* ONE SCREEN — equal squares. Every tile is the same size on purpose:
+   nothing here is more important than the rest often enough to earn a
+   bigger box, and equal squares stop the grid from re-flowing as content
+   changes. */
+#page-home{overflow:hidden;padding:14px}
+#page-home.on{display:block}
+.stage{display:flex;gap:34px;height:100%;min-height:0}
+.squares{flex:1;display:grid;grid-template-columns:repeat(2,1fr);grid-auto-rows:1fr;gap:14px;min-width:0}
+.sq{background:var(--card);border:1px solid var(--card-border);border-radius:var(--r);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;min-width:0;min-height:0;cursor:pointer;transition:background .15s,border-color .15s}
+.sq:hover{background:var(--card-h)}
+.sq.on{background:var(--card-h);border-color:var(--border2)}
+.sq-icon{width:30px;height:30px;stroke:var(--t3);stroke-width:1.25;fill:none;stroke-linecap:round;stroke-linejoin:round;transition:stroke .15s}
+.sq:hover .sq-icon,.sq.on .sq-icon{stroke:var(--t1)}
+.sq-label{font-size:10px;font-weight:500;color:var(--t3);text-transform:uppercase;letter-spacing:.14em;text-align:center}
+.sq.on .sq-label{color:var(--t1)}
+
+/* The detail column keeps whatever was picked open — no modal to dismiss and
+   nothing to re-open when you glance away. */
+.detail{width:460px;flex-shrink:0;background:var(--card);border:1px solid var(--card-border);border-radius:var(--r);display:flex;flex-direction:column;min-height:0}
+.detail-title{font-size:11px;font-weight:500;color:var(--t3);text-transform:uppercase;letter-spacing:.14em;padding:20px 22px 14px;flex-shrink:0}
+.detail-body{flex:1;min-height:0;overflow-y:auto;padding:0 22px 22px}
+@media(max-width:900px){
+  #page-home{overflow-y:auto}
+  .stage{flex-direction:column;height:auto}
+  .squares{grid-auto-rows:120px}
+  .detail{width:auto}
+}
+
+.sec{font-size:10px;font-weight:500;color:var(--t2);margin-bottom:14px;letter-spacing:.14em;text-transform:uppercase}
+
+.sc-meter{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:10px}
+.sc-meter-fill{height:100%;background:var(--t3);border-radius:2px;transition:width .3s}
+
+/* STATUS — plain content inside the status card, no floating pill */
+.status-line{display:flex;align-items:center;gap:10px;font-size:14px}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--t1);flex-shrink:0}
+.status-dot.bad{background:var(--t3)}
+.status-text{color:var(--t1);font-weight:400;font-size:15px}
+.status-probs{color:var(--t3);font-size:12px;margin-top:4px}
+
+/* Big single-stat card — this month's traffic, then counters, then the
+   heaviest keys ranked. */
+.bstat-val{font-size:42px;font-weight:200;letter-spacing:-.03em;line-height:1.1;margin-bottom:16px}
+.bstat-val small{font-size:18px;color:var(--t3);font-weight:500;margin-left:4px}
+.bstat-counters{display:flex;gap:20px;padding:14px 0;border-top:1px solid var(--card-border);border-bottom:1px solid var(--card-border);margin-bottom:12px}
+.bcount-val{font-size:18px;font-weight:300;letter-spacing:-.01em}
+.bcount-label{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;margin-top:2px}
+.top-row{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--t2);padding:5px 0}
+.top-rank{color:var(--t4);font-variant-numeric:tabular-nums;width:12px;flex-shrink:0}
+.top-name{flex-shrink:0;max-width:88px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.top-bar{flex:1;height:3px;background:var(--border);border-radius:2px;overflow:hidden;min-width:20px}
+.top-bar-fill{height:100%;background:var(--t2);border-radius:2px}
+.top-val{color:var(--t1);font-weight:500;font-variant-numeric:tabular-nums;flex-shrink:0}
+
+/* SYSTEM — a real chart per metric: filled area under a hairline, a percent
+   axis on the left and clock labels underneath, so a number has a shape. */
+.chart{margin-bottom:26px}
+.chart-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px}
+.chart-name{font-size:11px;font-weight:500;color:var(--t2);text-transform:uppercase;letter-spacing:.14em}
+.chart-now{font-size:22px;font-weight:200;letter-spacing:-.02em}
+.chart-svg{width:100%;height:110px;display:block;overflow:visible}
+.chart-grid{stroke:var(--card-border);stroke-width:1;vector-effect:non-scaling-stroke}
+.chart-axis{fill:var(--t4);font-size:9px}
+.chart-line{fill:none;stroke:var(--t1);stroke-width:1.5;vector-effect:non-scaling-stroke;stroke-linejoin:round}
+.chart-area{fill:var(--t1);opacity:.07}
+.chart-x{display:flex;justify-content:space-between;font-size:9px;color:var(--t4);margin-top:6px;padding-left:26px;font-variant-numeric:tabular-nums}
+.chart-empty{font-size:12px;color:var(--t4);padding:34px 0;text-align:center}
+
+.disk{margin-top:4px}
+.disk-bar{height:4px;background:var(--card-h);border-radius:2px;overflow:hidden;margin:4px 0 10px}
+.disk-bar-fill{height:100%;background:var(--t2);border-radius:2px;transition:width .3s}
+.disk-legend{font-size:12px;color:var(--t3);margin-bottom:14px}
+.disk-legend b{color:var(--t1);font-weight:400}
+.disk-row{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--t2);padding:5px 0;border-bottom:1px solid var(--card-border)}
+.disk-row:last-child{border-bottom:none}
+.disk-row-path{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.disk-row-size{color:var(--t1);font-variant-numeric:tabular-nums;flex-shrink:0}
+.disk-list{margin-top:14px}
+
+/* Per-key row sparkline in the keys list */
+.uh-spark{display:none}
+.uh-spark-line{fill:none;stroke:var(--t3);stroke-width:1.5;vector-effect:non-scaling-stroke}
+
+/* Protocol table inside the status card */
+.ptable{margin-top:20px}
+.ptable-head{display:flex;justify-content:space-between;font-size:10px;font-weight:600;color:var(--t4);text-transform:uppercase;letter-spacing:.06em;padding-bottom:8px;border-bottom:1px solid var(--card-border)}
+.ptable-row{display:flex;justify-content:space-between;font-size:13px;color:var(--t1);padding:9px 0;border-bottom:1px solid var(--card-border)}
+.ptable-row:last-child{border-bottom:none}
+.ptable-row.off{color:var(--t3)}
+.ptable-port{color:var(--t2);font-variant-numeric:tabular-nums}
+
+/* ATTENTION LIST — only rendered when non-empty, lives inside the status card */
+.attn{margin-top:16px}
+.attn-title{font-size:11px;font-weight:600;color:var(--t3);margin-bottom:8px;letter-spacing:.14em;text-transform:uppercase}
+.attn-item{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;color:var(--t2)}
+.attn-item b{color:var(--t1);font-weight:500}
+
+
+
+/* SETTINGS — every value that governs the server, grouped, with the ones
+   that break already-issued links saying so at the point of change. */
+.set-hint{font-size:12px;color:var(--t3);line-height:1.5;margin:-6px 0 14px}
+.set-field{margin-bottom:16px}
+.set-field:last-child{margin-bottom:0}
+.set-label{font-size:10px;font-weight:500;color:var(--t2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.set-note{font-size:11px;color:var(--t3);line-height:1.5;margin-top:6px}
+.set-note.danger{color:var(--t1)}
+
+.set-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+.set-grid .set-field{margin-bottom:0}
+.set-check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t2);cursor:pointer}
+.set-check input{accent-color:var(--t3)}
+@media(max-width:900px){.set-cols{grid-template-columns:1fr}}
+@media(max-width:640px){.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr}}
+
+/* HOME user cards — sized like the Ключи grid cards, expand downward in
+   place on click instead of opening the modal (QR included inline). */
+.uh{background:var(--card-h);border:1px solid var(--card-border);border-radius:12px;margin-bottom:6px;overflow:hidden;transition:background .15s}
+.uh-head{display:flex;align-items:center;gap:9px;padding:9px 12px;cursor:pointer;transition:background .15s}
+.uh-head:hover{background:var(--card-h)}
+.uh-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.uh-dot.on{background:var(--t1)}
+.uh-dot.off{background:var(--t4)}
+.uh-name{font-size:14px;font-weight:400;letter-spacing:-.01em;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.uh-name.ban{color:var(--t3);text-decoration:line-through}
+.uh-status{flex-shrink:0}
+.uh-pill{font-size:10px;color:var(--t2);background:var(--card-h);padding:3px 9px;border-radius:999px;white-space:nowrap}
+.uh-pill.on{color:var(--t1)}
+.uh-val{font-size:12px;color:var(--t2);font-variant-numeric:tabular-nums;flex-shrink:0}
+.uh-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .42s cubic-bezier(.32,.72,0,1)}
+.uh-body.open{grid-template-rows:1fr}
+.uh-body-in{overflow:hidden}
+.uh-content{padding:0 12px 14px;opacity:0;transition:opacity .3s ease .08s}
+.uh-body.open .uh-content{opacity:1}
+
+.prow{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)}
+.prow:last-child{border-bottom:none}
+.prow-l{display:flex;align-items:center;gap:8px}
+.prow-dot{width:6px;height:6px;border-radius:50%;background:var(--t1)}
+.prow-dot.off{background:var(--t4)}
+.prow-name{font-size:14px;font-weight:400}
+.prow-r{display:flex;align-items:center;gap:12px}
+.prow-port{font-size:12px;color:var(--t3);font-weight:400;font-variant-numeric:tabular-nums}
+.tog{width:36px;height:20px;border-radius:10px;background:var(--border);cursor:pointer;position:relative;transition:background .25s;flex-shrink:0}
+.tog.on{background:var(--t3)}
+.tog::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--t1);transition:transform .25s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.tog.on::after{transform:translateX(16px)}
+
+
+
+.btn{background:var(--card);border:1px solid var(--border);color:var(--t1);font-family:var(--font);font-size:13px;font-weight:400;letter-spacing:-.005em;padding:8px 18px;border-radius:8px;cursor:pointer;transition:all .15s}
+.btn:hover{background:var(--card-h);border-color:var(--border2)}
+.btn-w{background:var(--t1);color:var(--bg);border-color:var(--t1)}
+.btn-w:hover{opacity:.85}
+.btn-r{color:var(--t3);border-color:var(--border)}
+.btn-r:hover{color:var(--t1);background:var(--card-h)}
+.btn-sm{font-size:12px;padding:5px 12px}
+
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:200;opacity:0;visibility:hidden;transition:all .2s}
+.ov.show{opacity:1;visibility:visible}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);width:100%;max-width:440px;margin:20px;padding:28px;transform:translateY(8px);transition:transform .2s}
+.ov.show .modal{transform:translateY(0)}
+.mt{font-size:16px;font-weight:400;margin-bottom:24px;letter-spacing:-.02em}
+.sp-status{font-size:12px;color:var(--t3);line-height:1.5;margin-bottom:14px}
+.fld{margin-bottom:16px}
+.fl{font-size:12px;font-weight:400;color:var(--t3);margin-bottom:6px}
+.fi{width:100%;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--t1);font-family:var(--font);font-size:14px;font-weight:300;padding:8px 0;border-radius:0;outline:none;transition:border-color .15s}
+.fi:focus{border-bottom-color:var(--t2)}
+.fi::placeholder{color:var(--t4)}
+.fr{display:flex;gap:12px}
+.fr .fld{flex:1}
+.mbtn{display:flex;gap:8px;justify-content:flex-end;margin-top:24px}
+/* Protocol picker — chips that light up when chosen, instead of checkboxes.
+   The selected state is the fill, so there is nothing to read twice. */
+.pchk{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.pchip{font-size:12px;color:var(--t3);background:var(--card-h);border:1px solid transparent;padding:7px 14px;border-radius:999px;cursor:pointer;user-select:none;transition:background .15s,color .15s}
+.pchip:hover{color:var(--t2)}
+.pchip.on{background:var(--t1);color:var(--bg);font-weight:500}
+
+.dgrid{display:flex;flex-direction:column;gap:14px;margin-bottom:18px}
+.dcell{padding:0}
+.dcell-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.dcl{font-size:10px;font-weight:500;letter-spacing:.12em;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+.dcv{font-size:14px;font-weight:400;color:var(--t1);letter-spacing:-.01em}
+.hidden{display:none}
+.qr-w{text-align:center;margin:14px 0}
+.qr-b{width:148px;height:148px;background:#fff;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;overflow:hidden}
+.qr-b img{width:100%;height:100%}
+.dact{display:flex;gap:8px;margin-top:14px}
+.dbtns{display:flex;gap:8px;margin-top:20px}
+.tag{font-size:12px;color:var(--t2);background:transparent;border:none;padding:0;font-weight:300;display:inline-block;margin:0 14px 4px 0}
+.bars{display:flex;align-items:flex-end;gap:3px;height:40px;margin-top:6px}
+.bar{flex:1;background:var(--border);border-radius:2px 2px 0 0;min-height:2px;transition:background .15s}
+.bar:hover{background:var(--t3)}
+
+.empty{color:var(--t3);font-size:13px;padding:20px 0;text-align:center}
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 24px;font-size:13px;font-weight:400;color:var(--t1);opacity:0;transition:all .2s;z-index:300;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media(max-width:640px){
+  .topbar{padding:0 16px}
+  .page{padding:16px}
+  .dgrid{grid-template-columns:1fr}
+}
+
+/* An opened key inside a 250px square: stack the fields instead of letting
+   a three-column grid wrap mid-word. */
+
+
+.upd-note{background:var(--card-h);border-radius:12px;padding:12px 14px;margin-bottom:20px;font-size:13px;color:var(--t1)}
+.upd-note b{font-weight:600}
+.upd-note .set-note{margin-top:4px}
+.pane-actions{margin-top:22px;padding-top:16px;border-top:1px solid var(--card-border)}
+.linkhint{font-size:11px;color:var(--t3);line-height:1.5;margin-top:18px}
+.linkrow{display:flex;align-items:center;gap:12px;margin-top:8px;padding:12px 0;border-top:1px solid var(--card-border);border-bottom:1px solid var(--card-border);cursor:pointer}
+.linkrow:hover .linkrow-icon{stroke:var(--t1)}
+.linkrow-text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--t3);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.linkrow-icon{width:15px;height:15px;flex-shrink:0;stroke:var(--t3);stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round;transition:stroke .15s}
+.kedit{margin:16px 0;padding:16px 0;border-top:1px solid var(--card-border);border-bottom:1px solid var(--card-border)}
+.kedit .fi{margin-bottom:10px}
+.kedit-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kedit .set-note{margin:2px 0 12px}
+.audit-list{max-height:190px;overflow-y:auto}
+.audit-row{display:flex;align-items:baseline;gap:10px;font-size:12px;padding:6px 0;border-bottom:1px solid var(--card-border)}
+.audit-row:last-child{border-bottom:none}
+.audit-act{color:var(--t1);flex-shrink:0}
+.audit-target{color:var(--t3);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.audit-time{color:var(--t4);flex-shrink:0}
+
+/* Squares content */
+.set-adv{margin-top:22px;border-top:1px solid var(--card-border);padding-top:16px}
+.set-adv summary{font-size:10px;font-weight:500;color:var(--t1);text-transform:uppercase;letter-spacing:.14em;cursor:pointer;list-style:none;user-select:none}
+.set-adv summary::-webkit-details-marker{display:none}
+.set-adv summary::before{content:'+ ';color:var(--t4)}
+.set-adv[open] summary::before{content:'– '}
+.set-adv>*:not(summary){margin-top:14px}
+.det .sec{margin-bottom:10px}
+
+</style>
+
+<!-- LOGIN — DO NOT MODIFY -->
+<div class="login" id="loginScreen">
+  <div class="login-box">
+    <div class="login-line" id="loginLine"><span class="login-typed" id="loginTyped"></span><span class="login-cursor"></span><span class="login-ph">password</span></div>
+    <input type="text" class="login-inp" id="loginInput" autocomplete="off" autofocus>
+    <div class="login-err" id="loginError"></div>
+  </div>
+</div>
+
+<div class="dash" id="dashboard">
+  <div class="topbar">
+    <div class="topbar-r">
+      <button class="btn-plus" data-i18n="create" onclick="showCreateModal()">Создать</button>
+      <button class="sw-txt" onclick="toggleLang()"><span id="langRu">ru</span><span id="langEn">en</span></button>
+      <button class="theme-sw" onclick="toggleTheme()">
+        <svg class="theme-icon" viewBox="0 0 24 24">
+          <circle id="iconSun" cx="12" cy="12" r="7" fill="currentColor" style="display:none"/>
+          <g id="iconMoon"><circle cx="12" cy="12" r="7" fill="currentColor"/><circle cx="17" cy="8" r="6" fill="var(--bg)"/></g>
+        </svg>
+      </button>
+      <button class="logout-btn" data-i18n="logout" onclick="logout()">выйти</button>
+    </div>
+  </div>
+
+  <!-- One screen: tiles on the left, whatever you picked stays open on the right -->
+  <div class="page on" id="page-home">
+    <div class="stage">
+      <div class="squares">
+        <div class="sq" onclick="select('keys')" data-pane="keys">
+        <svg class="sq-icon" viewBox="0 0 24 24"><circle cx="8" cy="12" r="4"/><path d="M12 12h9M18 12v4"/></svg>
+        <div class="sq-label" data-i18n="keys">Ключи</div>
+      </div>
+        <div class="sq" onclick="select('status')" data-pane="status">
+        <svg class="sq-icon" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6l7-3z"/></svg>
+        <div class="sq-label" data-i18n="status">Статус</div>
+      </div>
+        <div class="sq" onclick="select('online')" data-pane="online">
+        <svg class="sq-icon" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 8.5a4 4 0 010 7"/></svg>
+        <div class="sq-label" data-i18n="online">Сейчас в сети</div>
+      </div>
+        <div class="sq" onclick="select('system')" data-pane="system">
+        <svg class="sq-icon" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4"/></svg>
+        <div class="sq-label" data-i18n="system">Система</div>
+      </div>
+        <div class="sq" onclick="select('traffic')" data-pane="traffic">
+        <svg class="sq-icon" viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>
+        <div class="sq-label" data-i18n="traffic">Трафик за месяц</div>
+      </div>
+        <div class="sq" onclick="select('restart')" data-pane="restart">
+        <svg class="sq-icon" viewBox="0 0 24 24"><path d="M12 4v7"/><path d="M6.3 7.3a8 8 0 1011.4 0"/></svg>
+        <div class="sq-label" data-i18n="restart">Перезапуск</div>
+      </div>
+        <div class="sq" onclick="select('actions')" data-pane="actions">
+          <svg class="sq-icon" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/><circle cx="19" cy="17" r="2"/></svg>
+          <div class="sq-label" data-i18n="recentActions">Последние действия</div>
+        </div>
+
+        <div class="sq" onclick="select('settings')" data-pane="settings">
+        <svg class="sq-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>
+        <div class="sq-label" data-i18n="settings">Настройки</div>
+      </div>
+      </div>
+      <div class="detail">
+        <div class="detail-title" id="detailTitle"></div>
+        <div class="detail-body" id="detailBody"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="paneHolder" class="hidden">
+  <div id="pane-keys"><div id="homeUsers"></div></div>
+  <div id="pane-status">
+    <div class="status-line" id="statusLine"></div>
+    <div class="status-probs" id="statusProbs"></div>
+    <div id="attnBox"></div>
+    <div id="statusProtos"></div>
+  </div>
+  <div id="pane-online"><div id="onlineBody"></div></div>
+  <div id="pane-system">
+    <div class="chart">
+      <div class="chart-head"><span class="chart-name">CPU</span><span class="chart-now" id="sysVal-cpu">0%</span></div>
+      <svg class="chart-svg" id="chart-cpu" viewBox="0 0 320 120" preserveAspectRatio="none"></svg>
+      <div class="chart-x" id="chartx-cpu"></div>
+    </div>
+    <div class="chart">
+      <div class="chart-head"><span class="chart-name">RAM</span><span class="chart-now" id="sysVal-ram">0%</span></div>
+      <svg class="chart-svg" id="chart-ram" viewBox="0 0 320 120" preserveAspectRatio="none"></svg>
+      <div class="chart-x" id="chartx-ram"></div>
+    </div>
+    <div class="disk">
+      <div class="chart-head"><span class="chart-name" data-i18n="disk">Диск</span><span class="chart-now" id="sysVal-disk">—</span></div>
+      <div class="disk-bar"><div class="disk-bar-fill" id="diskFill"></div></div>
+      <div class="disk-legend" id="diskLegend"></div>
+      <button class="btn btn-sm" id="diskBtn" data-i18n="whatStored" onclick="loadDisk()">Что занимает место</button>
+      <div id="diskBreakdown"></div>
+    </div>
+  </div>
+  <div id="pane-traffic">
+    <div class="bstat-val" id="statTraffic">0</div>
+    <div class="bstat-counters" id="statFoot"></div>
+    <div id="topUsers"></div>
+  </div>
+  <div id="pane-actions"><div id="auditBody" class="audit-list"></div></div>
+  <div id="pane-settings">
+    <div id="updNote"></div>
+
+    <div class="sec" data-i18n="protocols">Протоколы</div>
+    <div class="set-hint" data-i18n="protocolsHint">Выключенный протокол перестаёт слушать порт. Ключи не удаляются.</div>
+    <div id="protoRows"></div>
+
+    <div class="sec" style="margin-top:24px" data-i18n="general">Основное</div>
+    <div class="set-field">
+      <div class="set-label">DNS</div>
+      <input class="fi" id="setDns" autocomplete="off">
+      <div class="set-note" data-i18n="dnsNote">Какой DNS используют клиенты. Безопасно менять в любой момент.</div>
+    </div>
+    <div class="set-field">
+      <div class="set-label" data-i18n="panelPassword">Пароль панели</div>
+      <input class="fi" id="setPwCur" type="password" data-i18n-ph="currentPassword" placeholder="текущий пароль" autocomplete="off">
+      <input class="fi" id="setPwNew" type="password" data-i18n-ph="newPassword" placeholder="новый, минимум 8 символов" autocomplete="off" style="margin-top:8px">
+      <button class="btn btn-sm" style="margin-top:12px" data-i18n="changePassword" onclick="changePassword()">Сменить пароль</button>
+    </div>
+
+    <details class="set-adv">
+      <summary data-i18n="advanced">Дополнительно</summary>
+      <div class="set-note danger" data-i18n="advancedWarn">Эти значения зашиты в уже выданные ссылки. После смены старые ссылки перестанут работать — придётся раздать заново.</div>
+      <div class="set-field"><div class="set-label" data-i18n="serverAddress">Адрес сервера</div><input class="fi" id="setHost" autocomplete="off"></div>
+      <div class="set-field"><div class="set-label">SNI</div><input class="fi" id="setSni" autocomplete="off"></div>
+      <div class="set-field"><div class="set-label" data-i18n="hyObfs">Обфускация Hysteria2</div><input class="fi" id="setObfs" autocomplete="off"></div>
+      <div class="set-grid">
+        <div class="set-field"><div class="set-label">Hysteria2</div><input class="fi" id="setVpnPort" inputmode="numeric"></div>
+        <div class="set-field"><div class="set-label">Reality</div><input class="fi" id="setRealityPort" inputmode="numeric"></div>
+        <div class="set-field"><div class="set-label">Encryption</div><input class="fi" id="setEncPort" inputmode="numeric"></div>
+        <div class="set-field"><div class="set-label">Shadowsocks</div><input class="fi" id="setSsPort" inputmode="numeric"></div>
+      </div>
+      <div class="set-field"><div class="set-label" data-i18n="realityDest">Reality маскируется под</div><input class="fi" id="setRealityDest" autocomplete="off"></div>
+      <div class="set-grid">
+        <div class="set-field"><div class="set-label" data-i18n="subPort">Порт подписок</div><input class="fi" id="setSubPort" inputmode="numeric"></div>
+        <div class="set-field"><div class="set-label" data-i18n="panelPort">Порт панели</div><input class="fi" id="setWebPort" inputmode="numeric"></div>
+      </div>
+      <label class="set-check"><input type="checkbox" id="setSubOff"> <span data-i18n="subOff">выключить раздачу подписок</span></label>
+    </details>
+
+    <div class="pane-actions">
+      <button class="btn btn-w btn-sm" data-i18n="save" onclick="saveSettings()">Сохранить</button>
+    </div>
+  </div>
+  <div id="pane-restart">
+    <div class="rs-warn" id="rsWarn"></div>
+    <button class="btn btn-sm btn-r" id="rsBtn" data-i18n="restartBtn" onclick="restartEngines()">Перезапустить</button>
+  </div>
+</div>
+
+<!-- CREATE -->
+<div class="ov" id="createModal">
+  <div class="modal">
+    <div class="mt">Создать ключ</div>
+    <div class="fld"><div class="fl">Имя</div><input class="fi" id="createName" autocomplete="off"></div>
+    <div class="fld"><div class="fl">Протоколы</div><div class="pchk" id="createProtos"></div></div>
+    <div class="fr">
+      <div class="fld"><div class="fl">Срок</div><input class="fi" id="createTime" placeholder="30d"></div>
+      <div class="fld"><div class="fl">Лимит трафика</div><input class="fi" id="createTraffic" placeholder="50gb"></div>
+    </div>
+    <div class="mbtn"><button class="btn" onclick="hideCreateModal()">Отмена</button><button class="btn btn-w" onclick="createUser()">Создать</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const PROTO_NAMES={hy2:'Hysteria2',reality:'VLESS+Reality',enc:'VLESS Encryption',ss:'Shadowsocks'};
+const PROTO_ORDER=['hy2','reality','enc','ss'];
+let users=[],protocols=[],currentDetail=null,isDark=true;
+
+/* ---- auth ---- */
+async function api(path,opts){
+  opts=opts||{};
+  opts.headers=Object.assign({'Content-Type':'application/json'},opts.headers||{});
+  let r;
+  try{r=await fetch('/api'+path,opts)}catch(e){throw new Error('offline')}
+  if(r.status===429)throw new Error('throttled');
+  if(r.status===401){if(path!=='/login')showLogin();throw new Error('unauthorized')}
+  if(!r.ok){throw new Error((await r.text())||('HTTP '+r.status))}
+  const ct=r.headers.get('content-type')||'';
+  return ct.includes('application/json')?r.json():r.text();
+}
+function showLogin(){document.getElementById('loginScreen').classList.remove('hidden');document.getElementById('dashboard').classList.remove('on')}
+function showDashboard(){document.getElementById('loginScreen').classList.add('hidden');document.getElementById('dashboard').classList.add('on');select('status');refreshAll()}
+async function checkSession(){
+  try{await api('/me');showDashboard()}catch(e){showLogin()}
+}
+async function doLogin(password){
+  try{
+    await api('/login',{method:'POST',body:JSON.stringify({password})});
+    showDashboard();
+  }catch(e){
+    const err=document.getElementById('loginError');
+    err.textContent=e.message==='offline'?(lang==='ru'?'сервер не отвечает':'server not responding')
+      :e.message==='throttled'?t('tooMany')
+      :(lang==='ru'?'неверный пароль':'wrong password');
+    err.classList.add('show');
+    setTimeout(()=>err.classList.remove('show'),2000);
+    resetLoginInput();
+  }
+}
+async function logout(){try{await api('/logout',{method:'POST'})}catch(e){}showLogin();resetLoginInput()}
+
+/* ---- login typing UI ---- */
+const loginInput=document.getElementById('loginInput'),loginTyped=document.getElementById('loginTyped'),loginLine=document.getElementById('loginLine');
+function resetLoginInput(){loginInput.value='';loginTyped.textContent='';loginLine.classList.remove('typing');loginInput.focus()}
+loginInput.addEventListener('input',()=>{
+  loginTyped.textContent='•'.repeat(loginInput.value.length);
+  loginLine.classList.toggle('typing',loginInput.value.length>0);
+});
+loginInput.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&loginInput.value)doLogin(loginInput.value);
+});
+document.getElementById('loginScreen').addEventListener('click',()=>loginInput.focus());
+
+/* ---- i18n ---- */
+const I18N={
+ ru:{create:'Создать',logout:'выйти',keys:'Ключи',status:'Статус',online:'Сейчас в сети',
+  system:'Система',disk:'Диск',traffic:'Трафик за месяц',restart:'Перезапуск',
+  restartBtn:'Перезапустить',restartNote:'Перезапускает движки. Все текущие подключения оборвутся, клиенты переподключатся сами.',
+  settings:'Настройки',openSettings:'Открыть настройки',protocols:'Протоколы',
+  protocolsHint:'Выключенный протокол перестаёт слушать порт. Ключи не удаляются.',
+  general:'Основное',dnsNote:'Какой DNS используют клиенты. Безопасно менять в любой момент.',
+  panelPassword:'Пароль панели',currentPassword:'текущий пароль',newPassword:'новый, минимум 8 символов',
+  changePassword:'Сменить пароль',advanced:'Дополнительно',
+  advancedWarn:'Эти значения зашиты в уже выданные ссылки. После смены старые ссылки перестанут работать — придётся раздать заново.',
+  serverAddress:'Адрес сервера',hyObfs:'Обфускация Hysteria2',realityDest:'Reality маскируется под',
+  subPort:'Порт подписок',panelPort:'Порт панели',subOff:'выключить раздачу подписок',
+  close:'Закрыть',save:'Сохранить',
+  createKey:'Создать ключ',name:'Имя',period:'Срок',trafficLimit:'Лимит трафика',cancel:'Отмена',
+  qr:'QR-код',copyLink:'Скопировать ссылку',ban:'Бан',unban:'Разбан',resetTraffic:'Сброс трафика',
+  delete:'Удалить',created:'Создан',lastSeen:'Заходил',
+  noKeys:'ключей нет',nobodyOnline:'никто не подключён',noTraffic:'трафика пока нет',
+  allOff:'все протоколы выключены',total:'всего',onlineShort:'онлайн',expired:'истекли',
+  offline:'офлайн',banned:'забанен',expiredS:'истёк',limit:'лимит',connected:'подключён',
+  byTraffic:'по трафику',working:'Всё работает',problem:'Есть проблема',
+  port:'Порт',protocol:'Протокол',off:'выкл',free:'свободно из',topTraffic:'Больше всех трафика',
+  nobodyConnected:'Сейчас никто не подключён',connectedNow:'Сейчас подключено:',
+  never:'не заходил',ago:'назад',days:'д',hours:'ч',
+  hyDown:'Hysteria2 не отвечает — присутствие по остальным протоколам определяется по трафику и может отставать.',
+  speed:'Скорость',speedRun:'Запустить замер',speedNote:'Замер между этим браузером и сервером, в несколько параллельных потоков.',
+  ping:'Пинг',jitter:'Джиттер',down:'Скачивание',up:'Отдача',measuring:'Измеряю',speedDone:'Готово',
+  edit:'Изменить',saveKey:'Сохранить',editHint:'Пустое поле снимает ограничение. Правка не меняет ссылку.',
+  recentActions:'Последние действия',noActions:'пока пусто',
+  pClock:'часы сервера не синхронизированы — рукопожатия и сроки ключей могут сбоить',
+  pDiskUnknown:'не смог проверить место на диске',
+  pDiskFull:'на диске почти нет места — ключи могут не сохраниться',
+  pDiskBusy:'диск занят на',pFirewall:'закрыт в firewall:',
+  tooMany:'слишком много попыток — подожди',
+  updateAvailable:'Доступно обновление',updateHow:'Обновить: mor update в терминале сервера.',
+  used:'Используются',disable:'Отключить',enable:'Включить',actions:'Последние действия',
+  linkHint:'Одна ссылка на все протоколы. Открывается в любом приложении — формат подбирается сам.',
+  whatStored:'Что занимает место',counting:'Считаю…',diskUsed:'Занято',diskOf:'из',
+  derivedNote:'«По трафику» — Reality, Encryption и Shadowsocks не сообщают о подключениях, присутствие определено по недавнему трафику.'},
+ en:{create:'Create',logout:'sign out',keys:'Keys',status:'Status',online:'Online now',
+  system:'System',disk:'Disk',traffic:'Traffic this month',restart:'Restart',
+  restartBtn:'Restart',restartNote:'Restarts the engines. Every live connection drops; clients reconnect on their own.',
+  settings:'Settings',openSettings:'Open settings',protocols:'Protocols',
+  protocolsHint:'A protocol that is off stops listening. Keys are not deleted.',
+  general:'General',dnsNote:'Which DNS the clients use. Safe to change at any time.',
+  panelPassword:'Panel password',currentPassword:'current password',newPassword:'new, at least 8 characters',
+  changePassword:'Change password',advanced:'Advanced',
+  advancedWarn:'These values are baked into links already handed out. Changing them breaks those links — you will have to share them again.',
+  serverAddress:'Server address',hyObfs:'Hysteria2 obfuscation',realityDest:'Reality masquerades as',
+  subPort:'Subscription port',panelPort:'Panel port',subOff:'turn off subscription serving',
+  close:'Close',save:'Save',
+  createKey:'New key',name:'Name',period:'Expires in',trafficLimit:'Traffic cap',cancel:'Cancel',
+  qr:'QR code',copyLink:'Copy link',ban:'Ban',unban:'Unban',resetTraffic:'Reset traffic',
+  delete:'Delete',created:'Created',lastSeen:'Last seen',
+  noKeys:'no keys yet',nobodyOnline:'nobody connected',noTraffic:'no traffic yet',
+  allOff:'all protocols are off',total:'total',onlineShort:'online',expired:'expired',
+  offline:'offline',banned:'banned',expiredS:'expired',limit:'over cap',connected:'connected',
+  byTraffic:'by traffic',working:'Everything works',problem:'There is a problem',
+  port:'Port',protocol:'Protocol',off:'off',free:'free of',topTraffic:'Heaviest traffic',
+  nobodyConnected:'Nobody is connected',connectedNow:'Connected now:',
+  never:'never',ago:'ago',days:'d',hours:'h',
+  hyDown:'Hysteria2 is not answering — presence for the other protocols is inferred from traffic and may lag.',
+  speed:'Speed',speedRun:'Run test',speedNote:'Measured between this browser and the server across several parallel streams.',
+  ping:'Ping',jitter:'Jitter',down:'Download',up:'Upload',measuring:'Measuring',speedDone:'Done',
+  edit:'Edit',saveKey:'Save',editHint:'An empty field lifts the limit. Editing never changes the link.',
+  recentActions:'Recent actions',noActions:'nothing yet',
+  pClock:'the server clock is not synchronised — handshakes and key deadlines may misbehave',
+  pDiskUnknown:'could not check disk space',
+  pDiskFull:'the disk is nearly full — keys may fail to save',
+  pDiskBusy:'disk is',pFirewall:'blocked by firewall:',
+  tooMany:'too many attempts — wait a moment',
+  updateAvailable:'Update available',updateHow:'To update: run mor update on the server.',
+  used:'In use',disable:'Disable',enable:'Enable',actions:'Recent actions',
+  linkHint:'One link for every protocol. Opens in any app — the format is picked automatically.',
+  whatStored:'What is using space',counting:'Counting…',diskUsed:'Used',diskOf:'of',
+  derivedNote:'"By traffic" — Reality, Encryption and Shadowsocks do not report connections; presence is inferred from recent traffic.'}
+};
+let lang=localStorage.getItem('morLang')||'ru';
+function t(k){return (I18N[lang]||{})[k]||I18N.ru[k]||k}
+function applyLang(){
+  document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=t(el.dataset.i18n)});
+  document.querySelectorAll('[data-i18n-ph]').forEach(el=>{el.placeholder=t(el.dataset.i18nPh)});
+  document.getElementById('langRu').classList.toggle('on',lang==='ru');
+  document.getElementById('langEn').classList.toggle('on',lang==='en');
+  document.documentElement.lang=lang;
+}
+function toggleLang(){
+  lang=lang==='ru'?'en':'ru';
+  localStorage.setItem('morLang',lang);
+  applyLang();
+  if(document.getElementById('dashboard').classList.contains('on'))refreshAll();
+}
+
+/* ---- theme ---- */
+function toggleTheme(){isDark=!isDark;document.documentElement.setAttribute('data-theme',isDark?'dark':'light');updateThemeIcon();localStorage.setItem('morTheme',isDark?'dark':'light')}
+function updateThemeIcon(){
+  document.getElementById('iconMoon').style.display=isDark?'':'none';
+  document.getElementById('iconSun').style.display=isDark?'none':'';
+}
+(function(){const saved=localStorage.getItem('morTheme');isDark=saved!=='light';document.documentElement.setAttribute('data-theme',isDark?'dark':'light')})();
+
+/* ---- formatting ---- */
+function fmtBytes(b){
+  const u=lang==='ru'?['КБ','МБ','ГБ']:['KB','MB','GB'];
+  if(!b)return '0';
+  if(b<1024*1024)return (b/1024).toFixed(0)+' '+u[0];
+  if(b<1024*1024*1024)return (b/1024/1024).toFixed(0)+' '+u[1];
+  return (b/1024/1024/1024).toFixed(1)+' '+u[2];
+}
+function ago(iso){
+  if(!iso)return t('never');
+  const d=Date.now()-new Date(iso).getTime();
+  if(d<3*60000)return t('onlineShort');
+  const h=Math.floor(d/36e5),dy=Math.floor(d/864e5);
+  return (dy>0?dy+t('days'):h+t('hours'))+' '+t('ago');
+}
+
+/* ---- stats ---- */
+async function refreshAll(){
+  await Promise.all([loadStatus(),loadStats(),loadSysHistory(),loadUsers(),loadProtocols(),loadConfig(),loadOnline()]);
+}
+
+/* ---- presence: who is connected, and nothing more ----
+   Only Hysteria2 reports real sessions. For the Xray protocols the panel can
+   see traffic counters and nothing else, so their presence is inferred and
+   labelled as such — a confident dot over a guess would be a lie. Nothing
+   here records where anyone connects from; that is the point of the VPN. */
+let onlineCount=0;
+async function loadOnline(){
+  let d;try{d=await api('/online')}catch(e){d={live:false,keys:[]}}
+  const w=document.getElementById('onlineBody');
+  onlineCount=d.keys.length;
+  renderRestartWarn();
+  if(!d.keys.length){
+    w.innerHTML='<div class="empty">'+t('nobodyOnline')+'</div>'+
+      (d.live?'':'<div class="on-note">'+t('hyDown')+'</div>');
+    return;
+  }
+  const guessed=d.keys.some(k=>k.source==='derived');
+  w.innerHTML=d.keys.map(k=>
+    '<div class="on-row"><span class="on-dot'+(k.source==='derived'?' guess':'')+'"></span>'+
+    '<span class="on-name">'+esc(k.name)+'</span>'+
+    '<span class="on-meta">'+(k.source==='live'
+      ? (k.sessions>1?k.sessions:t('connected'))
+      : t('byTraffic'))+'</span></div>'
+  ).join('')+
+  (guessed?'<div class="on-note">'+t('derivedNote')+'</div>':'');
+}
+
+/* ---- restart ---- */
+function renderRestartWarn(){
+  const w=document.getElementById('rsWarn');
+  if(!w)return;
+  w.textContent=onlineCount?(t('connectedNow')+' '+onlineCount):t('nobodyConnected');
+}
+let restartArmed=false;
+async function restartEngines(){
+  const btn=document.getElementById('rsBtn');
+  // Two presses, not one: a restart drops every live connection, so the
+  // first click only arms it.
+  if(!restartArmed){
+    restartArmed=true;
+    btn.textContent=lang==='ru'?'Ещё раз — подтвердить':'Press again to confirm';
+    btn.classList.add('rs-btn-confirm');
+    setTimeout(()=>{if(restartArmed)cancelRestart()},5000);
+    return;
+  }
+  cancelRestart();
+  btn.disabled=true;btn.textContent=lang==='ru'?'Перезапускаю…':'Restarting…';
+  try{
+    const r=await api('/restart',{method:'POST'});
+    if(r.failed&&r.failed.length)toast('не удалось: '+r.failed.join('; '));
+    else toast(r.restarted&&r.restarted.length?('перезапущено: '+r.restarted.join(', ')):'нечего перезапускать');
+  }catch(e){toast('ошибка: '+e.message)}
+  btn.disabled=false;btn.textContent=t('restartBtn');
+  refreshAll();
+}
+function cancelRestart(){
+  restartArmed=false;
+  const btn=document.getElementById('rsBtn');
+  if(btn){btn.textContent=t('restartBtn');btn.classList.remove('rs-btn-confirm')}
+}
+
+// Status: the one thing that must be visible without clicking anywhere — is
+// the VPN actually working right now. Local-only checks, same as
+// "mor check --fast" in the terminal, so this stays instant on every refresh.
+// The server sends a code plus the Russian sentence. Prefer the code so the
+// panel can say it in the reader's language; fall back to the server's own
+// wording for anything not translated here yet.
+function problemText(p){
+  if(typeof p==='string')return p;
+  switch(p.code){
+    case 'clock':return t('pClock');
+    case 'diskUnknown':return t('pDiskUnknown');
+    case 'diskFull':return t('pDiskFull');
+    case 'diskBusy':return t('pDiskBusy')+' '+p.arg+'%';
+    case 'firewall':return t('pFirewall')+' '+p.arg;
+    default:return p.text||'';
+  }
+}
+async function loadStatus(){
+  let s;try{s=await api('/status')}catch(e){s={ok:false,problems:[{text:lang==='ru'?'нет связи с сервером':'no connection to the server'}]}}
+  const line=document.getElementById('statusLine'),probs=document.getElementById('statusProbs');
+  if(s.ok){
+    line.innerHTML='<span class="status-dot"></span><span class="status-text">'+t('working')+'</span>';
+    probs.textContent='';
+  }else{
+    line.innerHTML='<span class="status-dot bad"></span><span class="status-text">'+t('problem')+'</span>';
+    probs.textContent=(s.problems||[]).map(problemText).join(' · ');
+  }
+}
+
+let lastSys=null;
+async function loadStats(){
+  let s;try{s=await api('/stats')}catch(e){return}
+  lastSys=s;
+  renderStat();
+  renderSysVals();
+}
+
+// Bottom-right stat card — this month's traffic across every key.
+function renderStat(){
+  if(!lastSys)return;
+  const b=fmtBytes(lastSys.monthTraffic||0).split(' ');
+  document.getElementById('statTraffic').innerHTML=esc(b[0])+'<small>'+esc(b[1]||'')+'</small>';
+  const now=Date.now();
+  const online=users.filter(u=>!u.banned&&ago(u.lastSeen)==='онлайн').length;
+  const expired=users.filter(u=>u.expiresAt&&new Date(u.expiresAt)<=now).length;
+  const counters=[[users.length,t('total')],[online,t('onlineShort')],[expired,t('expired')]];
+  document.getElementById('statFoot').innerHTML=counters.map(([v,l])=>
+    '<div><div class="bcount-val">'+v+'</div><div class="bcount-label">'+l+'</div></div>'
+  ).join('');
+  renderTopUsers();
+}
+
+// "Кто грузит" — keys ranked by traffic, bars relative to the heaviest one.
+// Information for the operator, not an automatic limiter.
+function renderTopUsers(){
+  const w=document.getElementById('topUsers');
+  const top=users.filter(u=>u.traffic>0).slice().sort((a,b)=>b.traffic-a.traffic).slice(0,5);
+  if(!top.length){w.innerHTML='<div class="empty">'+t('noTraffic')+'</div>';return}
+  const mx=top[0].traffic;
+  w.innerHTML=top.map((u,i)=>
+    '<div class="top-row"><span class="top-rank">'+(i+1)+'</span>'+
+    '<span class="top-name">'+esc(u.name)+'</span>'+
+    '<span class="top-bar"><span class="top-bar-fill" style="width:'+(u.traffic/mx*100).toFixed(0)+'%"></span></span>'+
+    '<span class="top-val">'+fmtBytes(u.traffic)+'</span></div>'
+  ).join('');
+}
+
+// CPU/RAM as charts over the last day, disk as a bar plus an on-demand
+// breakdown — walking the filesystem is seconds of work, so it happens only
+// when asked rather than on every refresh.
+let sysHist=[];
+function renderSysVals(){
+  if(!lastSys)return;
+  const cpu=Math.round(lastSys.sys.cpuPercent);
+  const mem=lastSys.sys.memTotal?Math.round(lastSys.sys.memUsed/lastSys.sys.memTotal*100):0;
+  setText('sysVal-cpu',cpu+'%');
+  setText('sysVal-ram',mem+'%');
+
+  const total=lastSys.sys.diskTotal||0,used=lastSys.sys.diskUsed||0;
+  const pct=total?used/total*100:0;
+  setText('sysVal-disk',fmtBytes(Math.max(0,total-used)));
+  const fill=document.getElementById('diskFill');
+  if(fill)fill.style.width=pct.toFixed(1)+'%';
+  const legend=document.getElementById('diskLegend');
+  if(legend)legend.innerHTML=t('diskUsed')+' <b>'+fmtBytes(used)+'</b> '+t('diskOf')+' <b>'+fmtBytes(total)+'</b>';
+}
+function setText(id,v){const el=document.getElementById(id);if(el)el.textContent=v}
+
+async function loadSysHistory(){
+  try{sysHist=await api('/stats/history')}catch(e){return}
+  drawChart('cpu','cpu');
+  drawChart('ram','mem');
+}
+
+// A chart of percentages always spans 0..100: rescaling to the data would make
+// a quiet server look as busy as a loaded one.
+function drawChart(id,key){
+  const svg=document.getElementById('chart-'+id);
+  if(!svg)return;
+  if(!sysHist.length){svg.innerHTML='<text class="chart-axis" x="50%" y="50%" text-anchor="middle">—</text>';return}
+  const W=320,H=120,L=26;
+  const pts=sysHist.map(s=>Math.max(0,Math.min(100,s[key]||0)));
+  const stepX=pts.length>1?(W-L)/(pts.length-1):0;
+  const y=v=>H-v/100*H;
+  const coords=pts.map((v,i)=>[L+i*stepX,y(v)]);
+  const line=coords.map((c,i)=>(i?'L':'M')+c[0].toFixed(1)+','+c[1].toFixed(1)).join(' ');
+  const area=line+' L'+(L+(pts.length-1)*stepX).toFixed(1)+','+H+' L'+L+','+H+' Z';
+
+  let g='';
+  [0,20,40,60,80,100].forEach(v=>{
+    g+='<line class="chart-grid" x1="'+L+'" y1="'+y(v)+'" x2="'+W+'" y2="'+y(v)+'"></line>'+
+       '<text class="chart-axis" x="'+(L-5)+'" y="'+(y(v)+3)+'" text-anchor="end">'+v+'%</text>';
+  });
+  svg.innerHTML=g+'<path class="chart-area" d="'+area+'"></path><path class="chart-line" d="'+line+'"></path>';
+
+  // Clock labels: first, middle and last point of whatever window we have.
+  const xw=document.getElementById('chartx-'+id);
+  if(xw){
+    const at=i=>new Date(sysHist[i].at).toLocaleTimeString(lang==='ru'?'ru':'en',{hour:'2-digit',minute:'2-digit'});
+    const last=sysHist.length-1;
+    xw.innerHTML=last>0
+      ? '<span>'+at(0)+'</span><span>'+at(Math.floor(last/2))+'</span><span>'+at(last)+'</span>'
+      : '<span>'+at(0)+'</span>';
+  }
+}
+
+async function loadDisk(){
+  const btn=document.getElementById('diskBtn'),box=document.getElementById('diskBreakdown');
+  btn.disabled=true;btn.textContent=t('counting');
+  try{
+    const d=await api('/disk');
+    box.innerHTML='<div class="disk-list">'+
+      d.entries.map(e=>'<div class="disk-row"><span class="disk-row-path">'+esc(e.path)+'</span><span class="disk-row-size">'+fmtBytes(e.bytes)+'</span></div>').join('')+
+      '<div class="disk-row"><span class="disk-row-path">mor</span><span class="disk-row-size">'+fmtBytes(d.mor)+'</span></div>'+
+    '</div>';
+  }catch(e){box.innerHTML='<div class="empty">'+esc(e.message)+'</div>'}
+  btn.disabled=false;btn.textContent=t('whatStored');
+}
+
+/* ---- users ---- */
+async function loadUsers(){
+  try{users=await api('/users')}catch(e){users=[]}
+  renderHome();renderStat();renderAttn();
+}
+
+// "Требует внимания" only takes up space when there is actually something to
+// act on — banned, expiring within 3 days, or over 80% of its traffic cap.
+function renderAttn(){
+  const w=document.getElementById('attnBox');
+  const now=Date.now();
+  const items=[];
+  users.forEach(u=>{
+    if(u.banned){items.push([u.name,'забанен']);return}
+    if(u.expiresAt){
+      const days=Math.ceil((new Date(u.expiresAt)-now)/864e5);
+      if(days<=3)items.push([u.name,days<=0?'срок истёк':'истекает через '+days+'д']);
+    }
+    if(u.limit){
+      const pct=Math.round(u.traffic/u.limit*100);
+      if(pct>=80)items.push([u.name,pct+'% лимита']);
+    }
+  });
+  if(!items.length){w.className='';w.innerHTML='';return}
+  w.className='attn';
+  w.innerHTML='<div class="attn-title">Требует внимания</div>'+
+    items.map(([name,text])=>'<div class="attn-item"><b>'+esc(name)+'</b><span>'+esc(text)+'</span></div>').join('');
+}
+// Home user list — same card sizing as the Ключи grid, but tapping a user
+// expands it downward in place (QR included) instead of opening the modal.
+let homeExpanded=null;
+// The panel refreshes itself every 15s. Rebuilding the list while somebody is
+// typing into the edit form would throw their input away mid-word, so a
+// focused form freezes the redraw until they are done with it.
+function editing(sel){
+  const a=document.activeElement;
+  return !!(a&&a.closest&&a.closest(sel));
+}
+function renderHome(){
+  if(editing('.kedit'))return;
+  const w=document.getElementById('homeUsers');
+  if(!users.length){w.innerHTML='<div class="empty">ключей нет — нажми «+ Создать»</div>';return}
+  w.innerHTML='';
+  users.forEach(u=>{
+    const on=!u.banned&&ago(u.lastSeen)==='онлайн';
+    const isOpen=homeExpanded===u.id;
+    const card=document.createElement('div');card.className='uh'+(isOpen?' open':'');
+    card.innerHTML=
+      '<div class="uh-head"><span class="uh-dot '+(u.banned?'off':on?'on':'off')+'"></span>'+
+        '<span class="uh-name'+(u.banned?' ban':'')+'">'+esc(u.name)+'</span>'+
+        '<span class="uh-status">'+statusPill(u,on)+'</span>'+
+        sparkSvg(u.spark)+
+        '<span class="uh-val">'+fmtBytes(u.traffic)+'</span></div>'+
+      '<div class="uh-body'+(isOpen?' open':'')+'"><div class="uh-body-in"><div class="uh-content" id="uh-content-'+u.id+'"></div></div></div>';
+    card.querySelector('.uh-head').onclick=()=>toggleHomeUser(u.id);
+    w.appendChild(card);
+    if(isOpen)renderHomeDetail(u.id);
+  });
+}
+function toggleHomeUser(id){
+  homeExpanded=homeExpanded===id?null:id;
+  renderHome();
+}
+// One word for the key's state, in the order that matters: a ban outranks an
+// expiry, an expiry outranks a quota, and only a healthy key reports presence.
+function statusPill(u,online){
+  let text=t('offline'),cls='';
+  if(u.banned)text=t('banned');
+  else if(u.expiresAt&&new Date(u.expiresAt)<=Date.now())text=t('expiredS');
+  else if(u.limit&&u.traffic>=u.limit)text=t('limit');
+  else if(online){text=t('onlineShort');cls=' on'}
+  return '<span class="uh-pill'+cls+'">'+text+'</span>';
+}
+// 24h of hourly traffic as a bare line — scaled to its own peak, since one
+// key's busy day and another's idle one are not worth comparing pixel to pixel.
+function sparkSvg(spark){
+  if(!spark||!spark.length)return '<svg class="uh-spark"></svg>';
+  const mx=Math.max(...spark);
+  if(!mx)return '<svg class="uh-spark"></svg>';
+  const W=100,H=16,step=W/(spark.length-1);
+  const d=spark.map((v,i)=>(i?'L':'M')+(i*step).toFixed(1)+','+(H-v/mx*H).toFixed(1)).join(' ');
+  return '<svg class="uh-spark" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none"><path class="uh-spark-line" d="'+d+'"></path></svg>';
+}
+async function renderHomeDetail(id){
+  const box=document.getElementById('uh-content-'+id);
+  if(!box)return;
+  box.innerHTML='<div class="empty">загрузка…</div>';
+  let u;try{u=await api('/users/'+encodeURIComponent(id))}catch(e){box.innerHTML='<div class="empty">не удалось загрузить</div>';return}
+  if(homeExpanded!==id)return;
+  currentDetail=u;
+  const months=u.months||[],mx=Math.max(...months.map(m=>m.bytes),1);
+  let h='<div class="dgrid">'+
+    '<div class="dcell"><div class="dcl">'+t('used')+'</div><div class="dcv">'+u.protocols.map(p=>'<span class="tag">'+(PROTO_NAMES[p]||p)+'</span>').join(' ')+'</div></div>'+
+    '<div class="dcell-row">'+
+      '<div class="dcell"><div class="dcl">'+t('created')+'</div><div class="dcv">'+(u.created?new Date(u.created).toLocaleDateString('ru'):'—')+'</div></div>'+
+      '<div class="dcell"><div class="dcl">'+t('lastSeen')+'</div><div class="dcv">'+(u.banned?'забанен':ago(u.lastSeen))+'</div></div>'+
+      '<div class="dcell"><div class="dcl">'+t('traffic')+'</div><div class="dcv">'+fmtBytes(u.traffic)+'</div></div>'+
+    '</div>'+
+  '</div>';
+  if(u.limit){const pct=Math.min(100,u.traffic/u.limit*100);h+='<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--t2);margin-bottom:4px"><span>'+fmtBytes(u.traffic)+' из '+fmtBytes(u.limit)+'</span><span>'+Math.round(pct)+'%</span></div><div class="sc-meter"><div class="sc-meter-fill" style="width:'+pct+'%"></div></div></div>'}
+  if(u.expiresAt){const d=Math.max(0,Math.ceil((new Date(u.expiresAt)-Date.now())/864e5));h+='<div style="font-size:11px;color:var(--t2);margin-bottom:8px">'+d+'д осталось</div>'}
+  // One month is a rectangle, not a chart — it says nothing and reads as a
+  // rendering fault. The bars start being worth drawing at two.
+  if(months.length>1)h+='<div class="bars">'+months.map(m=>'<div class="bar" style="height:'+Math.max(4,m.bytes/mx*100)+'%" title="'+m.month+': '+fmtBytes(m.bytes)+'"></div>').join('')+'</div>';
+  h+='<div class="kedit">'+
+       '<div class="set-label">'+t('name')+'</div><input class="fi" id="ed-name-'+id+'" value="'+esc(u.name)+'">'+
+       '<div class="kedit-row">'+
+         '<div><div class="set-label">'+t('period')+'</div><input class="fi" id="ed-time-'+id+'" placeholder="30d"></div>'+
+         '<div><div class="set-label">'+t('trafficLimit')+'</div><input class="fi" id="ed-traffic-'+id+'" placeholder="50gb"></div>'+
+       '</div>'+
+       '<div class="set-note">'+t('editHint')+'</div>'+
+       '<button class="btn btn-sm" onclick="saveKeyEdit(\''+id+'\')">'+t('saveKey')+'</button>'+
+     '</div>'+
+     '<div class="dact"><button class="btn btn-sm" onclick="toggleHomeQR(\''+id+'\')">'+t('qr')+'</button></div>'+
+     '<div class="qr-w hidden" id="uh-qr-'+id+'"><div class="qr-b" id="uh-qr-box-'+id+'"></div></div>'+
+     '<div class="dact"><button class="btn btn-sm" onclick="toggleBan()">'+(u.banned?t('enable'):t('disable'))+'</button><button class="btn btn-sm" onclick="resetTraffic()">'+t('resetTraffic')+'</button></div>'+
+     '<div class="linkhint">'+t('linkHint')+'</div>'+
+     '<div class="linkrow" onclick="copyMainLink()" title="'+t('copyLink')+'">'+
+       '<span class="linkrow-text">'+esc(u.subLink||u.link||'')+'</span>'+
+       '<svg class="linkrow-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>'+
+     '</div>'+
+     '<div class="dbtns"><button class="btn btn-r" style="flex:1" onclick="deleteUser()">'+t('delete')+'</button></div>';
+  box.innerHTML=h;
+}
+// Editing sends only what the fields say. Empty period/traffic mean "no
+// limit", which is why they go as empty strings rather than being skipped.
+async function saveKeyEdit(id){
+  const name=document.getElementById('ed-name-'+id).value.trim();
+  if(!name){toast(lang==='ru'?'имя не может быть пустым':'name cannot be empty');return}
+  const body={name,time:document.getElementById('ed-time-'+id).value.trim(),traffic:document.getElementById('ed-traffic-'+id).value.trim()};
+  try{
+    await api('/users/'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify(body)});
+    toast(lang==='ru'?'сохранено':'saved');
+    await loadUsers();
+    if(homeExpanded===id)renderHomeDetail(id);
+  }catch(e){toast((lang==='ru'?'ошибка: ':'error: ')+e.message)}
+}
+function toggleHomeQR(id){
+  const wrap=document.getElementById('uh-qr-'+id),box=document.getElementById('uh-qr-box-'+id);
+  const show=wrap.classList.contains('hidden');
+  if(show&&!box.innerHTML)box.innerHTML='<img src="/api/qr/'+encodeURIComponent(id)+'.png?t='+Date.now()+'" alt="QR">';
+  wrap.classList.toggle('hidden',!show);
+}
+// Ban, reset and delete all change what the opened key shows, so the list is
+// reloaded and the open card redrawn from the fresh data.
+async function refreshDetailViews(id){
+  await loadUsers();
+  if(homeExpanded===id)renderHomeDetail(id);
+}
+
+/* ---- protocols + config ---- */
+async function loadProtocols(){
+  try{protocols=await api('/protocols')}catch(e){protocols=[]}
+  const w=document.getElementById('protoRows');w.innerHTML='';
+  protocols.forEach(p=>{
+    const row=document.createElement('div');row.className='prow';
+    row.innerHTML='<div class="prow-l"><span class="prow-dot '+(p.on?'':'off')+'"></span><span class="prow-name">'+(PROTO_NAMES[p.id]||p.id)+'</span></div>'+
+      '<div class="prow-r"><span class="prow-port">'+p.port+'/'+p.kind+'</span><div class="tog '+(p.on?'on':'')+'" data-id="'+p.id+'"></div></div>';
+    row.querySelector('.tog').onclick=(e)=>toggleProto(p.id,e.currentTarget);
+    w.appendChild(row);
+  });
+  const cp=document.getElementById('createProtos');
+  const live=protocols.filter(p=>p.on);
+  cp.innerHTML=live.length
+    ? live.map(p=>'<span class="pchip" data-proto="'+p.id+'" onclick="this.classList.toggle(\'on\')">'+(PROTO_NAMES[p.id]||p.id)+'</span>').join('')
+    : '<span class="empty">'+t('allOff')+'</span>';
+  renderStatusProtos();
+}
+// Fills the Статус card with something to look at even when nothing's
+// wrong — which protocol is on, and where.
+function renderStatusProtos(){
+  const w=document.getElementById('statusProtos');
+  if(!protocols.length){w.innerHTML='';return}
+  w.innerHTML='<div class="ptable">'+
+    '<div class="ptable-head"><span>'+t('protocol')+'</span><span>'+t('port')+'</span></div>'+
+    protocols.map(p=>'<div class="ptable-row'+(p.on?'':' off')+'"><span>'+(PROTO_NAMES[p.id]||p.id)+'</span>'+
+      '<span class="ptable-port">'+(p.on?p.port:t('off'))+'</span></div>').join('')+
+  '</div>';
+}
+async function toggleProto(id,el){
+  const on=!el.classList.contains('on');
+  try{
+    const r=await api('/protocols/'+id+'/toggle',{method:'POST',body:JSON.stringify({on})});
+    el.classList.toggle('on',on);
+    toast(r.warning||((PROTO_NAMES[id]||id)+(on?' включён':' выключен')));
+    loadProtocols();
+  }catch(e){toast('не удалось: '+e.message)}
+}
+// Settings form fields, paired with the config key each one carries. One list
+// so loading and saving can never drift apart.
+const SET_TEXT={setHost:'host',setSni:'sni',setDns:'dns',setObfs:'hyObfs',setRealityDest:'realityDest'};
+const SET_NUM={setVpnPort:'vpnPort',setRealityPort:'realityPort',setEncPort:'encPort',setSsPort:'ssPort',setSubPort:'subPort',setWebPort:'webPort'};
+
+/* ---- master-detail ----
+   Panes are moved into the detail column, not cloned, so exactly one of each
+   element exists in the document and every render function keeps updating it
+   wherever it currently sits. */
+const PANES=['keys','status','online','system','traffic','actions','restart','settings'];
+let openPane=null;
+
+function select(which){
+  if(!PANES.includes(which))return;
+  const pane=document.getElementById('pane-'+which);
+  if(!pane)return;
+  if(openPane===which)return;
+  park();
+  openPane=which;
+  document.getElementById('detailTitle').textContent=t(which);
+  document.getElementById('detailBody').appendChild(pane);
+  document.querySelectorAll('.sq').forEach(sq=>sq.classList.toggle('on',sq.dataset.pane===which));
+  if(which==='settings'){loadConfig();renderUpdNote()}
+  if(which==='actions')loadAudit();
+}
+
+// Send the current pane home before swapping, so it survives intact for the
+// next time it is picked.
+function park(){
+  if(!openPane)return;
+  document.getElementById('paneHolder').appendChild(document.getElementById('pane-'+openPane));
+  cancelRestart();
+  openPane=null;
+}
+
+function renderUpdNote(){
+  const w=document.getElementById('updNote');
+  if(!w)return;
+  const tag=lastSys&&lastSys.updateAvailable;
+  w.innerHTML=tag?'<div class="upd-note">'+t('updateAvailable')+' <b>'+esc(tag)+'</b><div class="set-note">'+t('updateHow')+'</div></div>':'';
+}
+
+
+// The audit log is the only thing mor records, so it lives where the things
+// it records are changed rather than on a screen of its own.
+async function loadAudit(){
+  let events;try{events=await api('/audit')}catch(e){events=[]}
+  const b=document.getElementById('auditBody');
+  if(!events.length){b.innerHTML='<div class="empty">'+t('noActions')+'</div>';return}
+  b.innerHTML=events.slice(0,25).map(ev=>
+    '<div class="audit-row"><span class="audit-act">'+esc(ev.action)+'</span>'+
+    '<span class="audit-target">'+esc(ev.target||'')+'</span>'+
+    '<span class="audit-time">'+ago(ev.at)+'</span></div>'
+  ).join('');
+}
+
+let lastCfg=null;
+async function loadConfig(){
+  let c;try{c=await api('/config')}catch(e){return}
+  // Same reason as renderHome: never overwrite a field being typed into.
+  if(editing('#pane-settings')&&lastCfg)return;
+  lastCfg=c;
+  for(const id in SET_TEXT)document.getElementById(id).value=c[SET_TEXT[id]]||'';
+  for(const id in SET_NUM)document.getElementById(id).value=c[SET_NUM[id]]||'';
+  document.getElementById('setSubOff').checked=!!c.subOff;
+}
+
+async function saveSettings(){
+  const body={subOff:document.getElementById('setSubOff').checked};
+  for(const id in SET_TEXT)body[SET_TEXT[id]]=document.getElementById(id).value.trim();
+  for(const id in SET_NUM){
+    const n=parseInt(document.getElementById(id).value,10);
+    if(!n||n<1||n>65535){toast('порт — число от 1 до 65535');return}
+    body[SET_NUM[id]]=n;
+  }
+  try{
+    const r=await api('/config',{method:'PUT',body:JSON.stringify(body)});
+    toast(r.warning||'настройки сохранены');
+    await Promise.all([loadConfig(),loadProtocols(),loadUsers()]);
+  }catch(e){toast('ошибка: '+e.message)}
+}
+
+async function changePassword(){
+  const cur=document.getElementById('setPwCur'),nw=document.getElementById('setPwNew');
+  if(!cur.value||!nw.value){toast('заполни оба поля');return}
+  try{
+    await api('/password',{method:'POST',body:JSON.stringify({current:cur.value,new:nw.value})});
+    cur.value='';nw.value='';
+    toast('пароль изменён');
+  }catch(e){toast('ошибка: '+e.message)}
+}
+
+/* ---- create ---- */
+function showCreateModal(){
+  document.getElementById('createModal').classList.add('show');
+  document.getElementById('createName').value='';
+  document.getElementById('createTime').value='';
+  document.getElementById('createTraffic').value='';
+  document.querySelectorAll('#createProtos .pchip').forEach(c=>c.classList.remove('on'));
+  setTimeout(()=>document.getElementById('createName').focus(),100);
+}
+function hideCreateModal(){document.getElementById('createModal').classList.remove('show')}
+document.getElementById('createModal').addEventListener('click',e=>{if(e.target===e.currentTarget)hideCreateModal()});
+
+/* ---- detail ---- */
+async function toggleBan(){
+  if(!currentDetail)return;
+  const id=currentDetail.id;
+  try{
+    await api('/users/'+encodeURIComponent(id)+'/ban',{method:'POST',body:JSON.stringify({banned:!currentDetail.banned})});
+    toast(currentDetail.name+(currentDetail.banned?' разбанен':' забанен'));
+    await refreshDetailViews(id);
+  }catch(e){toast('ошибка: '+e.message)}
+}
+async function resetTraffic(){
+  if(!currentDetail)return;
+  const id=currentDetail.id;
+  try{
+    await api('/users/'+encodeURIComponent(id)+'/reset',{method:'POST'});
+    toast(currentDetail.name+' — трафик сброшен');
+    await refreshDetailViews(id);
+  }catch(e){toast('ошибка: '+e.message)}
+}
+async function deleteUser(){
+  if(!currentDetail)return;
+  const name=currentDetail.name,id=currentDetail.id;
+  try{
+    await api('/users/'+encodeURIComponent(id),{method:'DELETE'});
+    hideDetail();
+    if(homeExpanded===id)homeExpanded=null;
+    await loadUsers();toast(name+' удалён');
+  }catch(e){toast('ошибка: '+e.message)}
+}
+function copyMainLink(){
+  if(!currentDetail)return;
+  const link=currentDetail.subLink||currentDetail.link;
+  if(!link){toast('ссылки нет');return}
+  navigator.clipboard.writeText(link).then(()=>toast('ссылка скопирована')).catch(()=>toast('не удалось скопировать'));
+}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2500)}
+
+applyLang();
+updateThemeIcon();
+checkSession();
+setInterval(()=>{if(document.getElementById('dashboard').classList.contains('on'))refreshAll()},15000);
+</script>

@@ -8,21 +8,14 @@ import (
 	"fmt"
 )
 
-func X25519() (priv, pub []byte, err error) {
-	k, err := ecdh.X25519().GenerateKey(rand.Reader)
-	if err != nil {
-		return nil, nil, err
-	}
-	return k.Bytes(), k.PublicKey().Bytes(), nil
-}
-
+// RealityPair makes the X25519 pair Reality and VLESS Encryption both rely on.
 func RealityPair() (priv, pub string, err error) {
-	a, b, err := X25519()
+	k, err := ecdh.X25519().GenerateKey(rand.Reader)
 	if err != nil {
 		return "", "", err
 	}
 	enc := base64.RawURLEncoding
-	return enc.EncodeToString(a), enc.EncodeToString(b), nil
+	return enc.EncodeToString(k.Bytes()), enc.EncodeToString(k.PublicKey().Bytes()), nil
 }
 
 func Token() string {

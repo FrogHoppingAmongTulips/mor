@@ -2,16 +2,14 @@ package xray
 
 import (
 	"encoding/json"
-	"fmt"
 	"net"
-	"net/url"
 	"os"
 	"os/exec"
-	"path/filepath"
-	"strconv"
 
 	"mor/internal/config"
+	"mor/internal/fsutil"
 	"mor/internal/store"
+	"mor/internal/systemd"
 )
 
 const Service = "xray"
@@ -19,8 +17,16 @@ const Service = "xray"
 const (
 	APIPort    = 10085
 	inboundTag = "vless-in"
+	encTag     = "enc-in"
+	ssTag      = "ss-in"
 	apiInbound = "api"
 )
+
+// SSMethod is fixed rather than configurable: aes-256-gcm is the one AEAD
+// cipher every Shadowsocks client ever shipped understands, which is the
+// entire point of carrying this protocol — apps too old or too plain for
+// Reality/Hysteria2 still open it.
+const SSMethod = "aes-256-gcm"
 
 type Manager struct {
 	cfg   *config.Config
@@ -36,14 +42,34 @@ func (m *Manager) BuildConfig(users []*store.User) ([]byte, error) {
 	clients := []any{}
 	names := []string{r.Dest}
 	seen := map[string]bool{r.Dest: true}
+	encClients := []any{}
+	ssClients := []any{}
 	for _, u := range users {
-		if u.Proto != store.ProtoReality || u.UUID == "" {
+		// An expired key must not come back when the config is rewritten.
+		if u.Expired() {
 			continue
 		}
-		clients = append(clients, client(u))
-		if u.SNI != "" && !seen[u.SNI] {
-			seen[u.SNI] = true
-			names = append(names, u.SNI)
+		switch u.Proto {
+		case store.ProtoReality:
+			if u.UUID == "" {
+				continue
+			}
+			clients = append(clients, client(u, r.Wire()))
+			// A key with its own cover site only works if Reality answers for it.
+			if u.SNI != "" && !seen[u.SNI] {
+				seen[u.SNI] = true
+				names = append(names, u.SNI)
+			}
+		case store.ProtoEnc:
+			if u.UUID == "" {
+				continue
+			}
+			encClients = append(encClients, encClient(u))
+		case store.ProtoSS:
+			if u.SSPassword == "" {
+				continue
+			}
+			ssClients = append(ssClients, ssClient(u))
 		}
 	}
 	doc := map[string]any{
@@ -57,13 +83,25 @@ func (m *Manager) BuildConfig(users []*store.User) ([]byte, error) {
 		"routing": map[string]any{
 			"rules": []any{map[string]any{"type": "field", "inboundTag": []string{apiInbound}, "outboundTag": apiInbound}},
 		},
-		"inbounds": []any{map[string]any{
-			"tag":      apiInbound,
-			"listen":   "127.0.0.1",
-			"port":     APIPort,
-			"protocol": "dokodemo-door",
-			"settings": map[string]any{"address": "127.0.0.1"},
-		}, map[string]any{
+		"inbounds":  m.inbounds(clients, names, encClients, ssClients),
+		"outbounds": []any{map[string]any{"protocol": "freedom"}},
+	}
+	return json.MarshalIndent(doc, "", "  ")
+}
+
+// inbounds lists what Xray should listen on. A protocol that is switched off
+// gets no inbound at all, so its port goes quiet without touching the service.
+func (m *Manager) inbounds(clients []any, names []string, encClients []any, ssClients []any) []any {
+	r := m.cfg.Reality
+	list := []any{map[string]any{
+		"tag":      apiInbound,
+		"listen":   "127.0.0.1",
+		"port":     APIPort,
+		"protocol": "dokodemo-door",
+		"settings": map[string]any{"address": "127.0.0.1"},
+	}}
+	if m.cfg.On(store.ProtoReality) {
+		list = append(list, map[string]any{
 			"tag":      inboundTag,
 			"listen":   "0.0.0.0",
 			"port":     r.Port,
@@ -72,20 +110,35 @@ func (m *Manager) BuildConfig(users []*store.User) ([]byte, error) {
 				"clients":    clients,
 				"decryption": "none",
 			},
-			"streamSettings": map[string]any{
-				"network":  "tcp",
-				"security": "reality",
-				"realitySettings": map[string]any{
-					"dest":        net.JoinHostPort(r.Dest, "443"),
-					"serverNames": names,
-					"privateKey":  r.PrivateKey,
-					"shortIds":    []string{r.ShortID},
-				},
-			},
-		}},
-		"outbounds": []any{map[string]any{"protocol": "freedom"}},
+			"streamSettings": stream(r, names),
+		})
 	}
-	return json.MarshalIndent(doc, "", "  ")
+	if m.cfg.On(store.ProtoEnc) {
+		list = append(list, map[string]any{
+			"tag":      encTag,
+			"listen":   "0.0.0.0",
+			"port":     m.cfg.Enc.Port,
+			"protocol": "vless",
+			"settings": map[string]any{
+				"clients":    encClients,
+				"decryption": m.cfg.Enc.Decryption,
+			},
+			"streamSettings": map[string]any{"network": "tcp"},
+		})
+	}
+	if m.cfg.On(store.ProtoSS) {
+		list = append(list, map[string]any{
+			"tag":      ssTag,
+			"listen":   "0.0.0.0",
+			"port":     m.cfg.SS.Port,
+			"protocol": "shadowsocks",
+			"settings": map[string]any{
+				"clients": ssClients,
+				"network": "tcp,udp",
+			},
+		})
+	}
+	return list
 }
 
 func (m *Manager) WriteConfig(users []*store.User) error {
@@ -93,14 +146,7 @@ func (m *Manager) WriteConfig(users []*store.User) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(m.paths.XrayConfig), 0o755); err != nil {
-		return err
-	}
-	tmp := m.paths.XrayConfig + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o644); err != nil {
-		return err
-	}
-	return os.Rename(tmp, m.paths.XrayConfig)
+	return fsutil.WriteAtomicDir(m.paths.XrayConfig, b, 0o755, 0o644)
 }
 
 func (m *Manager) Apply(users []*store.User) error {
@@ -110,11 +156,7 @@ func (m *Manager) Apply(users []*store.User) error {
 	if !Installed() {
 		return nil
 	}
-	out, err := exec.Command("systemctl", "restart", Service).CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("restart %s: %w: %s", Service, err, out)
-	}
-	return nil
+	return systemd.Restart(Service)
 }
 
 func (m *Manager) ApplyIfChanged(users []*store.User) (bool, error) {
@@ -133,26 +175,21 @@ func Installed() bool {
 	return err == nil
 }
 
-func Link(cfg *config.Config, u *store.User) string {
-	r := cfg.Reality
-	sni := u.SNI
-	if sni == "" {
-		sni = r.Dest
+// stream describes how Reality carries traffic. XHTTP wraps it in ordinary
+// looking web requests; the Reality handshake underneath stays the same.
+func stream(r config.Reality, names []string) map[string]any {
+	s := map[string]any{
+		"network":  r.Wire(),
+		"security": "reality",
+		"realitySettings": map[string]any{
+			"dest":        net.JoinHostPort(r.Dest, "443"),
+			"serverNames": names,
+			"privateKey":  r.PrivateKey,
+			"shortIds":    []string{r.ShortID},
+		},
 	}
-	q := url.Values{}
-	q.Set("type", "tcp")
-	q.Set("security", "reality")
-	q.Set("sni", sni)
-	q.Set("fp", "chrome")
-	q.Set("pbk", r.PublicKey)
-	q.Set("sid", r.ShortID)
-	q.Set("flow", "xtls-rprx-vision")
-	link := url.URL{
-		Scheme:   "vless",
-		User:     url.User(u.UUID),
-		Host:     net.JoinHostPort(cfg.PublicHost, strconv.Itoa(r.Port)),
-		RawQuery: q.Encode(),
-		Fragment: u.Name,
+	if r.Wire() == config.TransportXHTTP {
+		s["xhttpSettings"] = map[string]any{"path": r.Path, "mode": "auto"}
 	}
-	return link.String()
+	return s
 }

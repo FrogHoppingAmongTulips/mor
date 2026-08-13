@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"mor/internal/config"
+	"mor/internal/fsutil"
+	"mor/internal/systemd"
 )
 
 const AuthPort = 9797
@@ -17,7 +19,8 @@ const StatsPort = 9798
 
 const Service = "hysteria-server"
 
-const fallbackSNI = "www.bing.com"
+// FallbackSNI is the site Hysteria2 pretends to be when nothing else is set.
+const FallbackSNI = "www.bing.com"
 
 type Manager struct {
 	cfg   *config.Config
@@ -32,7 +35,7 @@ func (m *Manager) BuildConfig() string {
 	c := m.cfg
 	sni := c.SNI
 	if sni == "" {
-		sni = fallbackSNI
+		sni = FallbackSNI
 	}
 	return fmt.Sprintf(`listen: :%d
 tls:
@@ -52,7 +55,21 @@ quic:
 trafficStats:
   listen: 127.0.0.1:%d
   secret: %s
-%s`, c.VPNPort, m.paths.HyCertFile, m.paths.HyKeyFile, AuthPort, sni, StatsPort, c.StatsSecret, resolverBlock(c.DNS))
+%s%s`, c.VPNPort, m.paths.HyCertFile, m.paths.HyKeyFile, AuthPort, sni, StatsPort, c.StatsSecret, obfsBlock(c.HyObfs), resolverBlock(c.DNS))
+}
+
+// obfsBlock scrambles every packet with a shared password, so what goes over
+// the wire stops looking like QUIC at all — just random UDP. This is what a
+// second engine used to be kept around for: a network that learned to
+// recognise Hysteria2 by its handshake no longer has a handshake to look at.
+//
+// Empty password means off, and off is the default: turning it on changes the
+// links, and everyone holding an old one stops connecting until they get a new.
+func obfsBlock(password string) string {
+	if strings.TrimSpace(password) == "" {
+		return ""
+	}
+	return fmt.Sprintf("obfs:\n  type: salamander\n  salamander:\n    password: %s\n", password)
 }
 
 func resolverBlock(dns string) string {
@@ -68,20 +85,13 @@ func resolverBlock(dns string) string {
 }
 
 func (m *Manager) WriteConfig() error {
-	if err := os.MkdirAll(filepath.Dir(m.paths.HyConfig), 0o755); err != nil {
-		return err
-	}
 	if err := os.MkdirAll(filepath.Dir(m.paths.HyCertFile), 0o755); err != nil {
 		return err
 	}
-	if err := EnsureCert(m.paths.HyCertFile, m.paths.HyKeyFile, fallbackSNI); err != nil {
+	if err := EnsureCert(m.paths.HyCertFile, m.paths.HyKeyFile, FallbackSNI); err != nil {
 		return err
 	}
-	tmp := m.paths.HyConfig + ".tmp"
-	if err := os.WriteFile(tmp, []byte(m.BuildConfig()), 0o644); err != nil {
-		return err
-	}
-	return os.Rename(tmp, m.paths.HyConfig)
+	return fsutil.WriteAtomicDir(m.paths.HyConfig, []byte(m.BuildConfig()), 0o755, 0o644)
 }
 
 func (m *Manager) ApplyIfChanged() (bool, error) {
@@ -99,9 +109,5 @@ func (m *Manager) Apply() error {
 	if _, err := exec.LookPath("hysteria"); err != nil {
 		return nil
 	}
-	out, err := exec.Command("systemctl", "restart", Service).CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("restart %s: %w: %s", Service, err, out)
-	}
-	return nil
+	return systemd.Restart(Service)
 }
