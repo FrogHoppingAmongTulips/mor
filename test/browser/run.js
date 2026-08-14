@@ -263,6 +263,71 @@ test('ни одного нарушения политики безопаснос
   await dropKeys(page, 'тест-');
 });
 
+// A <button> with no rule of its own is drawn by the browser: grey fill, black
+// text, an outset border. Three controls had slipped into that state — the key
+// row, the link and every switch — and no test noticed, because they all
+// checked text and classes rather than what the thing looked like.
+test('ни одной кнопки со стилем по умолчанию', async (page) => {
+  await login(page);
+  const id = await makeKey(page, 'тест-вид');
+
+  const scan = () => page.evaluate(() => {
+    const out = [];
+    for (const el of document.querySelectorAll('button')) {
+      if (!el.offsetParent) continue;
+      const s = getComputedStyle(el);
+      const beef = [];
+      if (s.borderTopStyle === 'outset' || s.borderTopStyle === 'inset') beef.push('рамка ' + s.borderTopStyle);
+      if (s.backgroundColor === 'rgb(239, 239, 239)') beef.push('фон по умолчанию');
+      if (beef.length) out.push((el.className || '(без класса)') + ' — ' + beef.join(', '));
+    }
+    return [...new Set(out)];
+  });
+
+  await page.click('[data-pane="keys"]');
+  await page.waitForTimeout(600);
+  const row = page.locator('.uh', { has: page.locator('.uh-name', { hasText: 'тест-вид' }) });
+  await row.locator('.uh-open').click();
+  await page.waitForTimeout(900);
+  eq((await scan()).join(' · '), '', 'карточка ключа');
+
+  for (const pane of ['status', 'system', 'traffic', 'actions', 'settings']) {
+    await page.click(`[data-pane="${pane}"]`);
+    await page.waitForTimeout(500);
+    eq((await scan()).join(' · '), '', 'раздел ' + pane);
+  }
+  await page.click('.btn-plus');
+  await page.waitForTimeout(500);
+  eq((await scan()).join(' · '), '', 'окно создания');
+  await page.click('[data-act="cancelCreate"]');
+
+  await dropKeys(page, 'тест-');
+});
+
+// The whole point of dimming a dead key is the name: white when it works,
+// grey when it does not.
+test('имя рабочего ключа белое, отключённого — серое', async (page) => {
+  await login(page);
+  const id = await makeKey(page, 'тест-бан-цвет');
+  await makeKey(page, 'тест-живой-цвет');
+  await page.evaluate((i) => api('/users/' + i + '/ban', { method: 'POST', body: JSON.stringify({ banned: true }) }), id);
+  await page.evaluate(() => loadUsers());
+  await page.click('[data-pane="keys"]');
+  await page.waitForTimeout(700);
+
+  const цвет = (имя) => page.evaluate((n) => {
+    const el = [...document.querySelectorAll('.uh-name')].find((x) => x.textContent === n);
+    return getComputedStyle(el).color;
+  }, имя);
+  const яркость = (c) => c.match(/\d+/g).slice(0, 3).reduce((a, b) => a + +b, 0) / 3;
+
+  const живой = яркость(await цвет('тест-живой-цвет'));
+  const мёртвый = яркость(await цвет('тест-бан-цвет'));
+  ok(живой > 200, `рабочий ключ не белый: ${живой}`);
+  ok(мёртвый < 140, `отключённый ключ не приглушён: ${мёртвый}`);
+  await dropKeys(page, 'тест-');
+});
+
 test('смена языка переводит интерфейс', async (page) => {
   await login(page);
   const before = await page.locator('.btn-plus').textContent();

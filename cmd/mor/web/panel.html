@@ -180,6 +180,9 @@ weight:500;color:var(--t1);margin-bottom:14px;letter-spacing:.14em;text-transfor
 .uh{background:var(--card-h);border:1px solid var(--card-border);border-radius:12px;margin-bottom:6px;overflow:hidden;transition:background .15s}
 .uh-head{display:flex;align-items:center;gap:9px;padding:9px 12px;cursor:pointer;transition:background .15s}
 .uh-head:hover{background:var(--card-h)}
+/* The row is a real button, and a button with no rule of its own is drawn by
+   the browser: grey fill, black text, centred. It has to be told it is a row. */
+.uh-open{flex:1;min-width:0;display:flex;align-items:center;gap:9px;background:none;border:0;padding:0;margin:0;font:inherit;color:var(--t1);text-align:left;cursor:pointer}
 .uh-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
 .uh-dot.on{background:var(--t1)}
 .uh-dot.off{background:var(--t4)}
@@ -208,7 +211,7 @@ weight:500;color:var(--t1);margin-bottom:14px;letter-spacing:.14em;text-transfor
 .prow-name{font-size:14px;font-weight:400}
 .prow-r{display:flex;align-items:center;gap:12px}
 .prow-port{font-size:12px;color:var(--t3);font-weight:400;font-variant-numeric:tabular-nums}
-.tog{width:36px;height:20px;border-radius:10px;background:var(--border);cursor:pointer;position:relative;transition:background .25s;flex-shrink:0}
+.tog{width:36px;height:20px;padding:0;border:0;border-radius:10px;background:var(--border);cursor:pointer;position:relative;transition:background .25s;flex-shrink:0}
 .tog.on{background:var(--t3)}
 .tog::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--t1);transition:transform .25s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
 .tog.on::after{transform:translateX(16px)}
@@ -286,7 +289,7 @@ details.grp[open]>summary{margin-bottom:14px}
 .set-sep{height:1px;background:var(--card-border);margin:24px 0 18px}
 
 /* Bulk selection */
-.uh-pick{width:16px;height:16px;border-radius:5px;border:1.5px solid var(--border2);flex-shrink:0;cursor:pointer;transition:background .15s,border-color .15s;display:flex;align-items:center;justify-content:center;align-self:center}
+.uh-pick{width:16px;height:16px;padding:0;background:none;border-radius:5px;border:1.5px solid var(--border2);flex-shrink:0;cursor:pointer;transition:background .15s,border-color .15s;display:flex;align-items:center;justify-content:center;align-self:center}
 .uh-pick:hover{border-color:var(--t3)}
 .uh-pick.on{background:var(--t1);border-color:var(--t1)}
 /* The tick is centred by the flex box above and then nudged up by the height
@@ -374,7 +377,7 @@ details.grp[open]>summary{margin-bottom:14px}
 .upd-note .set-note{margin-top:4px}
 .pane-actions{margin-top:22px;padding-top:16px;border-top:1px solid var(--card-border)}
 .linkhint{font-size:11px;color:var(--t3);line-height:1.5;margin-top:18px}
-.linkrow{display:flex;align-items:center;gap:12px;margin-top:8px;padding:12px 0;border-top:1px solid var(--card-border);border-bottom:1px solid var(--card-border);cursor:pointer}
+.linkrow{width:100%;display:flex;align-items:center;gap:12px;margin-top:8px;padding:12px 0;background:none;border:0;border-top:1px solid var(--card-border);border-bottom:1px solid var(--card-border);font:inherit;color:inherit;text-align:left;cursor:pointer}
 .linkrow:hover .linkrow-icon{stroke:var(--t1)}
 .linkrow-text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--t3);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 .linkrow-icon{width:15px;height:15px;flex-shrink:0;stroke:var(--t3);stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round;transition:stroke .15s}
