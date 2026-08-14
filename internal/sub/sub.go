@@ -5,6 +5,7 @@ package sub
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 
 	"mor/internal/proxy"
 	"mor/internal/store"
+	"mor/internal/tlsx"
 )
 
 // DefaultPort is where the subscription server listens. Nothing sensitive is
@@ -29,9 +31,15 @@ func Body(links []string) string {
 	return base64.StdEncoding.EncodeToString([]byte(strings.Join(links, "\n")))
 }
 
-// URL is what the owner hands to a person.
-func URL(host string, port int, token string) string {
-	return "http://" + net.JoinHostPort(host, strconv.Itoa(port)) + path + token
+// URL is what the owner hands to a person. It says https only when the server
+// is actually serving it: a link promising TLS to a port that answers plain
+// text fails in the app with nothing to explain it.
+func URL(host string, port int, token string, secure bool) string {
+	scheme := "http://"
+	if secure {
+		scheme = "https://"
+	}
+	return scheme + net.JoinHostPort(host, strconv.Itoa(port)) + path + token
 }
 
 // Proxies describes one key as an endpoint. The description comes from the
@@ -169,7 +177,12 @@ func userinfo(used, limit uint64, expiry time.Time) string {
 
 // Serve runs until the context is cancelled. A busy port is reported rather
 // than retried: the owner picks another one in the menu.
-func Serve(ctx context.Context, port int, h http.Handler) error {
+//
+// With a TLS config the port answers both: TLS as normal, and a plain HTTP
+// request with a redirect to the same address over https. That is what keeps
+// every link handed out before HTTPS working — the app asks for http, gets a
+// redirect and follows it, and nobody has to reissue anything.
+func Serve(ctx context.Context, port int, h http.Handler, tlsCfg *tls.Config) error {
 	mux := http.NewServeMux()
 	mux.Handle(path, h)
 	srv := &http.Server{
@@ -183,7 +196,22 @@ func Serve(ctx context.Context, port int, h http.Handler) error {
 		defer cancel()
 		_ = srv.Shutdown(shutdown)
 	}()
-	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+
+	if tlsCfg == nil {
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return err
+		}
+		return nil
+	}
+
+	raw, err := net.Listen("tcp", srv.Addr)
+	if err != nil {
+		return err
+	}
+	srv.TLSConfig = tlsCfg
+	ln := tlsx.New(raw, port, "Подписка")
+	if err := srv.ServeTLS(ln, "", ""); err != nil &&
+		!errors.Is(err, http.ErrServerClosed) && !errors.Is(err, net.ErrClosed) {
 		return err
 	}
 	return nil

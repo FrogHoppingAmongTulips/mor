@@ -57,7 +57,20 @@ func subURL(e *env, u *store.User) string {
 	if u == nil || u.Sub == "" || !e.cfg.SubOn() {
 		return ""
 	}
-	return sub.URL(e.cfg.PublicHost, e.cfg.SubPort, u.Sub)
+	return sub.URL(e.cfg.PublicHost, e.cfg.SubPort, u.Sub, subSecure(e))
+}
+
+// subSecure reports whether the subscription can be served over TLS.
+//
+// Only with a certificate from an authority. A self-signed one is refused by
+// every client app, and a subscription that cannot be fetched at all is worse
+// than one fetched in the clear — the link carries every key of one person, but
+// a link that does not work carries nothing. Until `mor panel cert` succeeds
+// the link stays http; the port answers both either way, so nothing has to be
+// handed out twice when it does.
+func subSecure(e *env) bool {
+	return fileExists(e.paths.WebCertFile) && fileExists(e.paths.WebKeyFile) &&
+		!certIsSelfSigned(e.paths.WebCertFile)
 }
 
 // groupKeys folds a person's keys into one entry, keeping creation order. Keys

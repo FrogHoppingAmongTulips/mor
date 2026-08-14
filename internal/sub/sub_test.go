@@ -1,7 +1,17 @@
 package sub
 
 import (
+	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
+	"fmt"
+	"io"
+	"math/big"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -185,10 +195,13 @@ func TestUserinfoCarriesLimit(t *testing.T) {
 }
 
 func TestURL(t *testing.T) {
-	if got := URL("vpn.example.com", 8880, "abc"); got != "http://vpn.example.com:8880/sub/abc" {
+	if got := URL("vpn.example.com", 8880, "abc", true); got != "https://vpn.example.com:8880/sub/abc" {
+		t.Errorf("с сертификатом = %q", got)
+	}
+	if got := URL("vpn.example.com", 8880, "abc", false); got != "http://vpn.example.com:8880/sub/abc" {
 		t.Errorf("URL = %s", got)
 	}
-	if got := URL("2001:db8::1", 8880, "abc"); !strings.HasPrefix(got, "http://[2001:db8::1]:8880/") {
+	if got := URL("2001:db8::1", 8880, "abc", false); !strings.HasPrefix(got, "http://[2001:db8::1]:8880/") {
 		t.Errorf("IPv6 адрес не в скобках: %s", got)
 	}
 }
@@ -245,5 +258,110 @@ func TestSubscriptionWithoutLimitServesEverybody(t *testing.T) {
 		if code := fetch(s, "ткh", device); code != http.StatusOK {
 			t.Fatalf("устройство %q: код %d", device, code)
 		}
+	}
+}
+
+// selfSignedForTest is a throwaway certificate for 127.0.0.1 — the test is
+// about the transport, not about who signed it.
+func selfSignedForTest(t *testing.T) *tls.Config {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpl := x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(time.Hour),
+		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &tls.Config{Certificates: []tls.Certificate{{
+		Certificate: [][]byte{der}, PrivateKey: key,
+	}}, MinVersion: tls.VersionTLS12}
+}
+
+func freePort(t *testing.T) int {
+	t.Helper()
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Close()
+	return l.Addr().(*net.TCPAddr).Port
+}
+
+// The subscription carries every key of one person. Over TLS it must arrive
+// intact — and a link handed out before HTTPS existed must still land, or
+// switching it on would silently cut off everybody already using one.
+func TestSubscriptionOverTLS(t *testing.T) {
+	st, _ := store.Open(t.TempDir() + "/users.json")
+	u, err := st.Add(&store.User{Name: "телефон", Proto: store.ProtoHy2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A real token is hex, and the test uses one: a token with letters outside
+	// ASCII would come back percent-encoded in the redirect and turn this into
+	// a test about escaping.
+	const token = "a1b2c3d4"
+	if err := st.SetSub(u.ID, token); err != nil {
+		t.Fatal(err)
+	}
+	s := New(st, testProxies, "сервер", nil)
+	port := freePort(t)
+
+	ctx, stop := context.WithCancel(context.Background())
+	defer stop()
+	go func() {
+		if err := Serve(ctx, port, s, selfSignedForTest(t)); err != nil {
+			t.Errorf("подписка не поднялась: %v", err)
+		}
+	}()
+
+	url := fmt.Sprintf("https://127.0.0.1:%d/sub/%s", port, token)
+	client := &http.Client{
+		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	var resp *http.Response
+	for range 50 {
+		if resp, err = client.Get(url); err == nil {
+			break
+		}
+		time.Sleep(40 * time.Millisecond)
+	}
+	if err != nil {
+		t.Fatalf("по https не ответила: %v", err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("код %d", resp.StatusCode)
+	}
+	raw, err := base64.StdEncoding.DecodeString(string(body))
+	if err != nil || !strings.Contains(string(raw), "hysteria2://") {
+		t.Fatalf("тело не похоже на подписку: %q", body)
+	}
+
+	// The same port, asked in plain text, points at the https address instead
+	// of failing with a TLS error the app cannot explain.
+	plain := fmt.Sprintf("http://127.0.0.1:%d/sub/%s", port, token)
+	resp, err = client.Get(plain)
+	if err != nil {
+		t.Fatalf("по http оборвалось: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusPermanentRedirect {
+		t.Fatalf("http дал код %d, ждали 308", resp.StatusCode)
+	}
+	if got := resp.Header.Get("Location"); got != url {
+		t.Fatalf("Location %q, ждали %q", got, url)
 	}
 }

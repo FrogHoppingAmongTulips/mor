@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"log"
@@ -182,11 +183,24 @@ func serve() {
 				e.cfg.PublicHost,
 				func(id string) (uint64, uint64) { return e.stats.Get(id).Total, limitOf(e, id) }).
 				TrackDevices(e.devices)
-			if err := sub.Serve(ctx, e.cfg.SubPort, h); err != nil {
+			// The panel's certificate does for the subscription too: it is the
+			// same host, and it is the only one there is.
+			var tlsCfg *tls.Config
+			if subSecure(e) {
+				var err error
+				if tlsCfg, err = tlsConfig(e); err != nil {
+					log.Printf("предупреждение: подписка без TLS: %v", err)
+				}
+			}
+			if err := sub.Serve(ctx, e.cfg.SubPort, h, tlsCfg); err != nil {
 				log.Printf("предупреждение: подписка на :%d не поднялась: %v", e.cfg.SubPort, err)
 			}
 		}()
-		log.Printf("подписки раздаются на :%d", e.cfg.SubPort)
+		scheme := "http"
+		if subSecure(e) {
+			scheme = "https"
+		}
+		log.Printf("подписки раздаются на :%d (%s)", e.cfg.SubPort, scheme)
 	}
 
 	if e.cfg.WebOn() {

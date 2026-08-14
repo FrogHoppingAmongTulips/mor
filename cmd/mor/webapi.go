@@ -21,6 +21,7 @@ import (
 
 	"mor/internal/store"
 	"mor/internal/sysinfo"
+	"mor/internal/tlsx"
 	"mor/internal/webauth"
 )
 
@@ -110,7 +111,7 @@ func startWebPanel(ctx context.Context, e *env) {
 	}
 	// Same port answers both: TLS as normal, and plain HTTP with a redirect to
 	// the https address instead of a protocol error nobody can act on.
-	ln := newRedirectingListener(raw, e.cfg.WebPort)
+	ln := tlsx.New(raw, e.cfg.WebPort, "Панель")
 	log.Printf("веб-панель на https://%s:%d (%s)", e.cfg.PublicHost, e.cfg.WebPort, certSummary(e.paths.WebCertFile))
 	if err := srv.ServeTLS(ln, "", ""); err != nil && !errors.Is(err, http.ErrServerClosed) && !errors.Is(err, net.ErrClosed) {
 		log.Printf("предупреждение: веб-панель на :%d не поднялась: %v", e.cfg.WebPort, err)
