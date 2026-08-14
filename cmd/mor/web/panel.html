@@ -187,7 +187,11 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
 .uh-dot.on{background:var(--t1)}
 .uh-dot.off{background:var(--t4)}
 .uh-name{font-size:14px;font-weight:400;letter-spacing:-.01em;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.uh-name.ban{color:var(--t3);text-decoration:line-through}
+/* A dead key is dimmed as a whole — name, figures and sparkline together.
+   Greying only the name left the traffic column looking as live as anyone's. */
+.uh.dead .uh-name,.uh.dead .uh-val{color:var(--t3)}
+.uh.dead .uh-spark-line{stroke:var(--t4)}
+.uh.dead .uh-pill{color:var(--t3)}
 .uh-status{flex-shrink:0}
 .uh-seen{font-size:11px;color:var(--t3);white-space:nowrap}
 .uh-pill{font-size:11px;font-weight:500;color:var(--t1);background:var(--card-h);padding:5px 13px;border-radius:999px;white-space:nowrap}
@@ -1022,15 +1026,18 @@ function renderHome(){
   for(const id of [...picked])if(!users.some(u=>u.id===id))picked.delete(id);
   w.innerHTML='';
   users.forEach(u=>{
-    // A live session beats the traffic guess: Hysteria2 says so outright.
-    const on=!u.banned&&(onlineIds.has(u.id)||ago(u.lastSeen)==='онлайн');
+    // A live session beats the traffic guess: Hysteria2 says so outright. A
+    // key that has run out cannot be online whatever the counters say — the
+    // engines stopped letting it in.
+    const dead=keyDead(u);
+    const on=!dead&&(onlineIds.has(u.id)||ago(u.lastSeen)==='онлайн');
     const isOpen=homeExpanded===u.id;
-    const card=document.createElement('div');card.className='uh'+(isOpen?' open':'');
+    const card=document.createElement('div');card.className='uh'+(isOpen?' open':'')+(dead?' dead':'');
     card.innerHTML=
       '<div class="uh-head">'+
         '<span class="uh-pick'+(picked.has(u.id)?' on':'')+'" title="'+t('select')+'"></span>'+
-        '<span class="uh-dot '+(u.banned?'off':on?'on':'off')+'"></span>'+
-        '<span class="uh-name'+(u.banned?' ban':'')+'">'+esc(u.name)+'</span>'+
+        '<span class="uh-dot '+(on?'on':'off')+'"></span>'+
+        '<span class="uh-name">'+esc(u.name)+'</span>'+
         '<span class="uh-status">'+statusPill(u,on)+'</span>'+
         sparkSvg(u.spark)+
         '<span class="uh-val">'+fmtBytes(u.traffic)+'</span></div>'+
@@ -1103,12 +1110,22 @@ async function toggleHomeUser(id){
 }
 // One word for the key's state, in the order that matters: a ban outranks an
 // expiry, an expiry outranks a quota, and only a healthy key reports presence.
+// A key that no longer lets anybody in, whatever the reason. The three states
+// are one fact to the eye — this key is not working — so the list dims them
+// alike and leaves the pill to say which one it is.
+function deadReason(u){
+  if(u.banned)return 'banned';
+  if(u.expiresAt&&new Date(u.expiresAt)<=Date.now())return 'expiredS';
+  if(u.limit&&u.traffic>=u.limit)return 'limit';
+  return '';
+}
+function keyDead(u){return deadReason(u)!==''}
+
 // The row's status column: a pill only when there is a real state to shout
 // about; otherwise the quiet useful fact — when they were last seen.
 function statusPill(u,online){
-  if(u.banned)return '<span class="uh-pill">'+t('banned')+'</span>';
-  if(u.expiresAt&&new Date(u.expiresAt)<=Date.now())return '<span class="uh-pill">'+t('expiredS')+'</span>';
-  if(u.limit&&u.traffic>=u.limit)return '<span class="uh-pill">'+t('limit')+'</span>';
+  const why=deadReason(u);
+  if(why)return '<span class="uh-pill">'+t(why)+'</span>';
   if(online)return '<span class="uh-pill on">'+t('onlineShort')+'</span>';
   return '<span class="uh-seen">'+ago(u.lastSeen)+'</span>';
 }
