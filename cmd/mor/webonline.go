@@ -178,7 +178,7 @@ func (ws *webServer) handleUserEdit(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if req.IPLimit != nil {
+	if req.IPLimit != nil && *req.IPLimit != g[0].IPLimit {
 		for _, u := range g {
 			if err := ws.e.st.SetIPLimit(u.ID, *req.IPLimit); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -187,9 +187,14 @@ func (ws *webServer) handleUserEdit(w http.ResponseWriter, r *http.Request) {
 		}
 		// Devices already counted were admitted under the old cap; forgetting
 		// them lets the new one take effect from the next connection instead of
-		// leaving somebody locked out by a number that no longer applies.
+		// leaving somebody locked out by a number that no longer applies. Only
+		// a changed number does this: clearing the table on every save would
+		// hand out a fresh set of slots for renaming a key.
 		for _, u := range g {
 			ws.e.ipLimits.Forget(u.ID)
+			if u.Sub != "" {
+				ws.e.devices.Forget(u.Sub)
+			}
 		}
 	}
 

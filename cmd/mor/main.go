@@ -107,6 +107,8 @@ func run(cmd string, args []string) bool {
 		cmdSub(args)
 	case "panel":
 		cmdPanel(args)
+	case "token":
+		cmdToken(args)
 	case "status", "info":
 		cmdStatus()
 	case "check":
@@ -141,6 +143,8 @@ func printHelp() {
   sub [on|off|port N]   автовыбор: одна ссылка на все протоколы
   panel [password P|on|off|port N|cert HOST]
                         веб-панель — без пароля не запустится
+  token [new <имя>|rm <имя>]
+                        ключи для API — для скриптов и своих программ
   status                состояние сервера
   check                 доходят ли порты снаружи
   update                поставить свежую версию mor
@@ -176,7 +180,8 @@ func serve() {
 			h := sub.New(e.st,
 				func(u *store.User) (proxy.Proxy, bool) { return proxyFor(e.cfg, u) },
 				e.cfg.PublicHost,
-				func(id string) (uint64, uint64) { return e.stats.Get(id).Total, limitOf(e, id) })
+				func(id string) (uint64, uint64) { return e.stats.Get(id).Total, limitOf(e, id) }).
+				TrackDevices(e.devices)
 			if err := sub.Serve(ctx, e.cfg.SubPort, h); err != nil {
 				log.Printf("предупреждение: подписка на :%d не поднялась: %v", e.cfg.SubPort, err)
 			}
@@ -270,6 +275,11 @@ type env struct {
 	// ipLimits lives only in memory: counting concurrent devices needs no
 	// history, and keeping one would mean recording where people connect from.
 	ipLimits *hysteria.IPTracker
+
+	// devices, unlike ipLimits, is kept: it counts apps that fetched the
+	// subscription, which happens once every few hours rather than on every
+	// connection, so forgetting it on restart would forget the limit itself.
+	devices *sub.Devices
 }
 
 func load() (*env, error) {
@@ -305,6 +315,7 @@ func load() (*env, error) {
 		audit:    al,
 		paths:    paths,
 		ipLimits: hysteria.NewIPTracker(),
+		devices:  sub.OpenDevices(paths.DevicesFile),
 	}, nil
 }
 

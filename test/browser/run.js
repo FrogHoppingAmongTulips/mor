@@ -45,6 +45,22 @@ async function dropKeys(page, prefix) {
   }, prefix);
 }
 
+// waitFor polls instead of sleeping: creating a key takes a moment on a real
+// server and much longer on a laptop with no engines installed, and a fixed
+// pause is either too short there or wasted time here.
+async function waitFor(page, fn, what, timeout = 20000, done = Boolean) {
+  const until = Date.now() + timeout;
+  for (;;) {
+    const got = await page.evaluate(fn);
+    if (done(got)) return got;
+    if (Date.now() > until) throw new Error(`${what}: получено ${JSON.stringify(got)}`);
+    await page.waitForTimeout(200);
+  }
+}
+
+const keyGone = (page, name) =>
+  waitFor(page, () => !document.querySelector('#createModal.show'), `окно не закрылось: ${name}`);
+
 const eq = (got, want, what) => {
   if (got !== want) throw new Error(`${what}: получено ${JSON.stringify(got)}, ждали ${JSON.stringify(want)}`);
 };
@@ -75,9 +91,8 @@ test('создание ключа даёт рабочую ссылку', async (
   await page.fill('#createName', 'тест-создание');
   await page.click('#createProtos .pchip-all');
   await page.click('[data-act="doCreate"]');
-  await page.waitForTimeout(2000);
+  await keyGone(page, 'тест-создание');
 
-  ok(!(await page.locator('#createModal.show').count()), 'окно не закрылось');
   await page.click('[data-pane="keys"]');
   await page.waitForTimeout(600);
   const names = await page.$$eval('.uh-name', (e) => e.map((x) => x.textContent));
@@ -132,10 +147,7 @@ test('срок и лимит одним числом не спорят друг 
   await page.fill('#createTime', '22');
   await page.fill('#createTraffic', '22');
   await page.click('[data-act="doCreate"]');
-  await page.waitForTimeout(2000);
-
-  const u = await page.evaluate(() => users.find((x) => x.name === 'тест-22'));
-  ok(u, 'ключ не создан');
+  const u = await waitFor(page, () => users.find((x) => x.name === 'тест-22') || null, 'ключ не создан');
   ok(u.expiresAt, 'срок не выставлен');
   ok(u.limit > 0, 'лимит не выставлен');
   await dropKeys(page, 'тест-');
@@ -181,8 +193,30 @@ test('массовое удаление требует подтверждени�
   await page.waitForTimeout(400);
   eq(await page.locator('.uh').count(), wasCount, 'удалило с первого нажатия');
   await page.click('#bulkDelBtn');
-  await page.waitForTimeout(2500);
-  eq(await page.locator('.uh').count(), wasCount - 2, 'удалило не два ключа');
+  await waitFor(page, () => document.querySelectorAll('.uh').length,
+    'удалило не два ключа', 20000, (n) => n === wasCount - 2);
+  await dropKeys(page, 'тест-');
+});
+
+test('счётчик устройств виден и сбрасывается', async (page) => {
+  await login(page);
+  const id = await makeKey(page, 'тест-устройства');
+  await page.evaluate((i) => api('/users/' + i, { method: 'PATCH', body: JSON.stringify({ ipLimit: 3 }) }), id);
+  await page.evaluate(() => loadUsers());
+
+  await page.click('[data-pane="keys"]');
+  await page.waitForTimeout(600);
+  const row = page.locator('.uh', { has: page.locator('.uh-name', { hasText: 'тест-устройства' }) });
+  await row.locator('.uh-open').click();
+  await page.waitForTimeout(800);
+
+  const count = page.locator('.set-count');
+  eq(await count.first().textContent(), '0/3', 'счётчик устройств');
+  // The count is also the button that hands the slots back.
+  await count.first().click();
+  await page.waitForTimeout(600);
+  eq(await count.first().textContent(), '0/3', 'счётчик после сброса');
+
   await dropKeys(page, 'тест-');
 });
 

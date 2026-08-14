@@ -85,6 +85,12 @@ func removeKeys(e *env, list []*store.User) error {
 		}
 		e.stats.Delete(u.ID)
 		e.hist.Delete(u.ID)
+		e.ipLimits.Forget(u.ID)
+		// A deleted key must take its device table with it, or a name reused
+		// later would inherit somebody else's count.
+		if u.Sub != "" {
+			e.devices.Forget(u.Sub)
+		}
 		protos[u.Proto] = true
 	}
 	for p := range protos {

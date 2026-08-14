@@ -33,6 +33,7 @@ const webSessionTTL = 7 * 24 * time.Hour
 type webServer struct {
 	e        *env
 	sessions *webauth.Sessions
+	tokens   *webauth.Tokens
 	sysHist  *sysHistory
 	throttle *loginThrottle
 
@@ -69,7 +70,7 @@ func startWebPanel(ctx context.Context, e *env) {
 	if !e.cfg.WebOn() {
 		return
 	}
-	ws := &webServer{e: e, sessions: webauth.OpenSessions(webSessionTTL, e.paths.SessionsFile), sysHist: openSysHistory(e.paths.SysHistFile), throttle: newLoginThrottle()}
+	ws := &webServer{e: e, sessions: webauth.OpenSessions(webSessionTTL, e.paths.SessionsFile), tokens: webauth.OpenTokens(e.paths.TokensFile), sysHist: openSysHistory(e.paths.SysHistFile), throttle: newLoginThrottle()}
 	go ws.sysHist.run(ctx)
 	mux := http.NewServeMux()
 	ws.routes(mux)
@@ -132,6 +133,7 @@ func (ws *webServer) routes(mux *http.ServeMux) {
 	mux.HandleFunc("PATCH /api/users/{id}", ws.auth(ws.handleUserEdit))
 	mux.HandleFunc("POST /api/users/{id}/ban", ws.auth(ws.handleUserBan))
 	mux.HandleFunc("POST /api/users/{id}/reset", ws.auth(ws.handleUserReset))
+	mux.HandleFunc("POST /api/users/{id}/devices/reset", ws.auth(ws.handleUserDevicesReset))
 	mux.HandleFunc("GET /api/protocols", ws.auth(ws.handleProtocolsList))
 	mux.HandleFunc("POST /api/protocols/{id}/toggle", ws.auth(ws.handleProtocolToggle))
 	mux.HandleFunc("GET /api/config", ws.auth(ws.handleConfigGet))
@@ -185,13 +187,28 @@ func (ws *webServer) auth(h http.HandlerFunc) http.HandlerFunc {
 			h(w, r)
 			return
 		}
-		c, err := r.Cookie(webSessionCookie)
-		if err != nil || !ws.sessions.Valid(c.Value) {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+		// A browser brings a session cookie; a script brings a token. Both are
+		// the owner, so both open the same doors — there is one account here.
+		if c, err := r.Cookie(webSessionCookie); err == nil && ws.sessions.Valid(c.Value) {
+			h(w, r)
 			return
 		}
-		h(w, r)
+		if tok, ok := bearer(r); ok && ws.tokens.Valid(tok) {
+			h(w, r)
+			return
+		}
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 	}
+}
+
+// bearer pulls the token out of the Authorization header.
+func bearer(r *http.Request) (string, bool) {
+	h := r.Header.Get("Authorization")
+	const p = "Bearer "
+	if len(h) <= len(p) || !strings.EqualFold(h[:len(p)], p) {
+		return "", false
+	}
+	return strings.TrimSpace(h[len(p):]), true
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
@@ -320,6 +337,7 @@ type webUser struct {
 	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
 	Banned    bool       `json:"banned"`
 	IPLimit   int        `json:"ipLimit,omitempty"`
+	Devices   int        `json:"devices,omitempty"`
 	AutoReset bool       `json:"autoReset"`
 	Spark     []uint64   `json:"spark"`
 	Months    []webMonth `json:"months,omitempty"`
@@ -387,6 +405,9 @@ func toWebUser(e *env, g []*store.User, detail bool) webUser {
 		Created: g[0].CreatedAt, Traffic: q.used, Limit: q.limit,
 		Banned: g[0].Banned, IPLimit: g[0].IPLimit, AutoReset: g[0].AutoReset,
 		Spark: sparkline(e, g),
+	}
+	if g[0].IPLimit > 0 && g[0].Sub != "" {
+		u.Devices = e.devices.Count(g[0].Sub)
 	}
 	if !entry.LastSeen.IsZero() {
 		u.LastSeen = &entry.LastSeen
@@ -548,6 +569,23 @@ func (ws *webServer) handleUserReset(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	ws.e.audit.Add("сброшен трафик", g[0].Name, time.Now())
+	writeJSON(w, map[string]bool{"ok": true})
+}
+
+// handleUserDevicesReset hands the device slots back — somebody changed their
+// phone, and the old one would otherwise hold its place for a month.
+func (ws *webServer) handleUserDevicesReset(w http.ResponseWriter, r *http.Request) {
+	g, ok := findGroup(ws.e, r.PathValue("id"))
+	if !ok {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	for _, u := range g {
+		if u.Sub != "" {
+			ws.e.devices.Forget(u.Sub)
+		}
+	}
+	ws.e.audit.Add("сброшены устройства", g[0].Name, time.Now())
 	writeJSON(w, map[string]bool{"ok": true})
 }
 

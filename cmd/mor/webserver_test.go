@@ -13,6 +13,7 @@ import (
 	"mor/internal/hysteria"
 	"mor/internal/stats"
 	"mor/internal/store"
+	"mor/internal/sub"
 	"mor/internal/webauth"
 	"mor/internal/xray"
 )
@@ -38,6 +39,7 @@ func testPanel(t *testing.T) (*webServer, *store.Store) {
 		HistoryFile:  dir + "/history.json",
 		AuditLogFile: dir + "/audit.json",
 		SysHistFile:  dir + "/syshist.json",
+		TokensFile:   dir + "/tokens.json",
 		WebCertFile:  dir + "/web.crt",
 		WebKeyFile:   dir + "/web.key",
 	}
@@ -70,13 +72,16 @@ func testPanel(t *testing.T) (*webServer, *store.Store) {
 	paths.HyCertFile = dir + "/hy.crt"
 	paths.HyKeyFile = dir + "/hy.key"
 	paths.XrayConfig = dir + "/xray.json"
+	paths.DevicesFile = dir + "/devices.json"
 	e := &env{
 		cfg: cfg, st: st, stats: st2, hist: hist, audit: audit, paths: paths,
 		hy: hysteria.New(cfg, paths), xr: xray.New(cfg, paths),
+		ipLimits: hysteria.NewIPTracker(), devices: sub.OpenDevices(paths.DevicesFile),
 	}
 	ws := &webServer{
 		e:        e,
 		sessions: webauth.NewSessions(time.Hour),
+		tokens:   webauth.OpenTokens(paths.TokensFile),
 		sysHist:  openSysHistory(paths.SysHistFile),
 		throttle: newLoginThrottle(),
 	}
@@ -462,4 +467,145 @@ func protoOn(t *testing.T, ws *webServer, id string) bool {
 	}
 	t.Fatalf("протокол %s не найден", id)
 	return false
+}
+
+// A token opens the same doors as a session: there is one owner here, and the
+// difference is only who is holding the key — a browser or a script.
+func TestTokenOpensTheApi(t *testing.T) {
+	ws, _ := testPanel(t)
+	t.Setenv("MOR_WEB_DEV_NOAUTH", "")
+	secret, err := ws.tokens.Issue("бот")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/users", nil)
+	req.Header.Set("Authorization", "Bearer "+secret)
+	w := httptest.NewRecorder()
+	ws.mux().ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("с токеном = %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestBadTokenIsRefused(t *testing.T) {
+	ws, _ := testPanel(t)
+	t.Setenv("MOR_WEB_DEV_NOAUTH", "")
+	if _, err := ws.tokens.Issue("бот"); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, header := range []string{"", "Bearer", "Bearer ", "Bearer mor_нетакой", "Basic xxx"} {
+		req := httptest.NewRequest(http.MethodGet, "/api/users", nil)
+		if header != "" {
+			req.Header.Set("Authorization", header)
+		}
+		w := httptest.NewRecorder()
+		ws.mux().ServeHTTP(w, req)
+		if w.Code != http.StatusUnauthorized {
+			t.Errorf("заголовок %q = %d, ждали 401", header, w.Code)
+		}
+	}
+}
+
+// A token has to be able to change things, not only read them — otherwise it
+// is not an API, it is a feed.
+func TestTokenCanCreateAndDelete(t *testing.T) {
+	ws, _ := testPanel(t)
+	t.Setenv("MOR_WEB_DEV_NOAUTH", "")
+	secret, _ := ws.tokens.Issue("бот")
+
+	send := func(method, path, body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(method, path, strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+secret)
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		ws.mux().ServeHTTP(w, req)
+		return w
+	}
+
+	w := send(http.MethodPost, "/api/users", `{"name":"через-токен","protocols":["hy2"]}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("создание = %d: %s", w.Code, w.Body.String())
+	}
+	var made map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &made); err != nil {
+		t.Fatal(err)
+	}
+	id, _ := made["id"].(string)
+	if w := send(http.MethodDelete, "/api/users/"+id, ""); w.Code != http.StatusOK {
+		t.Fatalf("удаление = %d", w.Code)
+	}
+}
+
+// Revoking has to bite immediately, not at the next restart.
+func TestRevokedTokenLosesAccessAtOnce(t *testing.T) {
+	ws, _ := testPanel(t)
+	t.Setenv("MOR_WEB_DEV_NOAUTH", "")
+	secret, _ := ws.tokens.Issue("бот")
+	ws.tokens.Revoke("бот")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/users", nil)
+	req.Header.Set("Authorization", "Bearer "+secret)
+	w := httptest.NewRecorder()
+	ws.mux().ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("отозванный токен = %d, ждали 401", w.Code)
+	}
+}
+
+// The device count the panel draws must come from the same table the
+// subscription enforces, and the owner must be able to hand slots back.
+func TestDeviceCountAndReset(t *testing.T) {
+	ws, st := testPanel(t)
+
+	w := do(t, ws, http.MethodPost, "/api/users", `{"name":"телефон","protocols":["hy2"]}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("создание = %d: %s", w.Code, w.Body.String())
+	}
+	var made map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &made); err != nil {
+		t.Fatal(err)
+	}
+	id, _ := made["id"].(string)
+
+	if w := do(t, ws, http.MethodPatch, "/api/users/"+id, `{"ipLimit":2}`); w.Code != http.StatusOK {
+		t.Fatalf("лимит = %d: %s", w.Code, w.Body.String())
+	}
+	token := st.List()[0].Sub
+	if token == "" {
+		t.Fatal("у ключа нет токена подписки")
+	}
+	ws.e.devices.Allow(token, "телефон", 2)
+
+	count := func() float64 {
+		w := do(t, ws, http.MethodGet, "/api/users/"+id, "")
+		var u map[string]any
+		if err := json.Unmarshal(w.Body.Bytes(), &u); err != nil {
+			t.Fatal(err)
+		}
+		n, _ := u["devices"].(float64)
+		return n
+	}
+	if n := count(); n != 1 {
+		t.Fatalf("устройств в ответе %v, ожидалось 1", n)
+	}
+
+	// Renaming must not hand out a fresh set of slots.
+	if w := do(t, ws, http.MethodPatch, "/api/users/"+id, `{"name":"ноут","ipLimit":2}`); w.Code != http.StatusOK {
+		t.Fatalf("переименование = %d", w.Code)
+	}
+	if n := count(); n != 1 {
+		t.Fatalf("переименование сбросило счётчик: %v", n)
+	}
+
+	if w := do(t, ws, http.MethodPost, "/api/users/"+id+"/devices/reset", ""); w.Code != http.StatusOK {
+		t.Fatalf("сброс = %d: %s", w.Code, w.Body.String())
+	}
+	if n := count(); n != 0 {
+		t.Fatalf("после сброса устройств %v", n)
+	}
+	if w := do(t, ws, http.MethodPost, "/api/users/нет-такого/devices/reset", ""); w.Code != http.StatusNotFound {
+		t.Fatalf("несуществующий ключ = %d", w.Code)
+	}
 }

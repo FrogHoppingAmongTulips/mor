@@ -192,3 +192,58 @@ func TestURL(t *testing.T) {
 		t.Errorf("IPv6 адрес не в скобках: %s", got)
 	}
 }
+
+// fetch asks for a subscription as one device would.
+func fetch(s *Server, token, device string) int {
+	r := httptest.NewRequest(http.MethodGet, "/sub/"+token, nil)
+	if device != "" {
+		r.Header.Set("x-hwid", device)
+	}
+	w := httptest.NewRecorder()
+	s.ServeHTTP(w, r)
+	return w.Code
+}
+
+func TestSubscriptionRefusesTooManyDevices(t *testing.T) {
+	st, _ := store.Open(t.TempDir() + "/users.json")
+	for _, p := range []string{store.ProtoHy2, store.ProtoReality} {
+		u, err := st.Add(&store.User{Name: "телефон", Proto: p, IPLimit: 2})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := st.SetSub(u.ID, "токен123"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	d := OpenDevices(t.TempDir() + "/devices.json")
+	s := New(st, testProxies, "сервер", nil).TrackDevices(d)
+
+	if code := fetch(s, "токен123", "телефон"); code != http.StatusOK {
+		t.Fatalf("первое устройство: код %d", code)
+	}
+	if code := fetch(s, "токен123", "ноут"); code != http.StatusOK {
+		t.Fatalf("второе устройство: код %d", code)
+	}
+	if code := fetch(s, "токен123", "чужой"); code != http.StatusForbidden {
+		t.Fatalf("третье устройство при лимите 2: код %d, ожидалось 403", code)
+	}
+	// The two that were let in must keep working, and the key having several
+	// protocols must not count as several devices.
+	if code := fetch(s, "токен123", "телефон"); code != http.StatusOK {
+		t.Fatalf("своё же устройство: код %d", code)
+	}
+	if n := d.Count("токен123"); n != 2 {
+		t.Fatalf("устройств насчитано %d, ожидалось 2", n)
+	}
+}
+
+func TestSubscriptionWithoutLimitServesEverybody(t *testing.T) {
+	s, _ := serverWith(t, []*store.User{{Name: "телефон", Proto: store.ProtoHy2}})
+	s.TrackDevices(OpenDevices(t.TempDir() + "/devices.json"))
+
+	for _, device := range []string{"один", "два", "три", ""} {
+		if code := fetch(s, "ткh", device); code != http.StatusOK {
+			t.Fatalf("устройство %q: код %d", device, code)
+		}
+	}
+}

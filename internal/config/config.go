@@ -23,6 +23,8 @@ type Paths struct {
 	WebCertFile  string
 	WebKeyFile   string
 	SessionsFile string
+	TokensFile   string
+	DevicesFile  string
 	HyConfig     string
 	HyCertFile   string
 	HyKeyFile    string
@@ -42,6 +44,8 @@ func DefaultPaths() Paths {
 		WebCertFile:  filepath.Join(base, "web.crt"),
 		WebKeyFile:   filepath.Join(base, "web.key"),
 		SessionsFile: filepath.Join(base, "sessions.json"),
+		TokensFile:   filepath.Join(base, "tokens.json"),
+		DevicesFile:  filepath.Join(base, "devices.json"),
 		HyConfig:     envOr("MOR_HY_CONFIG", "/etc/hysteria/config.yaml"),
 		HyCertFile:   envOr("MOR_HY_CERT", "/etc/hysteria/server.crt"),
 		HyKeyFile:    envOr("MOR_HY_KEY", "/etc/hysteria/server.key"),

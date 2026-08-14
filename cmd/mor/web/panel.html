@@ -162,7 +162,9 @@ weight:500;color:var(--t1);margin-bottom:14px;letter-spacing:.14em;text-transfor
 .set-hint{font-size:12px;color:var(--t3);line-height:1.5;margin:-6px 0 14px}
 .set-field{margin-bottom:16px}
 .set-field:last-child{margin-bottom:0}
-.set-label{font-size:10px;font-weight:500;color:var(--t2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.set-label{font-size:10px;font-weight:500;color:var(--t2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;display:flex;justify-content:space-between;gap:8px}
+.set-count{font:inherit;letter-spacing:inherit;color:var(--t1);background:none;border:0;padding:0;cursor:pointer;border-radius:4px}
+.set-count:hover{color:var(--acc)}
 .set-note{font-size:11px;color:var(--t3);line-height:1.5;margin-top:6px}
 .set-note.danger{color:var(--t1)}
 
@@ -732,7 +734,7 @@ const I18N={
   limitsNow:'Ограничения',shareSec:'Ссылка',actionsSec:'Действия',
   select:'Выбрать',deleteSelected:'Удалить выбранные',confirmDelete:'Точно удалить?',deletedN:'удалено:',clearSel:'Снять',
   nameEmpty:'имя не может быть пустым',pickProto:'выбери хотя бы один протокол',keyCreated:'ключ создан',errPrefix:'ошибка: ',
-  all:'Все',devices:'Устройств сразу',noLimit:'без лимита',monthlyReset:'Обновление лимита',monthlyResetOn:'каждый месяц заново',
+  all:'Все',devices:'Устройств',resetDevices:'сбросить устройства',noLimit:'без лимита',monthlyReset:'Обновление лимита',monthlyResetOn:'каждый месяц заново',
   
   recentActions:'Последние действия',noActions:'пока пусто',
   pClock:'часы сервера не синхронизированы — рукопожатия и сроки ключей могут сбоить',
@@ -780,7 +782,7 @@ const I18N={
   limitsNow:'Limits',shareSec:'Link',actionsSec:'Actions',
   select:'Select',deleteSelected:'Delete selected',confirmDelete:'Delete for good?',deletedN:'deleted:',clearSel:'Clear',
   nameEmpty:'name cannot be empty',pickProto:'pick at least one protocol',keyCreated:'key created',errPrefix:'error: ',
-  all:'All',devices:'Devices at once',noLimit:'no limit',monthlyReset:'Limit renewal',monthlyResetOn:'renews every month',
+  all:'All',devices:'Devices',resetDevices:'reset devices',noLimit:'no limit',monthlyReset:'Limit renewal',monthlyResetOn:'renews every month',
   
   recentActions:'Recent actions',noActions:'nothing yet',
   pClock:'the server clock is not synchronised — handshakes and key deadlines may misbehave',
@@ -1250,7 +1252,7 @@ function renderHomeDetail(id){
          '<div><div class="set-label">'+t('trafficLimit')+'</div><input class="fi" id="ed-traffic-'+id+'" autocomplete="off" placeholder="'+t('noLimit')+'" value="'+fmtLimitInput(u.limit)+'"></div>'+
        '</div>'+
        '<div class="kedit-row">'+
-         '<div><div class="set-label">'+t('devices')+'</div><input class="fi" id="ed-ip-'+id+'" inputmode="numeric" autocomplete="off" placeholder="'+t('noLimit')+'" value="'+(u.ipLimit||'')+'"></div>'+
+         '<div><div class="set-label">'+t('devices')+deviceCount(u)+'</div><input class="fi" id="ed-ip-'+id+'" inputmode="numeric" autocomplete="off" placeholder="'+t('noLimit')+'" value="'+(u.ipLimit||'')+'"></div>'+
          '<div><div class="set-label">'+t('monthlyReset')+'</div>'+
            '<div class="swrow"><button type="button" class="tog'+(u.autoReset?' on':'')+'" id="ed-auto-'+id+'" role="switch" aria-checked="'+(u.autoReset?'true':'false')+'" data-act="toggleSwitch"></button>'+
            '<span class="swrow-label">'+t('monthlyResetOn')+'</span></div>'+
@@ -1669,6 +1671,20 @@ async function toggleBan(){
     await refreshDetailViews(id);
   }catch(e){toast('ошибка: '+e.message)}
 }
+// deviceCount shows how much of the device limit is taken, and doubles as the
+// way to hand the slots back — a phone that was replaced would otherwise keep
+// its place until the window runs out.
+function deviceCount(u){
+  if(!u.ipLimit)return '';
+  return '<button type="button" class="set-count" data-act="resetDevices" data-arg="'+u.id+'" title="'+t('resetDevices')+'" aria-label="'+t('resetDevices')+'">'+(u.devices||0)+'/'+u.ipLimit+'</button>';
+}
+async function resetDevices(id){
+  try{
+    await api('/users/'+encodeURIComponent(id)+'/devices/reset',{method:'POST'});
+    toast('устройства сброшены');
+    await refreshDetailViews(id);
+  }catch(e){toast('ошибка: '+e.message)}
+}
 async function resetTraffic(){
   if(!currentDetail)return;
   const id=currentDetail.id;
@@ -1729,6 +1745,7 @@ const ACTIONS = {
   pickLink:      el => pickLink(el.dataset.arg, el.dataset.proto),
   ban:           () => toggleBan(),
   resetTraffic:  () => resetTraffic(),
+  resetDevices:  el => resetDevices(el.dataset.arg),
   deleteKey:     () => deleteUser(),
   cycleCountdown:() => cycleCountdown(),
   allProtos:     () => toggleAllProtos(),

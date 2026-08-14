@@ -47,10 +47,19 @@ type Server struct {
 	proxies Proxies
 	title   string
 	quota   Quota
+	devices *Devices
 }
 
 func New(st *store.Store, proxies Proxies, title string, quota Quota) *Server {
 	return &Server{st: st, proxies: proxies, title: title, quota: quota}
+}
+
+// TrackDevices turns on the device limit. Without it the subscription is
+// served to anyone holding the link, which is how mor behaved before and how
+// it still behaves for any key with no limit set.
+func (s *Server) TrackDevices(d *Devices) *Server {
+	s.devices = d
+	return s
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -83,6 +92,13 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	users := s.st.BySub(token)
 	if len(users) == 0 {
 		http.NotFound(w, r)
+		return
+	}
+
+	// The cap is the person's, and every key of one person carries the same
+	// number, so the first is as good as any.
+	if s.devices != nil && !s.devices.Allow(token, deviceID(r), users[0].IPLimit) {
+		http.Error(w, "слишком много устройств на этом ключе", http.StatusForbidden)
 		return
 	}
 
