@@ -649,6 +649,7 @@ var protoDisplayNames = map[string]string{
 
 func (ws *webServer) handleConfigGet(w http.ResponseWriter, r *http.Request) {
 	c := ws.e.cfg
+	c.ReloadIfChanged()
 	writeJSON(w, map[string]any{
 		"dns": c.DNS, "sni": c.SNI, "host": c.PublicHost, "hyObfs": c.HyObfs,
 		"vpnPort": c.VPNPort, "realityPort": c.Reality.Port, "realityDest": c.Reality.Dest,

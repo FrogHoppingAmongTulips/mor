@@ -33,6 +33,9 @@ func collectLoop(ctx context.Context, e *env, g *guard) {
 			_ = e.audit.Save()
 			return
 		case <-t.C:
+			// The terminal is a second process over the same files. Keys pick
+			// themselves up on every read; the config has to be asked.
+			e.cfg.ReloadIfChanged()
 			collect(e)
 			autoReset(e)
 			enforce(e, g, cut)

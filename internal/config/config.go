@@ -92,8 +92,9 @@ type Config struct {
 
 	StatsSecret string `json:"stats_secret"`
 
-	mu   sync.Mutex
-	path string
+	mu    sync.Mutex
+	path  string
+	state fsutil.FileState
 }
 
 type Reality struct {
@@ -162,8 +163,62 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 	c.path = path
+	c.state.Remember(path)
 	c.EnsureDefaults()
 	return c, nil
+}
+
+// ReloadIfChanged re-reads the file when somebody else wrote it, and says
+// whether anything came back.
+//
+// The running server and the command line are two processes over one file: a
+// key made in the terminal shows up in the panel because the key store does
+// this, and until the config did the same the panel went on displaying the
+// settings as they were when it started — and, worse, wrote that stale copy
+// back the next time anything was saved, quietly undoing what the terminal had
+// changed.
+//
+// An unchanged file costs one stat and touches nothing, so in the ordinary case
+// there is no write here to race with the handlers reading these fields.
+func (c *Config) ReloadIfChanged() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	b, changed := c.state.Changed(c.path)
+	if !changed {
+		return false
+	}
+	fresh := &Config{}
+	if json.Unmarshal(b, fresh) != nil {
+		return false
+	}
+	c.applyLocked(fresh)
+	return true
+}
+
+// applyLocked copies the settings and nothing else. Assigning the whole struct
+// would overwrite the lock this call is holding, and the deferred unlock would
+// then take the process down with "unlock of unlocked mutex" — which is exactly
+// what it did the first time this was written.
+//
+// A field added above and forgotten here would silently stop syncing, so
+// TestReloadCarriesEveryField compares a full round trip rather than trusting
+// this list to stay complete.
+func (c *Config) applyLocked(n *Config) {
+	c.PublicHost = n.PublicHost
+	c.VPNPort = n.VPNPort
+	c.SNI = n.SNI
+	c.DNS = n.DNS
+	c.HyObfs = n.HyObfs
+	c.Reality = n.Reality
+	c.Enc = n.Enc
+	c.SS = n.SS
+	c.SubPort = n.SubPort
+	c.SubOff = n.SubOff
+	c.WebPasswordHash = n.WebPasswordHash
+	c.WebPort = n.WebPort
+	c.WebOff = n.WebOff
+	c.Off = n.Off
+	c.StatsSecret = n.StatsSecret
 }
 
 func (c *Config) EnsureDefaults() bool {
@@ -215,7 +270,11 @@ func (c *Config) Save() error {
 	if err != nil {
 		return err
 	}
-	return fsutil.WriteAtomic(c.path, b, 0o600)
+	if err := fsutil.WriteAtomic(c.path, b, 0o600); err != nil {
+		return err
+	}
+	c.state.Remember(c.path)
+	return nil
 }
 
 func (c *Config) SetPath(p string) { c.path = p }

@@ -266,7 +266,11 @@ func (ws *webServer) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
+	// Whatever the terminal changed since the last tick is picked up first:
+	// saving on top of a stale copy would put the old values back and give no
+	// sign it had happened.
 	c := ws.e.cfg
+	c.ReloadIfChanged()
 
 	for _, p := range []*int{p.VPNPort, p.RealityPort, p.EncPort, p.SSPort, p.SubPort, p.WebPort} {
 		if p == nil {

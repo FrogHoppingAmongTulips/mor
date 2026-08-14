@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -156,4 +157,81 @@ func TestSNIStaysInSync(t *testing.T) {
 	if old.SNI != "dl.google.com" || old.Reality.Dest != "dl.google.com" {
 		t.Errorf("миграция: %q vs %q", old.SNI, old.Reality.Dest)
 	}
+}
+
+// The terminal and the running server are two processes over one file. A
+// setting changed in one has to reach the other, and the copy has to carry
+// every field: one left out of applyLocked would silently stop syncing, and
+// the panel would go on writing the old value back.
+//
+// The reader is loaded from an earlier file rather than blanked by hand — a
+// field the copy forgets then keeps its previous value instead of an empty one,
+// which is the failure this is looking for and the one a hand-blanked fixture
+// hides.
+func TestReloadCarriesEveryField(t *testing.T) {
+	path := t.TempDir() + "/config.json"
+
+	before := NewDefault()
+	before.SetPath(path)
+	if err := before.Save(); err != nil {
+		t.Fatal(err)
+	}
+	old, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	after := &Config{
+		PublicHost: "vpn.example.com", VPNPort: 2097, SNI: "www.microsoft.com",
+		DNS: "8.8.4.4", HyObfs: "шум",
+		Reality: Reality{Port: 8443, Dest: "www.apple.com:443", PrivateKey: "прк", PublicKey: "пуб", ShortID: "ид"},
+		Enc:     Enc{Port: 2198, Decryption: "деш", Encryption: "шиф"}, SS: SS{Port: 2199},
+		SubPort: 8881, SubOff: true,
+		WebPasswordHash: "соль:хеш", WebPort: 9091, WebOff: true,
+		Off:         []string{"ss"},
+		StatsSecret: "секрет",
+	}
+	after.SetPath(path)
+	if err := after.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	if !old.ReloadIfChanged() {
+		t.Fatal("перечитывание не заметило чужую запись")
+	}
+
+	want, err := json.Marshal(after)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := json.Marshal(old)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(want) {
+		t.Fatalf("после перечитывания настройки разошлись\n  получено  %s\n  ожидалось %s", got, want)
+	}
+}
+
+// Reloading must not disturb the lock it runs under: the first version of this
+// assigned the whole struct and killed the process on the deferred unlock.
+func TestReloadSurvivesConcurrentSaves(t *testing.T) {
+	path := t.TempDir() + "/config.json"
+	c := NewDefault()
+	c.SetPath(path)
+	if err := c.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		for range 200 {
+			_ = c.Save()
+		}
+		close(done)
+	}()
+	for range 200 {
+		c.ReloadIfChanged()
+	}
+	<-done
 }
