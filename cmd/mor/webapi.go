@@ -79,8 +79,18 @@ func startWebPanel(ctx context.Context, e *env) {
 		defer cancel()
 		_ = srv.Shutdown(shutdown)
 	}()
-	log.Printf("веб-панель на :%d", e.cfg.WebPort)
-	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+
+	// The panel carries the one password to this server and every key it hands
+	// out, so it is never served in the clear: a real certificate when there is
+	// one, mor's own otherwise.
+	tc, err := tlsConfig(e)
+	if err != nil {
+		log.Printf("предупреждение: TLS для панели не поднялся: %v", err)
+		return
+	}
+	srv.TLSConfig = tc
+	log.Printf("веб-панель на https://%s:%d (%s)", e.cfg.PublicHost, e.cfg.WebPort, certSummary(e.paths.WebCertFile))
+	if err := srv.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Printf("предупреждение: веб-панель на :%d не поднялась: %v", e.cfg.WebPort, err)
 	}
 }
@@ -213,6 +223,8 @@ func (ws *webServer) handleStats(w http.ResponseWriter, r *http.Request) {
 		"monthTraffic":    ws.monthTraffic(),
 		"updateAvailable": ws.checkUpdate(),
 		"version":         version,
+		"certSelfSigned":  certIsSelfSigned(ws.e.paths.WebCertFile),
+		"cert":            certSummary(ws.e.paths.WebCertFile),
 	})
 }
 

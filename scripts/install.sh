@@ -122,7 +122,10 @@ drop_singbox() {
 open_firewall() {
   local hy tcp_ports p
   hy="$(cfg_port vpn_port "${VPN_PORT}")"
+  # 80 is for the ACME challenge — needed at issuance and at every renewal;
+  # web_port is the panel itself, which was unreachable behind a live ufw.
   tcp_ports="$(cfg_reality_port) $(cfg_nested_port enc port 2098) $(cfg_port sub_port 8880)"
+  tcp_ports="$tcp_ports $(cfg_nested_port ss port 2099) $(cfg_port web_port 9090) 80"
 
   if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q active; then
     ufw allow "$hy"/udp >/dev/null 2>&1 || true
@@ -244,6 +247,12 @@ uninstall() {
   rm -f "$BIN" /usr/local/bin/aqu /usr/local/bin/hysteria
   rm -rf "$MOR_DIR" /etc/aqu /etc/hysteria /etc/sing-box
   rm -f /usr/local/bin/sing-box
+  # acme.sh leaves an account key and a renewal cron behind; both are useless
+  # once mor is gone and the cron would fail nightly forever.
+  if [ -x /root/.acme.sh/acme.sh ]; then
+    /root/.acme.sh/acme.sh --uninstall >/dev/null 2>&1 || true
+    rm -rf /root/.acme.sh
+  fi
   userdel hysteria >/dev/null 2>&1 || true
   if command -v xray >/dev/null 2>&1; then
     bash -c "$(curl -fsSL https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ remove --purge >/dev/null 2>&1 || true
@@ -292,9 +301,42 @@ install() {
   fi
   drop_singbox
   open_firewall >/dev/null
+  panel_cert
 
   echo
   self_check "$fresh"
+}
+
+# panel_cert gets the web panel a real certificate.
+#
+# The panel carries the server password and every key it issues, so it is served
+# over TLS always: mor writes itself a self-signed certificate on first start,
+# and this replaces it with a trusted one when the machine can get one. A bare
+# IP works — Let's Encrypt issues for addresses under its short-lived profile,
+# renewed by acme.sh's own cron. Failure here is not fatal: the panel keeps
+# working on the self-signed certificate and "mor panel cert" retries later.
+panel_cert() {
+  local host
+  host="$(cfg_host)"
+  [ -n "$host" ] || return 0
+  # Port 80 must be free and reachable for the ACME challenge. If something
+  # already listens there, leave it alone rather than fighting over it.
+  if ss -tln 2>/dev/null | grep -q ":80 "; then
+    log "порт 80 занят — сертификат не выпускаю, панель на своём"
+    return 0
+  fi
+  log "выпускаю сертификат для панели…"
+  if "$BIN" panel cert "$host" >/dev/null 2>&1; then
+    log "сертификат выпущен"
+  else
+    log "сертификат не выпустился — панель работает на своём, повтори: mor panel cert"
+  fi
+}
+
+# cfg_host reads the public address mor is configured with.
+cfg_host() {
+  grep -o '"public_host"[[:space:]]*:[[:space:]]*"[^"]*"' "$MOR_DIR/config.json" 2>/dev/null |
+    head -1 | cut -d'"' -f4
 }
 
 # self_check makes the installer answer its own question: did the thing that was

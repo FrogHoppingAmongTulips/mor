@@ -144,7 +144,7 @@ func printHelp() {
   host <домен|ip>       адрес в ссылках — домен переживает переезд
   proto [on|off <id>]   что стоит, что включено · включить/выключить протокол
   sub [on|off|port N]   автовыбор: одна ссылка на все протоколы
-  panel [password P|on|off|port N]
+  panel [password P|on|off|port N|cert HOST]
                         веб-панель — без пароля не запустится
   status                состояние сервера
   check                 доходят ли порты снаружи

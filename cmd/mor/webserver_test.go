@@ -31,6 +31,8 @@ func testPanel(t *testing.T) (*webServer, *store.Store) {
 		HistoryFile:  dir + "/history.json",
 		AuditLogFile: dir + "/audit.json",
 		SysHistFile:  dir + "/syshist.json",
+		WebCertFile:  dir + "/web.crt",
+		WebKeyFile:   dir + "/web.key",
 	}
 	cfg := config.NewDefault()
 	cfg.PublicHost = "203.0.113.7"

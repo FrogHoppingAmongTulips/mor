@@ -24,10 +24,15 @@ func cmdPanel(args []string) {
 		if e.cfg.WebPasswordHash == "" {
 			fmt.Println("  пароль не задан — без него панель не запустится")
 		}
-		fmt.Println("  сменить: panel password <пароль> · panel on · panel off · panel port 9090")
+		fmt.Printf("  сертификат: %s\n", certSummary(e.paths.WebCertFile))
+		fmt.Println("  сменить: panel password <пароль> · panel on · panel off · panel port 9090 · panel cert [домен|ip]")
 		return
 	}
 	switch args[0] {
+	case "cert":
+		// Issuing restarts mor, so it cannot share the save-and-report tail below.
+		cmdPanelCert(args[1:])
+		return
 	case "password":
 		if len(args) < 2 {
 			fmt.Println("  укажи пароль: panel password секрет123")
@@ -48,7 +53,7 @@ func cmdPanel(args []string) {
 		}
 		e.cfg.WebPort = p
 	default:
-		fmt.Println("  panel password <пароль> · panel on · panel off · panel port <номер>")
+		fmt.Println("  panel password <пароль> · panel on · panel off · panel port <номер> · panel cert [домен|ip]")
 		return
 	}
 	if err := e.cfg.Save(); err != nil {
