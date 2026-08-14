@@ -1,8 +1,10 @@
 package main
 
 import (
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/pem"
 	"fmt"
 	"io"
@@ -363,13 +365,17 @@ func TestSilentClientDoesNotBlockOthers(t *testing.T) {
 // ones — a header applied only to the routes somebody remembered protects
 // nothing.
 func TestSecurityHeadersOnEveryResponse(t *testing.T) {
+	page, err := webFS.ReadFile("web/panel.html")
+	if err != nil {
+		t.Fatal(err)
+	}
 	h := withSecurityHeaders(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/boom" {
 			http.Error(w, "нет", http.StatusNotFound)
 			return
 		}
 		_, _ = w.Write([]byte("ок"))
-	}))
+	}), contentSecurityPolicy(page))
 	srv := httptest.NewServer(h)
 	defer srv.Close()
 
@@ -399,5 +405,53 @@ func TestSecurityHeadersOnEveryResponse(t *testing.T) {
 				t.Errorf("в CSP нет %q: %s", must, csp)
 			}
 		}
+	}
+}
+
+// The policy must name the page's own blocks by hash and allow nothing else —
+// 'unsafe-inline' anywhere in script-src would mean an injected script runs.
+func TestCSPPinsThePageByHash(t *testing.T) {
+	page, err := webFS.ReadFile("web/panel.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	csp := contentSecurityPolicy(page)
+
+	if strings.Contains(csp, "unsafe-inline") || strings.Contains(csp, "unsafe-eval") {
+		t.Fatalf("политика ослаблена: %s", csp)
+	}
+	if !strings.Contains(csp, "script-src 'sha256-") {
+		t.Fatalf("скрипт не закреплён хешем: %s", csp)
+	}
+	if !strings.Contains(csp, "style-src 'sha256-") {
+		t.Fatalf("стили не закреплены хешем: %s", csp)
+	}
+}
+
+// A hash that does not match what the browser sees would block the whole
+// panel, so it is computed from exactly the bytes between the tags.
+func TestInlineHashMatchesTheBlock(t *testing.T) {
+	page := []byte("<html><style>тело-стиля</style><script>тело-скрипта</script></html>")
+
+	want := func(body string) string {
+		sum := sha256.Sum256([]byte(body))
+		return "'sha256-" + base64.StdEncoding.EncodeToString(sum[:]) + "'"
+	}
+	if got := inlineHash(page, "<script>", "</script>"); got != want("тело-скрипта") {
+		t.Fatalf("скрипт: %s", got)
+	}
+	if got := inlineHash(page, "<style>", "</style>"); got != want("тело-стиля") {
+		t.Fatalf("стиль: %s", got)
+	}
+}
+
+// A page without the block must deny rather than fall back to allowing
+// anything — the panel breaking loudly beats it running unverified code.
+func TestInlineHashDeniesWhenBlockMissing(t *testing.T) {
+	if got := inlineHash([]byte("<html></html>"), "<script>", "</script>"); got != "'none'" {
+		t.Fatalf("без блока: %s", got)
+	}
+	if got := inlineHash([]byte("<script>без закрытия"), "<script>", "</script>"); got != "'none'" {
+		t.Fatalf("без закрывающего тега: %s", got)
 	}
 }

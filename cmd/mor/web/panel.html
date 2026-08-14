@@ -218,6 +218,8 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
 
 /* An iOS-style switch reads as a setting you flip; a bare checkbox reads as a
    form you submit. These are settings. */
+.pw-new{margin-top:18px}
+.pw-btn{margin-top:12px}
 .swrow{display:flex;align-items:center;gap:10px;height:38px}
 .swrow-label{font-size:13px;color:var(--t2)}
 
@@ -419,15 +421,15 @@ details.grp[open]>summary{margin-bottom:14px}
 <div class="dash" id="dashboard">
   <div class="topbar">
     <div class="topbar-r">
-      <button class="btn-plus" data-i18n="create" onclick="showCreateModal()">Создать</button>
-      <button class="sw-txt" onclick="toggleLang()"><span id="langRu">ru</span><span id="langEn">en</span></button>
-      <button class="theme-sw" onclick="toggleTheme()">
+      <button class="btn-plus" data-i18n="create" data-act="create">Создать</button>
+      <button class="sw-txt" data-act="lang"><span id="langRu">ru</span><span id="langEn">en</span></button>
+      <button class="theme-sw" data-act="theme">
         <svg class="theme-icon" viewBox="0 0 24 24">
-          <circle id="iconSun" cx="12" cy="12" r="7" fill="currentColor" style="display:none"/>
+          <circle id="iconSun" class="hidden" cx="12" cy="12" r="7" fill="currentColor"/>
           <g id="iconMoon"><circle cx="12" cy="12" r="7" fill="currentColor"/><circle cx="17" cy="8" r="6" fill="var(--bg)"/></g>
         </svg>
       </button>
-      <button class="logout-btn" data-i18n="logout" onclick="logout()">выйти</button>
+      <button class="logout-btn" data-i18n="logout" data-act="logout">выйти</button>
     </div>
   </div>
 
@@ -435,31 +437,31 @@ details.grp[open]>summary{margin-bottom:14px}
   <div class="page on" id="page-home">
     <div class="stage">
       <div class="squares">
-        <div class="sq" onclick="select('keys')" data-pane="keys">
+        <button type="button" class="sq" data-act="select" data-arg="keys" data-pane="keys">
         <svg class="sq-icon" viewBox="0 0 24 24"><circle cx="8" cy="12" r="4"/><path d="M12 12h9M18 12v4"/></svg>
         <div class="sq-label" data-i18n="keys">Ключи</div>
-      </div>
-        <div class="sq" onclick="select('status')" data-pane="status">
+      </button>
+        <button type="button" class="sq" data-act="select" data-arg="status" data-pane="status">
         <svg class="sq-icon" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6l7-3z"/></svg>
         <div class="sq-label" data-i18n="status">Статус</div>
-      </div>
-        <div class="sq" onclick="select('system')" data-pane="system">
+      </button>
+        <button type="button" class="sq" data-act="select" data-arg="system" data-pane="system">
         <svg class="sq-icon" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4"/></svg>
         <div class="sq-label" data-i18n="system">Система</div>
-      </div>
-        <div class="sq" onclick="select('traffic')" data-pane="traffic">
+      </button>
+        <button type="button" class="sq" data-act="select" data-arg="traffic" data-pane="traffic">
         <svg class="sq-icon" viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>
         <div class="sq-label" data-i18n="traffic">Трафик за месяц</div>
-      </div>
-        <div class="sq" onclick="select('actions')" data-pane="actions">
+      </button>
+        <button type="button" class="sq" data-act="select" data-arg="actions" data-pane="actions">
           <svg class="sq-icon" viewBox="0 0 24 24"><path d="M3.5 9A9 9 0 1112 21a9 9 0 01-7.5-4"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></svg>
           <div class="sq-label" data-i18n="recentActions">Последние действия</div>
-        </div>
+        </button>
 
-        <div class="sq" onclick="select('settings')" data-pane="settings">
+        <button type="button" class="sq" data-act="select" data-arg="settings" data-pane="settings">
         <svg class="sq-icon" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
         <div class="sq-label" data-i18n="settings">Настройки</div>
-      </div>
+      </button>
       </div>
       <div class="detail">
         <div class="detail-title" id="detailTitle"></div>
@@ -474,8 +476,8 @@ details.grp[open]>summary{margin-bottom:14px}
   <div id="pane-keys">
     <div id="homeUsers"></div>
     <div class="bulkbar" id="bulkBar">
-      <button class="btn btn-sm btn-r" id="bulkDelBtn" onclick="deleteSelected()"></button>
-      <button class="btn btn-sm" onclick="picked.clear();renderHome()" data-i18n="clearSel">Снять</button>
+      <button class="btn btn-sm btn-r" id="bulkDelBtn" data-act="delSelected"></button>
+      <button class="btn btn-sm" data-act="clearPick" data-i18n="clearSel">Снять</button>
     </div>
   </div>
   <div id="pane-status">
@@ -502,7 +504,7 @@ details.grp[open]>summary{margin-bottom:14px}
       <div class="chart-head"><span class="chart-name" data-i18n="disk">Диск</span><span class="chart-now" id="sysVal-disk">—</span></div>
       <div class="disk-bar"><div class="disk-bar-fill" id="diskFill"></div></div>
       <div class="disk-legend" id="diskLegend"></div>
-      <button class="btn btn-sm" id="diskBtn" data-i18n="whatStored" onclick="loadDisk()">Что занимает место</button>
+      <button class="btn btn-sm" id="diskBtn" data-i18n="whatStored" data-act="disk">Что занимает место</button>
       <div id="diskBreakdown"></div>
     </div>
    </div>
@@ -524,20 +526,21 @@ details.grp[open]>summary{margin-bottom:14px}
     </div>
     <div class="grp">
       <div class="grp-title" data-i18n="subsGroup">Подписка</div>
-      <div class="set-field"><div class="set-label" data-i18n="subPort">Порт подписок</div><input class="fi" id="setSubPort" inputmode="numeric"></div>
-      <div class="swrow"><div class="tog" id="setSubOn" onclick="this.classList.toggle('on')"></div><span class="swrow-label" data-i18n="subOn">раздавать подписки</span></div>
+      <div class="set-field"><label class="set-label" data-i18n="subPort" for="setSubPort">Порт подписок</label>
+        <input class="fi" id="setSubPort" inputmode="numeric"></div>
+      <div class="swrow"><button type="button" class="tog" id="setSubOn" role="switch" aria-checked="false" data-act="toggleSwitch"></button><span class="swrow-label" data-i18n="subOn">раздавать подписки</span></div>
     </div>
     <div class="grp">
       <div class="grp-title" data-i18n="general">Основное</div>
       <div class="set-field">
-        <div class="set-label">DNS</div>
+        <label class="set-label" for="setDns">DNS</label>
         <input class="fi" id="setDns" autocomplete="off">
       </div>
     </div>
     <div class="grp">
       <div class="grp-title" data-i18n="restart">Перезапуск</div>
       <div class="rs-warn" id="rsWarn"></div>
-      <button class="btn btn-sm btn-r" id="rsBtn" data-i18n="restartBtn" onclick="restartEngines()">Перезапустить</button>
+      <button class="btn btn-sm btn-r" id="rsBtn" data-i18n="restartBtn" data-act="restart">Перезапустить</button>
     </div>
 
 
@@ -548,23 +551,28 @@ details.grp[open]>summary{margin-bottom:14px}
     <details class="grp set-adv">
       <summary data-i18n="advanced">Дополнительно</summary>
       <div class="set-note danger" data-i18n="advancedWarn">Эти значения зашиты в уже выданные ссылки. После смены старые ссылки перестанут работать — придётся раздать заново.</div>
-      <div class="set-field"><div class="set-label" data-i18n="serverAddress">Адрес сервера</div><input class="fi" id="setHost" autocomplete="off"></div>
-      <div class="set-field"><div class="set-label">SNI</div><input class="fi" id="setSni" autocomplete="off"></div>
-      <div class="set-field"><div class="set-label" data-i18n="hyObfs">Обфускация Hysteria2</div><input class="fi" id="setObfs" autocomplete="off"></div>
-      <div class="set-field"><div class="set-label" data-i18n="realityDest">Reality маскируется под</div><input class="fi" id="setRealityDest" autocomplete="off"></div>
-      <div class="set-field"><div class="set-label" data-i18n="panelPort">Порт панели</div><input class="fi" id="setWebPort" inputmode="numeric">
+      <div class="set-field"><label class="set-label" data-i18n="serverAddress" for="setHost">Адрес сервера</label>
+        <input class="fi" id="setHost" autocomplete="off"></div>
+      <div class="set-field"><label class="set-label" for="setSni">SNI</label>
+        <input class="fi" id="setSni" autocomplete="off"></div>
+      <div class="set-field"><label class="set-label" data-i18n="hyObfs" for="setObfs">Обфускация Hysteria2</label>
+        <input class="fi" id="setObfs" autocomplete="off"></div>
+      <div class="set-field"><label class="set-label" data-i18n="realityDest" for="setRealityDest">Reality маскируется под</label>
+        <input class="fi" id="setRealityDest" autocomplete="off"></div>
+      <div class="set-field"><label class="set-label" data-i18n="panelPort" for="setWebPort">Порт панели</label>
+        <input class="fi" id="setWebPort" inputmode="numeric">
 </div>
       <div class="set-sep"></div>
       <div class="set-field">
-        <div class="set-label" data-i18n="panelPassword">Пароль панели</div>
+        <label class="set-label" data-i18n="panelPassword" for="setPwCur">Пароль панели</label>
         <input class="fi" id="setPwCur" type="password" data-i18n-ph="currentPassword" placeholder="текущий пароль" autocomplete="off">
-        <input class="fi" id="setPwNew" type="password" data-i18n-ph="newPassword" placeholder="новый, минимум 8 символов" autocomplete="off" style="margin-top:18px">
-        <button class="btn btn-sm" style="margin-top:12px" data-i18n="changePassword" onclick="changePassword()">Сменить пароль</button>
+        <input class="fi pw-new" id="setPwNew" type="password" data-i18n-ph="newPassword" placeholder="новый, минимум 8 символов" autocomplete="off">
+        <button type="button" class="btn btn-sm pw-btn" data-i18n="changePassword" data-act="password">Сменить пароль</button>
       </div>
     </details>
 
     <div class="pane-actions">
-      <button class="btn btn-w btn-sm" data-i18n="save" onclick="saveSettings()">Сохранить</button>
+      <button class="btn btn-w btn-sm" data-i18n="save" data-act="saveSettings">Сохранить</button>
     </div>
 
     <div id="updNote"></div>
@@ -581,7 +589,7 @@ details.grp[open]>summary{margin-bottom:14px}
       <div class="fld"><div class="fl" data-i18n="period">Срок</div><input class="fi" id="createTime" autocomplete="off" placeholder="30d"></div>
       <div class="fld"><div class="fl" data-i18n="trafficLimit">Лимит трафика</div><input class="fi" id="createTraffic" autocomplete="off" placeholder="50gb"></div>
     </div>
-    <div class="mbtn"><button type="button" class="btn" onclick="hideCreateModal()" data-i18n="cancel">Отмена</button><button type="button" class="btn btn-w" onclick="createUser()" data-i18n="create">Создать</button></div>
+    <div class="mbtn"><button type="button" class="btn" data-act="cancelCreate" data-i18n="cancel">Отмена</button><button type="button" class="btn btn-w" data-act="doCreate" data-i18n="create">Создать</button></div>
   </form>
 </div>
 
@@ -753,7 +761,8 @@ function toggleLang(){
 }
 
 /* ---- theme ---- */
-function toggleTheme(){isDark=!isDark;document.documentElement.setAttribute('data-theme',isDark?'dark':'light');updateThemeIcon();localStorage.setItem('morTheme',isDark?'dark':'light')}
+function toggleTheme(){isDark=!isDark;document.documentElement.setAttribute('data-theme',isDark?'dark':'light');
+  updateThemeIcon();localStorage.setItem('morTheme',isDark?'dark':'light')}
 function updateThemeIcon(){
   document.getElementById('iconMoon').style.display=isDark?'':'none';
   document.getElementById('iconSun').style.display=isDark?'none':'';
@@ -895,9 +904,10 @@ function renderTopUsers(){
   w.innerHTML=top.map((u,i)=>
     '<div class="top-row"><span class="top-rank">'+(i+1)+'</span>'+
     '<span class="top-name">'+esc(u.name)+'</span>'+
-    '<span class="top-bar"><span class="top-bar-fill" style="width:'+(u.traffic/mx*100).toFixed(0)+'%"></span></span>'+
+    '<span class="top-bar"><span class="top-bar-fill" data-w="'+(u.traffic/mx*100).toFixed(0)+'"></span></span>'+
     '<span class="top-val">'+fmtBytes(u.traffic)+'</span></div>'
   ).join('');
+  applySizes(w);
 }
 
 // CPU/RAM as charts over the last day, disk as a bar plus an on-demand
@@ -1033,22 +1043,28 @@ function renderHome(){
     const on=!dead&&(onlineIds.has(u.id)||ago(u.lastSeen)==='онлайн');
     const isOpen=homeExpanded===u.id;
     const card=document.createElement('div');card.className='uh'+(isOpen?' open':'')+(dead?' dead':'');
+    // Two real buttons side by side rather than one clickable div: both reach
+    // by Tab, both answer Enter and Space, and neither is nested in the other.
     card.innerHTML=
       '<div class="uh-head">'+
-        '<span class="uh-pick'+(picked.has(u.id)?' on':'')+'" title="'+t('select')+'"></span>'+
-        '<span class="uh-dot '+(on?'on':'off')+'"></span>'+
-        '<span class="uh-name">'+esc(u.name)+'</span>'+
-        '<span class="uh-status">'+statusPill(u,on)+'</span>'+
-        sparkSvg(u.spark)+
-        '<span class="uh-val">'+fmtBytes(u.traffic)+'</span></div>'+
+        '<button type="button" class="uh-pick'+(picked.has(u.id)?' on':'')+'" role="checkbox"'+
+          ' aria-checked="'+(picked.has(u.id)?'true':'false')+'" aria-label="'+t('select')+'"'+
+          ' data-act="pick" data-arg="'+u.id+'"></button>'+
+        '<button type="button" class="uh-open" data-act="openKey" data-arg="'+u.id+'"'+
+          ' aria-expanded="'+(isOpen?'true':'false')+'">'+
+          '<span class="uh-dot '+(on?'on':'off')+'"></span>'+
+          '<span class="uh-name">'+esc(u.name)+'</span>'+
+          '<span class="uh-status">'+statusPill(u,on)+'</span>'+
+          sparkSvg(u.spark)+
+          '<span class="uh-val">'+fmtBytes(u.traffic)+'</span>'+
+        '</button>'+
+      '</div>'+
       '<div class="uh-body'+(isOpen?' open':'')+'"><div class="uh-body-in"><div class="uh-content" id="uh-content-'+u.id+'"></div></div></div>';
-    card.querySelector('.uh-head').onclick=()=>toggleHomeUser(u.id);
-    // Ticking a key must not also open it.
-    card.querySelector('.uh-pick').onclick=e=>{e.stopPropagation();togglePick(u.id)};
     w.appendChild(card);
     if(isOpen)renderHomeDetail(u.id);
   });
   if(scroller)scroller.scrollTop=scroll;
+  applySizes(w);
   renderBulkBar();
 }
 
@@ -1056,7 +1072,9 @@ function togglePick(id){
   picked.has(id)?picked.delete(id):picked.add(id);
   document.querySelectorAll('#homeUsers .uh').forEach((card,i)=>{
     const el=card.querySelector('.uh-pick');
-    if(el)el.classList.toggle('on',picked.has(users[i].id));
+    if(!el)return;
+    el.classList.toggle('on',picked.has(users[i].id));
+    syncPressed(el);
   });
   renderBulkBar();
 }
@@ -1159,7 +1177,7 @@ function renderHomeDetail(id){
     '</div>';
   // One month is a rectangle, not a chart — it says nothing and reads as a
   // rendering fault. The bars start being worth drawing at two.
-  if(months.length>1)h+='<div class="bars">'+months.map(m=>'<div class="bar" style="height:'+Math.max(4,m.bytes/mx*100)+'%" title="'+m.month+': '+fmtBytes(m.bytes)+'"></div>').join('')+'</div>';
+  if(months.length>1)h+='<div class="bars">'+months.map(m=>'<div class="bar" data-h="'+Math.max(4,m.bytes/mx*100)+'" title="'+m.month+': '+fmtBytes(m.bytes)+'"></div>').join('')+'</div>';
   h+='</div>';
 
   // A key can carry a protocol the server has since switched off. Saying which
@@ -1184,33 +1202,34 @@ function renderHomeDetail(id){
        '<div class="kedit-row">'+
          '<div><div class="set-label">'+t('devices')+'</div><input class="fi" id="ed-ip-'+id+'" inputmode="numeric" autocomplete="off" placeholder="'+t('noLimit')+'" value="'+(u.ipLimit||'')+'"></div>'+
          '<div><div class="set-label">'+t('monthlyReset')+'</div>'+
-           '<div class="swrow"><div class="tog'+(u.autoReset?' on':'')+'" id="ed-auto-'+id+'" onclick="this.classList.toggle(\'on\')"></div>'+
+           '<div class="swrow"><button type="button" class="tog'+(u.autoReset?' on':'')+'" id="ed-auto-'+id+'" role="switch" aria-checked="'+(u.autoReset?'true':'false')+'" data-act="toggleSwitch"></button>'+
            '<span class="swrow-label">'+t('monthlyResetOn')+'</span></div>'+
          '</div>'+
        '</div>'+
-       '<button class="btn btn-w btn-sm kwide" onclick="saveKeyEdit(\''+id+'\')">'+t('saveKey')+'</button>'+
+       '<button type="button" class="btn btn-w btn-sm kwide" data-act="saveKey" data-arg="'+id+'">'+t('saveKey')+'</button>'+
      '</div></div>';
 
   h+='<div class="kcard"><div class="ksec">'+t('shareSec')+'</div>'+
      '<div class="pchk lchoice" id="lch-'+id+'">'+
-       '<span class="pchip on" data-l="" onclick="pickLink(\''+id+'\',\'\')">'+t('all')+'</span>'+
-       u.protocols.map(p=>'<span class="pchip" data-l="'+p+'" onclick="pickLink(\''+id+'\',\''+p+'\')">'+(PROTO_NAMES[p]||p)+'</span>').join('')+
+       '<button type="button" class="pchip on" data-l="" data-act="pickLink" data-arg="'+id+'" data-proto="" aria-pressed="true">'+t('all')+'</button>'+
+       u.protocols.map(p=>'<button type="button" class="pchip" data-l="'+p+'" data-act="pickLink" data-arg="'+id+'" data-proto="'+p+'" aria-pressed="false">'+(PROTO_NAMES[p]||p)+'</button>').join('')+
      '</div>'+
-     '<div class="linkrow" onclick="copyShown(\''+id+'\')" title="'+t('copyLink')+'">'+
+     '<button type="button" class="linkrow" data-act="copyLink" data-arg="'+id+'" title="'+t('copyLink')+'">'+
        '<span class="linkrow-text" id="ltext-'+id+'">'+esc(u.subLink||u.link||'')+'</span>'+
        '<svg class="linkrow-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>'+
      '</div>'+
-     '<div class="dact"><button class="btn btn-sm" onclick="toggleHomeQR(\''+id+'\')">'+t('qr')+'</button></div>'+
+     '<div class="dact"><button type="button" class="btn btn-sm" data-act="qr" data-arg="'+id+'">'+t('qr')+'</button></div>'+
      '<div class="qr-w hidden" id="uh-qr-'+id+'"><div class="qr-b" id="uh-qr-box-'+id+'"></div></div></div>';
 
   // Delete sits apart from the reversible two: banning and resetting can be
   // undone, this cannot.
   h+='<div class="kcard"><div class="ksec">'+t('actionsSec')+'</div>'+
-     '<div class="dact"><button class="btn btn-sm" onclick="toggleBan()">'+(u.banned?t('enable'):t('disable'))+'</button>'+
-     '<button class="btn btn-sm" onclick="resetTraffic()">'+t('resetTraffic')+'</button></div>'+
-     '<div class="kdanger"><button class="btn btn-sm btn-danger kwide" onclick="deleteUser()">'+t('delete')+'</button></div>'+
+     '<div class="dact"><button type="button" class="btn btn-sm" data-act="ban">'+(u.banned?t('enable'):t('disable'))+'</button>'+
+     '<button type="button" class="btn btn-sm" data-act="resetTraffic">'+t('resetTraffic')+'</button></div>'+
+     '<div class="kdanger"><button type="button" class="btn btn-sm btn-danger kwide" data-act="deleteKey">'+t('delete')+'</button></div>'+
      '</div>';
   box.innerHTML=h;
+  applySizes(box);
 }
 
 // Bytes back into the shorthand the box accepts, so saving without touching
@@ -1246,7 +1265,7 @@ function countdownHTML(iso){
   const parts=countdownUnits(iso);
   if(!parts.length)return '<div class="kfact-v">'+t('expiredS')+'</div>';
   if(cdLevel>parts.length)cdLevel=1;
-  return '<div class="kfact-v cdown lvl-'+cdLevel+'" id="kcount" onclick="cycleCountdown()" title="'+t('moreDetail')+'">'+
+  return '<button type="button" class="kfact-v cdown lvl-'+cdLevel+'" id="kcount" data-act="cycleCountdown" title="'+t('moreDetail')+'">'+
     parts.map(p=>'<span class="cd-u">'+p+'</span>').join('')+'</div>';
 }
 function cycleCountdown(){
@@ -1347,8 +1366,10 @@ async function loadProtocols(){
   protocols.forEach(p=>{
     const row=document.createElement('div');row.className='prow';
     row.innerHTML='<div class="prow-l"><span class="prow-dot '+(p.on?'':'off')+'"></span><span class="prow-name">'+(PROTO_NAMES[p.id]||p.id)+'</span></div>'+
-      '<div class="prow-r"><span class="prow-port">'+p.port+'/'+p.kind+'</span><div class="tog '+(p.on?'on':'')+'" data-id="'+p.id+'"></div></div>';
-    row.querySelector('.tog').onclick=(e)=>toggleProto(p.id,e.currentTarget);
+      '<div class="prow-r"><span class="prow-port">'+p.port+'/'+p.kind+'</span>'+
+      '<button type="button" class="tog '+(p.on?'on':'')+'" data-id="'+p.id+'" role="switch"'+
+      ' aria-checked="'+(p.on?'true':'false')+'" aria-label="'+(PROTO_NAMES[p.id]||p.id)+'"'+
+      ' data-act="toggleProto" data-arg="'+p.id+'"></button></div>';
     w.appendChild(row);
   });
   const cp=document.getElementById('createProtos');
@@ -1358,8 +1379,8 @@ async function loadProtocols(){
   // across the rebuild.
   const picked=new Set([...cp.querySelectorAll('.pchip[data-proto].on')].map(c=>c.dataset.proto));
   cp.innerHTML=live.length
-    ? '<span class="pchip pchip-all" onclick="toggleAllProtos()">'+t('all')+'</span>'+
-      live.map(p=>'<span class="pchip'+(picked.has(p.id)?' on':'')+'" data-proto="'+p.id+'" onclick="this.classList.toggle(\'on\');syncAllChip()">'+(PROTO_NAMES[p.id]||p.id)+'</span>').join('')
+    ? '<button type="button" class="pchip pchip-all" data-act="allProtos" aria-pressed="false">'+t('all')+'</button>'+
+      live.map(p=>'<button type="button" class="pchip'+(picked.has(p.id)?' on':'')+'" data-proto="'+p.id+'" data-act="toggleProtoChip" aria-pressed="'+(picked.has(p.id)?'true':'false')+'">'+(PROTO_NAMES[p.id]||p.id)+'</button>').join('')
     : '<span class="empty">'+t('allOff')+'</span>';
   syncAllChip();
   renderStatusProtos();
@@ -1487,7 +1508,7 @@ function renderPortRows(){
     return '<div class="portrow">'+
       '<span class="portrow-name">'+(PROTO_NAMES[p.id]||p.id)+'</span>'+
       '<input class="fi portrow-in" id="'+id+'" inputmode="numeric" value="'+(lastCfg?lastCfg[SET_NUM[id]]||'':'')+'">'+
-      '<button class="btn btn-sm" id="pick-'+p.id+'" onclick="pickPort(\''+p.id+'\')">'+t('pickPort')+'</button>'+
+      '<button type="button" class="btn btn-sm" id="pick-'+p.id+'" data-act="pickPort" data-arg="'+p.id+'">'+t('pickPort')+'</button>'+
     '</div>';
   }).join('');
 }
@@ -1625,6 +1646,68 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;',
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2500)}
 
 applyLang();
+/* ---- one listener for every action ----
+   Handlers used to be written into the markup as onclick="…". That made the
+   page depend on inline script, which a strict Content-Security-Policy has to
+   forbid — and it is exactly what an injected script would abuse. Every
+   control now carries data-act (and data-arg where it needs one) and is a real
+   <button>, so the keyboard works for free and the policy can stay strict. */
+const ACTIONS = {
+  create:        () => showCreateModal(),
+  cancelCreate:  () => hideCreateModal(),
+  doCreate:      () => createUser(),
+  lang:          () => toggleLang(),
+  theme:         () => toggleTheme(),
+  logout:        () => logout(),
+  select:        el => select(el.dataset.arg),
+  disk:          () => loadDisk(),
+  restart:       () => restartEngines(),
+  password:      () => changePassword(),
+  saveSettings:  () => saveSettings(),
+  pickPort:      el => pickPort(el.dataset.arg),
+  delSelected:   () => deleteSelected(),
+  clearPick:     () => { picked.clear(); renderHome(); },
+  pick:          el => togglePick(el.dataset.arg),
+  openKey:       el => toggleHomeUser(el.dataset.arg),
+  saveKey:       el => saveKeyEdit(el.dataset.arg),
+  qr:            el => toggleHomeQR(el.dataset.arg),
+  copyLink:      el => copyShown(el.dataset.arg),
+  pickLink:      el => pickLink(el.dataset.arg, el.dataset.proto),
+  ban:           () => toggleBan(),
+  resetTraffic:  () => resetTraffic(),
+  deleteKey:     () => deleteUser(),
+  cycleCountdown:() => cycleCountdown(),
+  allProtos:     () => toggleAllProtos(),
+  toggleProto:   el => toggleProto(el.dataset.arg, el),
+  toggleProtoChip: el => { el.classList.toggle('on'); syncPressed(el); syncAllChip(); },
+  // A switch that only carries its own state: subscriptions, monthly renewal.
+  toggleSwitch:  el => { el.classList.toggle('on'); syncPressed(el); },
+};
+
+// Widths and heights that depend on data are applied through the style object
+// rather than a style="" attribute: the attribute is inline style, which the
+// policy blocks, while assigning the property is not.
+function applySizes(root){
+  (root||document).querySelectorAll('[data-w]').forEach(el=>{el.style.width=el.dataset.w+'%'});
+  (root||document).querySelectorAll('[data-h]').forEach(el=>{el.style.height=el.dataset.h+'%'});
+}
+
+// aria has to follow the class, or a screen reader keeps announcing the state
+// the control had before it was pressed.
+function syncPressed(el){
+  if(el.hasAttribute('aria-pressed'))el.setAttribute('aria-pressed', el.classList.contains('on')?'true':'false');
+  if(el.hasAttribute('aria-checked'))el.setAttribute('aria-checked', el.classList.contains('on')?'true':'false');
+}
+
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]');
+  if(!el || el.disabled) return;
+  const fn = ACTIONS[el.dataset.act];
+  if(!fn) return;
+  e.preventDefault();
+  fn(el, e);
+});
+
 updateThemeIcon();
 checkSession();
 setInterval(()=>{if(document.getElementById('dashboard').classList.contains('on'))refreshAll()},15000);

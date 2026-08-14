@@ -73,7 +73,15 @@ func startWebPanel(ctx context.Context, e *env) {
 	go ws.sysHist.run(ctx)
 	mux := http.NewServeMux()
 	ws.routes(mux)
-	srv := &http.Server{Addr: fmt.Sprintf(":%d", e.cfg.WebPort), Handler: withSecurityHeaders(mux), ReadHeaderTimeout: 5 * time.Second}
+	// The policy names the hashes of the page's own two inline blocks, so it is
+	// derived from the file that will be served rather than written by hand.
+	page, err := webFS.ReadFile("web/panel.html")
+	if err != nil {
+		log.Printf("предупреждение: panel.html не читается: %v", err)
+		return
+	}
+	csp := contentSecurityPolicy(page)
+	srv := &http.Server{Addr: fmt.Sprintf(":%d", e.cfg.WebPort), Handler: withSecurityHeaders(mux, csp), ReadHeaderTimeout: 5 * time.Second}
 	go func() {
 		<-ctx.Done()
 		// Flush the expiries that Valid slid forward without writing, so a
