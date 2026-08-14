@@ -32,7 +32,14 @@ func plural(n int) string {
 	return fmt.Sprintf("%d %s", n, word)
 }
 
-func protoInstalled(proto string) bool {
+// protoInstalled reports whether the engine behind a protocol is on this
+// machine — a key for a missing engine would only be a dead link.
+//
+// It is a variable so tests can answer for themselves. Without that they pass
+// or fail depending on whether the developer happens to have the engines
+// installed, which is exactly how a green run on one machine turned into a red
+// one on a clean build server.
+var protoInstalled = func(proto string) bool {
 	switch proto {
 	case store.ProtoHy2:
 		_, err := exec.LookPath("hysteria")

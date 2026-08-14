@@ -22,6 +22,13 @@ import (
 // handler that dereferences a nil compiles perfectly — only a request finds it.
 func testPanel(t *testing.T) (*webServer, *store.Store) {
 	t.Helper()
+	// The engines are not installed on a build server, and whether they happen
+	// to be installed on a developer's laptop must not decide what the tests
+	// prove. Handlers are what is under test here, not the machine.
+	real := protoInstalled
+	protoInstalled = func(string) bool { return true }
+	t.Cleanup(func() { protoInstalled = real })
+
 	dir := t.TempDir()
 	paths := config.Paths{
 		BaseDir:      dir,
