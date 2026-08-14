@@ -270,6 +270,11 @@ test('ни одного нарушения политики безопаснос
 test('ни одной кнопки со стилем по умолчанию', async (page) => {
   await login(page);
   const id = await makeKey(page, 'тест-вид');
+  // With a deadline and a cap set: the countdown is a button that only exists
+  // when there is something to count down to, and it was the one that got
+  // missed the first time round.
+  await page.evaluate((i) => api('/users/' + i, { method: 'PATCH', body: JSON.stringify({ time: '30d', traffic: '50gb' }) }), id);
+  await page.evaluate(() => loadUsers());
 
   const scan = () => page.evaluate(() => {
     const out = [];
@@ -301,6 +306,31 @@ test('ни одной кнопки со стилем по умолчанию', a
   eq((await scan()).join(' · '), '', 'окно создания');
   await page.click('[data-act="cancelCreate"]');
 
+  await dropKeys(page, 'тест-');
+});
+
+// The two facts at the top of a key card are a pair, side by side. An unclosed
+// tag in one of them closed the grid early and dropped the other onto its own
+// line — the card still rendered, so nothing but the geometry catches it.
+test('срок и лимит стоят рядом, а не друг под другом', async (page) => {
+  await login(page);
+  const id = await makeKey(page, 'тест-пара');
+  await page.evaluate((i) => api('/users/' + i, { method: 'PATCH', body: JSON.stringify({ time: '30d', traffic: '50gb' }) }), id);
+  await page.evaluate(() => loadUsers());
+
+  await page.click('[data-pane="keys"]');
+  await page.waitForTimeout(600);
+  const row = page.locator('.uh', { has: page.locator('.uh-name', { hasText: 'тест-пара' }) });
+  await row.locator('.uh-open').click();
+  await page.waitForTimeout(900);
+
+  const facts = await page.evaluate(() => {
+    const f = document.querySelector('.uh.open .kfacts');
+    return [...f.children].map((c) => ({ верх: Math.round(c.getBoundingClientRect().top), текст: c.textContent.trim() }));
+  });
+  eq(facts.length, 2, 'фактов в шапке');
+  eq(facts[0].верх, facts[1].верх, 'срок и лимит на разных строках');
+  ok(/ГБ|GB/.test(facts[1].текст), `во втором факте не лимит: ${facts[1].текст}`);
   await dropKeys(page, 'тест-');
 });
 

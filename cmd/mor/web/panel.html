@@ -278,7 +278,7 @@ details.grp[open]>summary{margin-bottom:14px}
 .kfacts{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:12px}
 /* Units past the first are collapsed to zero width and expand when asked —
    the number grows in place instead of the layout jumping. */
-.cdown{cursor:pointer;display:inline-flex;align-items:baseline}
+.cdown{cursor:pointer;display:inline-flex;align-items:baseline;background:none;border:0;padding:0;font-family:inherit;color:inherit;text-align:left}
 .cd-u{display:inline-block;overflow:hidden;white-space:nowrap;max-width:0;opacity:0;margin-left:0;
   transition:max-width .38s cubic-bezier(.32,.72,0,1),opacity .3s ease,margin-left .38s cubic-bezier(.32,.72,0,1)}
 .cd-u:first-child,.cdown.lvl-2 .cd-u:nth-child(-n+2),.cdown.lvl-3 .cd-u:nth-child(-n+3),.cdown.lvl-4 .cd-u:nth-child(-n+4){max-width:6ch;opacity:1}
@@ -1321,7 +1321,7 @@ function countdownHTML(iso){
   if(!parts.length)return '<div class="kfact-v">'+t('expiredS')+'</div>';
   if(cdLevel>parts.length)cdLevel=1;
   return '<button type="button" class="kfact-v cdown lvl-'+cdLevel+'" id="kcount" data-act="cycleCountdown" title="'+t('moreDetail')+'">'+
-    parts.map(p=>'<span class="cd-u">'+p+'</span>').join('')+'</div>';
+    parts.map(p=>'<span class="cd-u">'+p+'</span>').join('')+'</button>';
 }
 function cycleCountdown(){
   const el=document.getElementById('kcount');
