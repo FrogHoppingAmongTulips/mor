@@ -7,13 +7,13 @@
 //
 // Each test gets a fresh page and cleans up the keys it made.
 
-const { chromium } = require('playwright');
+const { chromium, devices } = require('playwright');
 
 const URL = process.env.MOR_URL || 'https://127.0.0.1:9090';
 const PASSWORD = process.env.MOR_PASSWORD || '';
 
 const tests = [];
-const test = (name, fn) => tests.push({ name, fn });
+const test = (name, fn, mobile = false) => tests.push({ name, fn, mobile });
 
 /* ---------- helpers ---------- */
 
@@ -166,14 +166,17 @@ test('массовое удаление требует подтверждени�
   await page.click('[data-pane="keys"]');
   await page.waitForTimeout(800);
 
-  const picks = page.locator('.uh-pick');
-  const n = await picks.count();
-  await picks.nth(n - 1).click();
-  await picks.nth(n - 2).click();
+  // Only the rows this test created. Picking by position once selected — and
+  // deleted — a key that belonged to the person running the tests.
+  for (const name of ['тест-удалить-1', 'тест-удалить-2']) {
+    const row = page.locator('.uh', { has: page.locator('.uh-name', { hasText: name }) });
+    await row.locator('.uh-pick').click();
+  }
   await page.waitForTimeout(400);
   ok(await page.locator('#bulkBar.show').count() === 1, 'панель выбора не появилась');
 
   const wasCount = await page.locator('.uh').count();
+  eq(await page.locator('#bulkDelBtn').textContent(), 'Удалить выбранные (2)', 'выбрано не два ключа');
   await page.click('#bulkDelBtn');
   await page.waitForTimeout(400);
   eq(await page.locator('.uh').count(), wasCount, 'удалило с первого нажатия');
@@ -277,6 +280,52 @@ test('здоровье отвечает без пароля', async (page) => {
   ok('ok' in body, 'нет поля ok');
 });
 
+// Phones are how most people will open this. Every one of these broke before
+// the layout existed: the page rendered at 980px and was zoomed out to
+// illegibility, and the key row ran its own columns into each other.
+test('телефон: страница по ширине экрана, без горизонтальной прокрутки', async (page) => {
+  await login(page);
+  const m = await page.evaluate(() => ({
+    экран: window.innerWidth,
+    документ: document.documentElement.scrollWidth,
+  }));
+  ok(m.экран < 500, `тест запущен не в телефонном контексте: ${m.экран}`);
+  ok(m.документ <= m.экран + 1, `документ ${m.документ} шире экрана ${m.экран}`);
+}, true);
+
+test('телефон: колонки складываются в одну', async (page) => {
+  await login(page);
+  const dir = await page.evaluate(() => getComputedStyle(document.querySelector('.stage')).flexDirection);
+  eq(dir, 'column', 'направление раскладки');
+}, true);
+
+test('телефон: строка ключа не наезжает сама на себя', async (page) => {
+  await login(page);
+  await makeKey(page, 'тест-телефон');
+  await page.click('[data-pane="keys"]');
+  await page.waitForTimeout(900);
+  const box = await page.evaluate(() => {
+    const n = document.querySelector('.uh-name').getBoundingClientRect();
+    const v = document.querySelector('.uh-val').getBoundingClientRect();
+    return { наложение: Math.round(n.right - v.left) };
+  });
+  ok(box.наложение <= 0, `имя наезжает на трафик на ${box.наложение}px`);
+  await dropKeys(page, 'тест-');
+});
+
+test('телефон: по кнопкам можно попасть пальцем', async (page) => {
+  await login(page);
+  await makeKey(page, 'тест-палец');
+  await page.click('[data-pane="keys"]');
+  await page.waitForTimeout(900);
+  const size = await page.evaluate(() => {
+    const r = document.querySelector('.uh-pick').getBoundingClientRect();
+    return Math.round(Math.min(r.width, r.height));
+  });
+  ok(size >= 22, `отметка ${size}px — мелко для пальца`);
+  await dropKeys(page, 'тест-');
+});
+
 /* ---------- runner ---------- */
 
 (async () => {
@@ -287,8 +336,10 @@ test('здоровье отвечает без пароля', async (page) => {
   const browser = await chromium.launch({ headless: true });
   let failed = 0;
 
-  for (const { name, fn } of tests) {
-    const ctx = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1500, height: 950 } });
+  for (const { name, fn, mobile } of tests) {
+    const ctx = await browser.newContext(mobile || name.startsWith('телефон')
+      ? { ...devices['iPhone 13'], ignoreHTTPSErrors: true }
+      : { ignoreHTTPSErrors: true, viewport: { width: 1500, height: 950 } });
     const page = await ctx.newPage();
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));

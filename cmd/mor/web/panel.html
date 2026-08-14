@@ -1,4 +1,6 @@
 <title>MOR</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
 <style>
 :root{
   --bg:#000;--bg2:#0a0a0a;--card:#141414;--card-h:#1e1e1e;
@@ -47,7 +49,7 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
 /* MAIN */
 .dash{display:none;position:fixed;top:52px;left:0;right:0;bottom:0}
 .dash.on{display:flex}
-.page{display:none;width:100%;height:100%;overflow-y:auto;padding:24px 28px}
+.page{display:none;width:100%;height:100%;overflow-y:auto;padding:24px 28px;-webkit-overflow-scrolling:touch}
 .page.on{display:block}
 
 /* ONE SCREEN — equal squares. Every tile is the same size on purpose:
@@ -78,14 +80,7 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
 .detail{flex:1;min-width:0;background:var(--card);border:1px solid var(--card-border);border-radius:var(--r);display:flex;flex-direction:column;min-height:0}
 .detail-title{font-size:11px;font-weight:500;color:var(--t3);text-transform:uppercase;letter-spacing:.14em;padding:20px 22px 14px;flex-shrink:0}
 .detail-body{flex:1;min-height:0;overflow-y:auto;padding:0 22px 22px}
-@media(max-width:900px){
-  #page-home{overflow-y:auto}
-  .stage{flex-direction:column;height:auto}
-  .squares{grid-auto-rows:120px}
-  .detail{width:auto}
-}
-
-.sec{font-size:10px;font-weight:500;color:var(--t1);margin-bottom:14px;letter-spacing:.14em;text-transform:uppercase}
+weight:500;color:var(--t1);margin-bottom:14px;letter-spacing:.14em;text-transform:uppercase}
 
 .sc-meter{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:10px}
 .sc-meter-fill{height:100%;background:var(--t3);border-radius:2px;transition:width .3s}
@@ -407,6 +402,61 @@ details.grp[open]>summary{margin-bottom:14px}
 .set-adv>*:not(summary){margin-top:14px}
 .det .sec{margin-bottom:10px}
 
+
+/* Mobile last: these rules override the component styles above, and a media
+   query only wins when it comes after what it is correcting. */
+/* Phone: the two columns become one. Tiles stay a grid but stop being square —
+   six squares on a narrow screen push everything else below the fold. */
+@media(max-width:900px){
+  #page-home{overflow-y:auto}
+  .stage{flex-direction:column;height:auto;gap:16px}
+  .squares{width:auto;grid-template-columns:repeat(3,1fr);grid-template-rows:none;gap:10px}
+  .sq{aspect-ratio:auto;padding:16px 8px;gap:8px}
+  .sq-icon{width:24px;height:24px}
+  .sq-label{font-size:9px;letter-spacing:.08em}
+  .detail{width:auto;flex:none}
+  .detail-body{max-height:none}
+}
+@media(max-width:560px){
+  .stage{gap:12px}
+  .page{padding:12px}
+  .squares{grid-template-columns:repeat(3,1fr);gap:8px}
+  .sq{padding:14px 6px}
+  .detail-title{padding:14px 16px 0}
+  .detail-body{padding:0 16px 16px}
+  /* A key row on a phone has no room for the sparkline; the numbers matter. */
+  .uh-spark{display:none}
+  .uh-head{gap:12px;padding:12px 14px}
+  /* Name and traffic on the first line, state under the name. Side by side
+     they had no room left and ran into each other. */
+  .uh-open{display:grid;grid-template-columns:auto 1fr auto;grid-template-rows:auto auto;
+    column-gap:10px;row-gap:2px;align-items:center}
+  .uh-dot{grid-row:1}
+  .uh-name{grid-column:2;grid-row:1;font-size:15px}
+  .uh-val{grid-column:3;grid-row:1;width:auto;font-size:13px}
+  .uh-status{grid-column:2/4;grid-row:2;width:auto;justify-self:start}
+  .uh-seen,.uh-pill{font-size:11px}
+  /* Fingers need a target, not a 16px square. */
+  .uh-pick{width:22px;height:22px}
+  .uh-pick.on::after{width:4px;height:9px}
+  .btn,.btn-sm{padding:10px 16px;font-size:13px}
+  .kedit-row{grid-template-columns:1fr;gap:16px}
+  .set-grid{grid-template-columns:1fr}
+  .kfacts{grid-template-columns:1fr;gap:10px}
+  .pgrid{grid-template-columns:1fr}
+  .grp{padding:14px}
+  .modal{margin:12px;padding:20px}
+  .bstat-counters{gap:14px}
+  .sp-grid{grid-template-columns:1fr 1fr}
+  .syscols{grid-template-columns:1fr}
+  /* The top bar is the one thing that must never wrap into two rows. */
+  .topbar{padding:0 12px;gap:10px}
+  .topbar-r{gap:14px}
+  .btn-plus{padding:8px 14px;font-size:12px}
+  .logout-btn{display:none}
+}
+
+.sec{font-size:10px;font-
 </style>
 
 <!-- LOGIN — DO NOT MODIFY -->
