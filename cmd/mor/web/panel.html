@@ -1264,13 +1264,21 @@ function renderHomeDetail(id){
        '<button type="button" class="btn btn-w btn-sm kwide" data-act="saveKey" data-arg="'+id+'">'+t('saveKey')+'</button>'+
      '</div></div>';
 
+  // The card is redrawn by the refresh every fifteen seconds. Building the
+  // chips from the remembered choice rather than hardcoding "all" is what
+  // keeps a picked protocol picked instead of snapping back mid-copy.
+  let lp=linkPick.get(id)||'';
+  if(lp&&!u.protocols.includes(lp)){lp='';linkPick.set(id,lp)}
+  const chip=(val,label)=>'<button type="button" class="pchip'+(lp===val?' on':'')+'" data-l="'+val+'"'+
+    ' data-act="pickLink" data-arg="'+id+'" data-proto="'+val+'" aria-pressed="'+(lp===val?'true':'false')+'">'+label+'</button>';
+
   h+='<div class="kcard"><div class="ksec">'+t('shareSec')+'</div>'+
      '<div class="pchk lchoice" id="lch-'+id+'">'+
-       '<button type="button" class="pchip on" data-l="" data-act="pickLink" data-arg="'+id+'" data-proto="" aria-pressed="true">'+t('all')+'</button>'+
-       u.protocols.map(p=>'<button type="button" class="pchip" data-l="'+p+'" data-act="pickLink" data-arg="'+id+'" data-proto="'+p+'" aria-pressed="false">'+(PROTO_NAMES[p]||p)+'</button>').join('')+
+       chip('',t('all'))+
+       u.protocols.map(p=>chip(p,PROTO_NAMES[p]||p)).join('')+
      '</div>'+
      '<button type="button" class="linkrow" data-act="copyLink" data-arg="'+id+'" title="'+t('copyLink')+'">'+
-       '<span class="linkrow-text" id="ltext-'+id+'">'+esc(u.subLink||u.link||'')+'</span>'+
+       '<span class="linkrow-text" id="ltext-'+id+'">'+esc(lp?(u.links&&u.links[lp]||''):(u.subLink||u.link||''))+'</span>'+
        '<svg class="linkrow-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>'+
      '</div>'+
      '<div class="dact"><button type="button" class="btn btn-sm" data-act="qr" data-arg="'+id+'">'+t('qr')+'</button></div>'+

@@ -309,6 +309,31 @@ test('ни одной кнопки со стилем по умолчанию', a
   await dropKeys(page, 'тест-');
 });
 
+// The list refreshes itself every fifteen seconds and redraws the open card
+// with it. Anything the person picked by hand has to survive that, or the
+// panel undoes their choice while they are still looking at it.
+test('выбранный протокол переживает обновление списка', async (page) => {
+  await login(page);
+  await makeKey(page, 'тест-выбор', ['hy2', 'reality']);
+  await page.click('[data-pane="keys"]');
+  await page.waitForTimeout(600);
+  const row = page.locator('.uh', { has: page.locator('.uh-name', { hasText: 'тест-выбор' }) });
+  await row.locator('.uh-open').click();
+  await page.waitForTimeout(900);
+
+  await row.locator('.pchip', { hasText: 'VLESS+Reality' }).click();
+  await page.waitForTimeout(300);
+  const было = await row.locator('.linkrow-text').textContent();
+  ok(было.startsWith('vless://'), `выбрана не прямая ссылка: ${было}`);
+
+  await page.evaluate(() => refreshAll());
+  await page.waitForTimeout(800);
+
+  eq(await row.locator('.pchip.on').textContent(), 'VLESS+Reality', 'после обновления выбран не тот протокол');
+  eq(await row.locator('.linkrow-text').textContent(), было, 'после обновления сменилась ссылка');
+  await dropKeys(page, 'тест-');
+});
+
 // The two facts at the top of a key card are a pair, side by side. An unclosed
 // tag in one of them closed the grid early and dropped the other onto its own
 // line — the card still rendered, so nothing but the geometry catches it.
