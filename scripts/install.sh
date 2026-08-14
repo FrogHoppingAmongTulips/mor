@@ -29,9 +29,9 @@ ensure_deps() {
       command -v "$mgr" >/dev/null 2>&1 || continue
       log "ставлю curl через $mgr…"
       case "$mgr" in
-        pacman) "$mgr" -Sy --noconfirm curl ca-certificates >/dev/null 2>&1 ;;
-        apk)    "$mgr" add --no-cache curl ca-certificates  >/dev/null 2>&1 ;;
-        *)      "$mgr" install -y curl ca-certificates      >/dev/null 2>&1 ;;
+        pacman) "$mgr" -Sy --noconfirm curl ca-certificates cronie >/dev/null 2>&1 ;;
+        apk)    "$mgr" add --no-cache curl ca-certificates dcron   >/dev/null 2>&1 ;;
+        *)      "$mgr" install -y curl ca-certificates cronie      >/dev/null 2>&1 ;;
       esac
       command -v curl >/dev/null 2>&1 && return
     done
@@ -45,7 +45,7 @@ ensure_deps() {
     echo "$out" | tail -5
     log "предупреждение: apt-get update прошёл с ошибками — продолжаю"
   fi
-  if ! out="$(apt-get install -y curl ca-certificates 2>&1)"; then
+  if ! out="$(apt-get install -y curl ca-certificates cron 2>&1)"; then
     echo "$out" | tail -5
     die "не удалось поставить curl/ca-certificates — проверь сеть и репозитории сервера"
   fi

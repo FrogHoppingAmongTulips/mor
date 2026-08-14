@@ -76,9 +76,18 @@ func ensureAcme() error {
 	if _, err := exec.LookPath("curl"); err != nil {
 		return fmt.Errorf("нужен curl, установи его и повтори")
 	}
+	// acme.sh refuses to install without a crontab, and rightly so: a
+	// certificate for a bare IP lives about six days, so a server with no cron
+	// would quietly serve an expired one by the end of the week.
+	if _, err := exec.LookPath("crontab"); err != nil {
+		return fmt.Errorf("нужен cron — без него сертификат не будет продлеваться.\n  поставь: apt-get install -y cron  (или dnf install -y cronie)")
+	}
 	fmt.Println("  ставлю acme.sh…")
-	script := exec.Command("sh", "-c",
-		"curl -fsSL https://get.acme.sh | sh -s email=mor@localhost")
+	// No contact address is registered. Let's Encrypt accepts an account
+	// without one, and inventing a fake address is worse than leaving it
+	// empty: it fails validation outright, and a real-looking one would send
+	// this server's expiry notices to a stranger.
+	script := exec.Command("sh", "-c", "curl -fsSL https://get.acme.sh | sh")
 	if out, err := script.CombinedOutput(); err != nil {
 		return fmt.Errorf("установка acme.sh: %s", lastLines(string(out), 4))
 	}
