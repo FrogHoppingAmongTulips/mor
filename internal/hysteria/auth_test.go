@@ -19,7 +19,7 @@ func authTestServer(t *testing.T) (*httptest.Server, *store.Store, *store.User) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := httptest.NewServer(authHandler(st))
+	srv := httptest.NewServer(authHandler(st, nil, nil))
 	t.Cleanup(srv.Close)
 	return srv, st, u
 }
@@ -60,6 +60,26 @@ func TestAuthRejectsGarbage(t *testing.T) {
 	got := postAuth(t, srv.URL, `{ not json`)
 	if !strings.Contains(got, `"ok":false`) {
 		t.Fatalf("garbage input must be rejected: %s", got)
+	}
+}
+
+// A person who spent their traffic cap must be turned away even though the key
+// itself is still valid.
+func TestAuthRejectsSpent(t *testing.T) {
+	st, err := store.Open(t.TempDir() + "/users.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, err := st.Add(&store.User{Name: "phone", Proto: store.ProtoHy2, HyToken: "valid-token"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(authHandler(st, func(id string) bool { return id == u.ID }, nil))
+	defer srv.Close()
+
+	got := postAuth(t, srv.URL, `{"addr":"198.51.100.1:5000","auth":"valid-token"}`)
+	if !strings.Contains(got, `"ok":false`) {
+		t.Fatalf("исчерпавший лимит должен получить отказ: %s", got)
 	}
 }
 

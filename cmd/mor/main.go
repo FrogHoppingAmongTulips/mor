@@ -8,24 +8,25 @@ import (
 	"log"
 	"net"
 	"os"
-	"os/exec"
 	"os/signal"
-	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
+	"mor/internal/auditlog"
 	"mor/internal/config"
 	"mor/internal/hysteria"
-	"mor/internal/keys"
-	"mor/internal/period"
-	"mor/internal/qr"
+	"mor/internal/proxy"
 	"mor/internal/stats"
 	"mor/internal/store"
+	"mor/internal/sub"
 	"mor/internal/xray"
 )
 
 var version = "dev"
+
+// stdin is shared: two buffered readers over the same terminal would eat each
+// other's input, and hidden prompts read from the menu's stream.
+var stdin = bufio.NewReader(os.Stdin)
 
 func main() {
 	log.SetFlags(0)
@@ -55,20 +56,19 @@ func main() {
 }
 
 func shell() {
-	e, err := load()
-	if err != nil {
+	if _, err := load(); err != nil {
 		log.Fatalf("нет конфига — сначала установи: mor setup (%v)", err)
 	}
-	printHeader(e)
+	printHeader()
 
-	in := bufio.NewScanner(os.Stdin)
 	for {
 		fmt.Print("\nmor> ")
-		if !in.Scan() {
+		text, err := stdin.ReadString('\n')
+		if err != nil && text == "" {
 			fmt.Println()
 			return
 		}
-		line := strings.TrimSpace(in.Text())
+		line := strings.TrimSpace(text)
 		if line == "" {
 			continue
 		}
@@ -91,14 +91,28 @@ func run(cmd string, args []string) bool {
 		cmdShow(args)
 	case "del", "rm":
 		cmdDelete(args)
+	case "limit":
+		cmdLimit(args)
 	case "dns":
 		cmdDNS(args)
 	case "sni":
 		cmdSNI(args)
 	case "port":
 		cmdPort(args)
+	case "host", "address":
+		cmdHost(args)
+	case "proto", "protocol":
+		cmdProto(args)
+	case "sub", "subscription":
+		cmdSub(args)
+	case "panel":
+		cmdPanel(args)
 	case "status", "info":
 		cmdStatus()
+	case "check":
+		cmdCheck(args)
+	case "update":
+		cmdUpdate()
 	case "clear", "cls":
 		cmdClear()
 	case "help", "?":
@@ -111,218 +125,33 @@ func run(cmd string, args []string) bool {
 }
 
 func printHelp() {
-	fmt.Print(`  user [--reality] <имя>         создать ключ
-  list                           все ключи
-  qr <номер>                     показать ключ ещё раз
-  del <номер>                    удалить ключ
-  dns <ip>                       резолвер для всех клиентов
-  sni <домен>                    маскировка Hysteria2
-  port <номер>                   порт Hysteria2
-  status                         состояние сервера
-  clear                          очистить экран
-  exit                           выйти
+	fmt.Print(`  user <имя>            ключ на всех протоколах, одна ссылка
+  user --hy2|--reality|--enc|--ss <имя>
+                        ключ только на одном протоколе
+  list                  все ключи
+  qr <номер>            показать ключ ещё раз
+  del <номер>           удалить ключ
+  limit <номер> <срок и/или объём>
+                        30d · 10gb · 30d 10gb · off — снять
+  dns <ip>              резолвер для всех клиентов
+  sni <домен>           сайт, которым притворяется сервер
+  port <номер>          порт Hysteria2
+  host <домен|ip>       адрес в ссылках — домен переживает переезд
+  proto [on|off <id>]   что стоит, что включено · включить/выключить протокол
+  sub [on|off|port N]   автовыбор: одна ссылка на все протоколы
+  panel [password P|on|off|port N|cert HOST]
+                        веб-панель — без пароля не запустится
+  status                состояние сервера
+  check                 доходят ли порты снаружи
+  update                поставить свежую версию mor
+  clear                 очистить экран
+  exit                  выйти
 `)
 }
 
-func printHeader(e *env) {
+func printHeader() {
 	fmt.Printf("\n  MOR %s\n", version)
 	fmt.Println("\n  user <имя> — создать ключ · help — все команды · exit — выйти")
-}
-
-func cmdUser(args []string) {
-	proto := store.ProtoHy2
-	for len(args) > 0 && strings.HasPrefix(args[0], "--") {
-		switch args[0] {
-		case "--reality":
-			proto = store.ProtoReality
-		case "--hy2":
-			proto = store.ProtoHy2
-		default:
-			fmt.Printf("  неизвестный флаг %s\n", args[0])
-			return
-		}
-		args = args[1:]
-	}
-	name := strings.TrimSpace(strings.Join(args, " "))
-	if name == "" {
-		fmt.Println("  укажи имя: user телефон")
-		return
-	}
-	e, err := load()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	u, err := createKey(e, name, proto, "")
-	if u == nil {
-		fmt.Println(" ", err)
-		return
-	}
-
-	if err != nil {
-		fmt.Println("  предупреждение:", err)
-	}
-	showKey(e, u)
-}
-
-func cmdList() {
-	e, err := load()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	users := e.st.List()
-	if len(users) == 0 {
-		fmt.Println("  ключей нет — создай: user телефон")
-		return
-	}
-	fmt.Println()
-	now := time.Now()
-	for i, u := range users {
-		fmt.Printf("  %d  %-22s %-14s %s\n", i+1, u.Name, store.ProtoName(u.Proto), period.Left(u.ExpiresAt, now))
-	}
-}
-
-func cmdShow(args []string) {
-	e, u, ok := pick(args)
-	if !ok {
-		return
-	}
-	showKey(e, u)
-}
-
-func cmdDelete(args []string) {
-	e, u, ok := pick(args)
-	if !ok {
-		return
-	}
-	if err := removeKey(e, u); err != nil {
-		fmt.Println(" ", err)
-		return
-	}
-	fmt.Printf("  «%s» удалён\n", u.Name)
-}
-
-func cmdDNS(args []string) {
-	e, err := load()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	if len(args) == 0 {
-		fmt.Printf("  сейчас: %s\n", e.cfg.DNS)
-		fmt.Println("  сменить: dns 1.1.1.1 · dns 9.9.9.9 · dns 94.140.14.14")
-		return
-	}
-	if !config.ValidIP(args[0]) {
-		fmt.Println("  нужен IP, напр. dns 1.1.1.1")
-		return
-	}
-	e.cfg.DNS = args[0]
-	save(e, "dns → "+args[0], store.ProtoHy2, store.ProtoReality)
-}
-
-func cmdSNI(args []string) {
-	e, err := load()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	if len(args) == 0 {
-		fmt.Printf("  сейчас: %s\n", e.cfg.SNI)
-		fmt.Println("  сменить: sni www.cloudflare.com · sni www.apple.com")
-		return
-	}
-	domain := args[0]
-	if strings.ContainsAny(domain, " /:") {
-		fmt.Println("  нужен домен без протокола и порта, напр. sni www.apple.com")
-		return
-	}
-	e.cfg.SNI = withWWW(domain)
-	save(e, "маскировка → "+e.cfg.SNI, store.ProtoHy2)
-}
-
-func cmdPort(args []string) {
-	e, err := load()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	if len(args) == 0 {
-		fmt.Printf("  сейчас: %d/udp\n", e.cfg.VPNPort)
-		fmt.Println("  сменить: port 2096 — пригодится, если оператор режет текущий")
-		return
-	}
-	port, err := strconv.Atoi(args[0])
-	if err != nil || port < 1 || port > 65535 {
-		fmt.Println("  порт — число от 1 до 65535")
-		return
-	}
-	e.cfg.VPNPort = port
-	if save(e, fmt.Sprintf("порт → %d/udp", port), store.ProtoHy2) {
-		fmt.Println("  старые ссылки Hysteria2 больше не работают — раздай новые")
-	}
-}
-
-func cmdClear() {
-	e, err := load()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	fmt.Print(clearScreen)
-	printHeader(e)
-}
-
-func cmdStatus() {
-	e, err := load()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	users := e.st.List()
-	fmt.Println()
-	fmt.Printf("  адрес       %s\n", e.cfg.PublicHost)
-	fmt.Printf("  ключей      %d\n", len(users))
-	fmt.Printf("  dns         %s\n", e.cfg.DNS)
-	fmt.Println()
-	fmt.Printf("  Hysteria2   %d/udp · ключей %d · %s\n", e.cfg.VPNPort, countProto(users, store.ProtoHy2), serviceState(hysteria.Service))
-	fmt.Printf("  Reality     %d/tcp · ключей %d · %s\n", e.cfg.Reality.Port, countProto(users, store.ProtoReality), protoState(xray.Installed(), xray.Service))
-	fmt.Println()
-	fmt.Printf("  mor         %s\n", serviceState("mor"))
-	fmt.Printf("  версия      %s\n", version)
-}
-
-func serviceState(unit string) string {
-	out, err := exec.Command("systemctl", "is-active", unit).CombinedOutput()
-	state := strings.TrimSpace(string(out))
-	if state == "" {
-		if err != nil {
-			return "нет данных"
-		}
-		return "нет данных"
-	}
-	if state == "active" {
-		return "работает"
-	}
-	return state + " — journalctl -u " + unit
-}
-
-func countProto(users []*store.User, proto string) int {
-	n := 0
-	for _, u := range users {
-		if u.Proto == proto {
-			n++
-		}
-	}
-	return n
-}
-
-func protoState(installed bool, unit string) string {
-	if !installed {
-		return "не установлен"
-	}
-	return serviceState(unit)
 }
 
 func serve() {
@@ -339,22 +168,45 @@ func serve() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	go collectLoop(ctx, e)
+	g := newGuard()
+	go collectLoop(ctx, e, g)
+
+	if e.cfg.SubOn() {
+		go func() {
+			h := sub.New(e.st,
+				func(u *store.User) (proxy.Proxy, bool) { return proxyFor(e.cfg, u) },
+				e.cfg.PublicHost,
+				func(id string) (uint64, uint64) { return e.stats.Get(id).Total, limitOf(e, id) })
+			if err := sub.Serve(ctx, e.cfg.SubPort, h); err != nil {
+				log.Printf("предупреждение: подписка на :%d не поднялась: %v", e.cfg.SubPort, err)
+			}
+		}()
+		log.Printf("подписки раздаются на :%d", e.cfg.SubPort)
+	}
+
+	if e.cfg.WebOn() {
+		go startWebPanel(ctx, e)
+	}
 
 	log.Printf("mor %s: проверка ключей на 127.0.0.1:%d", version, hysteria.AuthPort)
-	if err := hysteria.StartAuthServer(ctx, e.st); err != nil {
+	tooMany := func(u *store.User, addr string) bool {
+		return !e.ipLimits.Allow(u.ID, addr, u.IPLimit)
+	}
+	if err := hysteria.StartAuthServer(ctx, e.st, g.has, tooMany); err != nil {
 		log.Fatal(err)
 	}
 }
 
 func applyAll(e *env) {
-	users := e.st.List()
-	if changed, err := e.hy.ApplyIfChanged(); err != nil {
-		log.Printf("предупреждение: Hysteria2: %v", err)
-	} else if changed {
-		log.Print("конфиг Hysteria2 обновлён")
+	users := e.live()
+	if e.cfg.On(store.ProtoHy2) {
+		if changed, err := e.hy.ApplyIfChanged(); err != nil {
+			log.Printf("предупреждение: Hysteria2: %v", err)
+		} else if changed {
+			log.Print("конфиг Hysteria2 обновлён")
+		}
 	}
-	if xray.Installed() {
+	if (e.cfg.On(store.ProtoReality) || e.cfg.On(store.ProtoEnc) || e.cfg.On(store.ProtoSS)) && xray.Installed() {
 		if changed, err := e.xr.ApplyIfChanged(users); err != nil {
 			log.Printf("предупреждение: Xray: %v", err)
 		} else if changed {
@@ -380,12 +232,12 @@ func setup(args []string) {
 	cfg := config.NewDefault()
 	cfg.SetPath(paths.ConfigFile)
 	cfg.VPNPort = *port
-	cfg.SNI = *sni
+	cfg.SetSNI(*sni)
 	cfg.DNS = *dns
 	cfg.EnsureDefaults()
 
 	pubHost := firstNonEmpty(*host, detectHost())
-	if !config.ValidPublicHost(pubHost) {
+	if !config.ValidHost(pubHost) {
 		log.Fatalf("не удалось определить публичный адрес сервера (получено %q).\n"+
 			"Укажи его вручную: mor setup --host <публичный-IP-или-домен> --force", pubHost)
 	}
@@ -411,7 +263,13 @@ type env struct {
 	hy    *hysteria.Manager
 	xr    *xray.Manager
 	stats *stats.Stats
+	hist  *stats.History
+	audit *auditlog.Log
 	paths config.Paths
+
+	// ipLimits lives only in memory: counting concurrent devices needs no
+	// history, and keeping one would mean recording where people connect from.
+	ipLimits *hysteria.IPTracker
 }
 
 func load() (*env, error) {
@@ -429,129 +287,25 @@ func load() (*env, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &env{
-		cfg:   cfg,
-		st:    st,
-		hy:    hysteria.New(cfg, paths),
-		xr:    xray.New(cfg, paths),
-		stats: st2,
-		paths: paths,
-	}, nil
-}
-
-func createKey(e *env, name, proto, sni string) (*store.User, error) {
-	u := &store.User{Name: name, Proto: proto, SNI: sni}
-	switch proto {
-	case store.ProtoReality:
-		if !xray.Installed() {
-			return nil, fmt.Errorf("Xray не установлен — переустанови mor")
-		}
-		u.UUID = keys.UUID()
-	default:
-		u.HyToken = keys.Token()
-	}
-	saved, err := e.st.Add(u)
+	hist, err := stats.OpenHistory(paths.HistoryFile)
 	if err != nil {
 		return nil, err
 	}
-	if err := syncProto(e, proto); err != nil {
-		return saved, err
-	}
-	if proto == store.ProtoReality {
-		if err := e.xr.AddUser(saved); err != nil {
-			return saved, err
-		}
-	}
-	return saved, nil
-}
-
-func syncProto(e *env, proto string) error {
-	if proto == store.ProtoReality && xray.Installed() {
-		return e.xr.WriteConfig(e.st.List())
-	}
-	return nil
-}
-
-func removeKey(e *env, u *store.User) error {
-	if err := e.st.Delete(u.ID); err != nil {
-		return err
-	}
-	e.stats.Delete(u.ID)
-	if err := syncProto(e, u.Proto); err != nil {
-		return err
-	}
-	if u.Proto == store.ProtoReality {
-		return e.xr.RemoveUser(u.ID)
-	}
-	return nil
-}
-
-func save(e *env, what string, protos ...string) bool {
-	if err := e.cfg.Save(); err != nil {
-		fmt.Println("  не удалось сохранить:", err)
-		return false
-	}
-	users := e.st.List()
-	for _, p := range protos {
-		var err error
-		switch p {
-		case store.ProtoHy2:
-			err = e.hy.Apply()
-		case store.ProtoReality:
-			if xray.Installed() {
-				err = e.xr.Apply(users)
-			}
-		}
-		if err != nil {
-			fmt.Printf("  сохранено, но %s не перезапустился: %v\n", store.ProtoName(p), err)
-			return false
-		}
-	}
-	fmt.Printf("  %s\n", what)
-	return true
-}
-
-func pick(args []string) (*env, *store.User, bool) {
-	e, err := load()
+	al, err := auditlog.Open(paths.AuditLogFile)
 	if err != nil {
-		fmt.Println(err)
-		return nil, nil, false
+		return nil, err
 	}
-	if len(args) == 0 {
-		fmt.Println("  укажи номер ключа из list, напр. qr 1")
-		return nil, nil, false
-	}
-	users := e.st.List()
-	if n, err := strconv.Atoi(args[0]); err == nil {
-		if n < 1 || n > len(users) {
-			fmt.Printf("  нет ключа с номером %d — посмотри list\n", n)
-			return nil, nil, false
-		}
-		return e, users[n-1], true
-	}
-	for _, u := range users {
-		if u.ID == args[0] {
-			return e, u, true
-		}
-	}
-	fmt.Println("  такого ключа нет — посмотри list")
-	return nil, nil, false
-}
-
-func keyText(cfg *config.Config, u *store.User) string {
-	if u.Proto == store.ProtoReality {
-		return xray.Link(cfg, u)
-	}
-	return hysteria.Link(cfg, u)
-}
-
-func showKey(e *env, u *store.User) {
-	text := keyText(e.cfg, u)
-	fmt.Println()
-	if a, err := qr.ASCII(text); err == nil {
-		fmt.Println(a)
-	}
-	fmt.Printf("  %s · %s\n%s\n", u.Name, store.ProtoName(u.Proto), text)
+	return &env{
+		cfg:      cfg,
+		st:       st,
+		hy:       hysteria.New(cfg, paths),
+		xr:       xray.New(cfg, paths),
+		stats:    st2,
+		hist:     hist,
+		audit:    al,
+		paths:    paths,
+		ipLimits: hysteria.NewIPTracker(),
+	}, nil
 }
 
 func detectHost() string {
@@ -566,11 +320,13 @@ func detectHost() string {
 	return "127.0.0.1"
 }
 
-func firstNonEmpty(a, b string) string {
-	if a != "" {
-		return a
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
 	}
-	return b
+	return ""
 }
 
 func fatal(err error) {

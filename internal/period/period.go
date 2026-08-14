@@ -12,11 +12,21 @@ type Span struct {
 	Unit byte
 }
 
+// Single letters that also name a size — "г" for гигабайт, "м" for мегабайт —
+// are deliberately absent: a deadline and a traffic cap can be typed on one
+// line, and a token that could mean either would be a coin toss.
 var units = map[string]byte{
+	// "m" stays months: it was there first, and minutes are asked for as "min".
+	"min": 'i', "mins": 'i', "minute": 'i', "minutes": 'i',
+	"мин": 'i', "минут": 'i', "минута": 'i', "минуты": 'i', "минуту": 'i',
 	"h": 'h', "hour": 'h', "hours": 'h',
+	"ч": 'h', "час": 'h', "часа": 'h', "часов": 'h',
 	"d": 'd', "day": 'd', "days": 'd',
+	"д": 'd', "дн": 'd', "день": 'd', "дня": 'd', "дней": 'd',
 	"m": 'm', "month": 'm', "months": 'm',
+	"мес": 'm', "месяц": 'm', "месяца": 'm', "месяцев": 'm',
 	"y": 'y', "year": 'y', "years": 'y',
+	"год": 'y', "года": 'y', "лет": 'y',
 }
 
 const maxYears = 5
@@ -31,7 +41,7 @@ func Parse(s string) (Span, error) {
 		i++
 	}
 	if i == 0 {
-		return Span{}, fmt.Errorf("сначала число: 12h, 5d, 3m, 1y")
+		return Span{}, fmt.Errorf("сначала число: 30min, 12h, 5d, 3m, 1y")
 	}
 	n, err := strconv.Atoi(s[:i])
 	if err != nil || n < 1 {
@@ -39,7 +49,7 @@ func Parse(s string) (Span, error) {
 	}
 	unit, ok := units[strings.TrimSpace(s[i:])]
 	if !ok {
-		return Span{}, fmt.Errorf("не понимаю «%s» — можно h, d, m, y или hour, day, month, year", s[i:])
+		return Span{}, fmt.Errorf("не понимаю «%s» — можно min, h, d, m, y", s[i:])
 	}
 	sp := Span{N: n, Unit: unit}
 	if sp.years() > maxYears {
@@ -50,6 +60,8 @@ func Parse(s string) (Span, error) {
 
 func (s Span) years() float64 {
 	switch s.Unit {
+	case 'i':
+		return float64(s.N) / 60 / 24 / 365
 	case 'h':
 		return float64(s.N) / 24 / 365
 	case 'd':
@@ -63,6 +75,8 @@ func (s Span) years() float64 {
 
 func (s Span) Add(t time.Time) time.Time {
 	switch s.Unit {
+	case 'i':
+		return t.Add(time.Duration(s.N) * time.Minute)
 	case 'h':
 		return t.Add(time.Duration(s.N) * time.Hour)
 	case 'd':
@@ -74,23 +88,17 @@ func (s Span) Add(t time.Time) time.Time {
 	}
 }
 
-func (s Span) String() string {
-	switch s.Unit {
-	case 'h':
-		return join(word(s.N/24, "день", "дня", "дней"), word(s.N%24, "час", "часа", "часов"))
-	case 'd':
-		if s.N >= 365 {
-			return join(word(s.N/365, "год", "года", "лет"), word((s.N%365)/30, "месяц", "месяца", "месяцев"))
-		}
-		if s.N >= 30 {
-			return join(word(s.N/30, "месяц", "месяца", "месяцев"), word(s.N%30, "день", "дня", "дней"))
-		}
-		return word(s.N, "день", "дня", "дней")
-	case 'm':
-		return join(word(s.N/12, "год", "года", "лет"), word(s.N%12, "месяц", "месяца", "месяцев"))
-	default:
-		return word(s.N, "год", "года", "лет")
+// months is the genitive case, the one a date needs: «31 июля».
+var months = [...]string{"января", "февраля", "марта", "апреля", "мая", "июня",
+	"июля", "августа", "сентября", "октября", "ноября", "декабря"}
+
+// Date writes a moment the way a person reads it. Go's layouts only speak
+// English, so the month is filled in here rather than through a format string.
+func Date(t time.Time) string {
+	if t.IsZero() {
+		return ""
 	}
+	return fmt.Sprintf("%d %s %d, %02d:%02d", t.Day(), months[int(t.Month())-1], t.Year(), t.Hour(), t.Minute())
 }
 
 // Left describes how much time is left until t.
@@ -103,8 +111,10 @@ func Left(until, now time.Time) string {
 	}
 	d := until.Sub(now)
 	switch {
+	case d < time.Minute:
+		return "меньше минуты"
 	case d < time.Hour:
-		return "меньше часа"
+		return "осталось " + word(int(d.Minutes()), "минута", "минуты", "минут")
 	case d < 48*time.Hour:
 		return "осталось " + word(int(d.Hours()), "час", "часа", "часов")
 	case d < 60*24*time.Hour:
@@ -117,7 +127,7 @@ func Left(until, now time.Time) string {
 // Ago describes how long ago t happened.
 func Ago(t, now time.Time) string {
 	if t.IsZero() {
-		return "не заходил"
+		return "ещё не подключался"
 	}
 	d := now.Sub(t)
 	switch {
@@ -133,17 +143,6 @@ func Ago(t, now time.Time) string {
 		return word(int(d.Hours())/24, "день", "дня", "дней") + " назад"
 	default:
 		return word(int(d.Hours())/24/30, "месяц", "месяца", "месяцев") + " назад"
-	}
-}
-
-func join(a, b string) string {
-	switch {
-	case a == "":
-		return b
-	case b == "":
-		return a
-	default:
-		return a + " " + b
 	}
 }
 

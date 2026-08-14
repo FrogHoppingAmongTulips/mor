@@ -8,14 +8,51 @@ import (
 	"strconv"
 	"strings"
 
+	"mor/internal/config"
 	"mor/internal/store"
 )
 
-func client(u *store.User) map[string]any {
+// client describes one Reality key. The vision flow belongs to plain TCP only —
+// XHTTP does its own framing and refuses a client that asks for both.
+func client(u *store.User, wire string) map[string]any {
+	c := map[string]any{
+		"id":    u.UUID,
+		"email": u.ID,
+	}
+	if wire != config.TransportXHTTP {
+		c["flow"] = "xtls-rprx-vision"
+	}
+	return c
+}
+
+// encClient is a VLESS Encryption key: the same UUID shape as Reality, without
+// the vision flow, which belongs to TLS transports only.
+func encClient(u *store.User) map[string]any {
 	return map[string]any{
 		"id":    u.UUID,
 		"email": u.ID,
-		"flow":  "xtls-rprx-vision",
+	}
+}
+
+// ssClient is one Shadowsocks key: its own password under the server's one
+// fixed method, so removing a key never touches anyone else's.
+func ssClient(u *store.User) map[string]any {
+	return map[string]any{
+		"method":   SSMethod,
+		"password": u.SSPassword,
+		"email":    u.ID,
+	}
+}
+
+// TagOf names the inbound a key belongs to.
+func TagOf(proto string) string {
+	switch proto {
+	case store.ProtoEnc:
+		return encTag
+	case store.ProtoSS:
+		return ssTag
+	default:
+		return inboundTag
 	}
 }
 
@@ -26,16 +63,41 @@ func (m *Manager) AddUser(u *store.User) error {
 	if !Installed() {
 		return nil
 	}
-	doc := map[string]any{"inbounds": []any{map[string]any{
+	inbound := map[string]any{
 		"tag":      inboundTag,
 		"listen":   "0.0.0.0",
 		"port":     m.cfg.Reality.Port,
 		"protocol": "vless",
 		"settings": map[string]any{
-			"clients":    []any{client(u)},
+			"clients":    []any{client(u, m.cfg.Reality.Wire())},
 			"decryption": "none",
 		},
-	}}}
+	}
+	if u.Proto == store.ProtoEnc {
+		inbound = map[string]any{
+			"tag":      encTag,
+			"listen":   "0.0.0.0",
+			"port":     m.cfg.Enc.Port,
+			"protocol": "vless",
+			"settings": map[string]any{
+				"clients":    []any{encClient(u)},
+				"decryption": m.cfg.Enc.Decryption,
+			},
+		}
+	}
+	if u.Proto == store.ProtoSS {
+		inbound = map[string]any{
+			"tag":      ssTag,
+			"listen":   "0.0.0.0",
+			"port":     m.cfg.SS.Port,
+			"protocol": "shadowsocks",
+			"settings": map[string]any{
+				"clients": []any{ssClient(u)},
+				"network": "tcp,udp",
+			},
+		}
+	}
+	doc := map[string]any{"inbounds": []any{inbound}}
 	b, err := json.MarshalIndent(doc, "", "  ")
 	if err != nil {
 		return err
@@ -59,11 +121,11 @@ func (m *Manager) AddUser(u *store.User) error {
 }
 
 // RemoveUser cuts a key off without restarting Xray.
-func (m *Manager) RemoveUser(id string) error {
+func (m *Manager) RemoveUser(id, proto string) error {
 	if !Installed() {
 		return nil
 	}
-	out, err := exec.Command("xray", "api", "rmu", "-s", apiServer(), "-tag="+inboundTag, id).CombinedOutput()
+	out, err := exec.Command("xray", "api", "rmu", "-s", apiServer(), "-tag="+TagOf(proto), id).CombinedOutput()
 	if err != nil && !strings.Contains(string(out), "not found") {
 		return fmt.Errorf("xray api rmu: %w: %s", err, out)
 	}

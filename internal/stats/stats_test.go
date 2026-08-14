@@ -69,6 +69,34 @@ func TestDeleteRemoves(t *testing.T) {
 	}
 }
 
+func TestResetClearsTotalKeepsLastSeen(t *testing.T) {
+	path := t.TempDir() + "/stats.json"
+	s, _ := Open(path)
+	at := time.Now()
+	s.Add("key", 4096, at)
+
+	if err := s.Reset("key"); err != nil {
+		t.Fatal(err)
+	}
+	got := s.Get("key")
+	if got.Total != 0 {
+		t.Errorf("total после Reset = %d, ждали 0", got.Total)
+	}
+	if len(got.Months) != 0 {
+		t.Errorf("months после Reset = %v, ждали пусто", got.Months)
+	}
+	if !got.LastSeen.Equal(at) {
+		t.Errorf("LastSeen не должен обнуляться Reset'ом: %v", got.LastSeen)
+	}
+}
+
+func TestResetMissingKeyIsNotAnError(t *testing.T) {
+	s, _ := Open(t.TempDir() + "/stats.json")
+	if err := s.Reset("nope"); err != nil {
+		t.Errorf("Reset несуществующего ключа не должен быть ошибкой: %v", err)
+	}
+}
+
 func TestHuman(t *testing.T) {
 	cases := []struct {
 		in   uint64
