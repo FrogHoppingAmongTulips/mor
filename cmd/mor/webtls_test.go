@@ -4,7 +4,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
+	"io"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
@@ -232,5 +235,124 @@ func TestTLSConfigBootstrapsItself(t *testing.T) {
 	}
 	if net.ParseIP(e.cfg.PublicHost) == nil {
 		t.Fatal("тест потерял адрес")
+	}
+}
+
+// A plain HTTP request to the panel's port must come back as a redirect, not
+// as "Client sent an HTTP request to an HTTPS server" — the message a Go TLS
+// server produces and that nobody can act on.
+func TestPlainHTTPGetsRedirected(t *testing.T) {
+	raw, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	port := raw.Addr().(*net.TCPAddr).Port
+	ln := newRedirectingListener(raw, port)
+	defer ln.Close()
+
+	certPath, keyPath := tempCertPaths(t)
+	if err := writeSelfSigned(certPath, keyPath, "127.0.0.1"); err != nil {
+		t.Fatal(err)
+	}
+	k := newCertKeeper(certPath, keyPath)
+	srv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("панель"))
+	})}
+	srv.TLSConfig = &tls.Config{GetCertificate: k.get, MinVersion: tls.VersionTLS12}
+	go srv.ServeTLS(ln, "", "")
+	defer srv.Close()
+
+	// Plain HTTP.
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
+	resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/keys", port))
+	if err != nil {
+		t.Fatalf("простой HTTP оборвался: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusPermanentRedirect {
+		t.Fatalf("код %d, ждали 308", resp.StatusCode)
+	}
+	want := fmt.Sprintf("https://127.0.0.1:%d/keys", port)
+	if got := resp.Header.Get("Location"); got != want {
+		t.Fatalf("Location %q, ждали %q — путь и порт должны сохраняться", got, want)
+	}
+}
+
+// The same listener must keep serving TLS normally.
+func TestTLSStillWorksThroughRedirectingListener(t *testing.T) {
+	raw, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	port := raw.Addr().(*net.TCPAddr).Port
+	ln := newRedirectingListener(raw, port)
+	defer ln.Close()
+
+	certPath, keyPath := tempCertPaths(t)
+	if err := writeSelfSigned(certPath, keyPath, "127.0.0.1"); err != nil {
+		t.Fatal(err)
+	}
+	k := newCertKeeper(certPath, keyPath)
+	srv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("панель"))
+	})}
+	srv.TLSConfig = &tls.Config{GetCertificate: k.get, MinVersion: tls.VersionTLS12}
+	go srv.ServeTLS(ln, "", "")
+	defer srv.Close()
+
+	client := &http.Client{Transport: &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}}
+	resp, err := client.Get(fmt.Sprintf("https://127.0.0.1:%d/", port))
+	if err != nil {
+		t.Fatalf("TLS не прошёл: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if string(body) != "панель" {
+		t.Fatalf("тело %q", body)
+	}
+}
+
+// One client that connects and says nothing must not stop everyone else: the
+// sniffing happens per connection, not inside Accept.
+func TestSilentClientDoesNotBlockOthers(t *testing.T) {
+	raw, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	port := raw.Addr().(*net.TCPAddr).Port
+	ln := newRedirectingListener(raw, port)
+	defer ln.Close()
+
+	silent, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer silent.Close()
+
+	done := make(chan net.Conn, 1)
+	go func() {
+		c, err := ln.Accept()
+		if err == nil {
+			done <- c
+		}
+	}()
+
+	// A real TLS client arriving after the silent one must still be accepted.
+	go func() {
+		c, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+		if err == nil {
+			_, _ = c.Write([]byte{tlsFirstByte, 0x03, 0x01})
+		}
+	}()
+
+	select {
+	case c := <-done:
+		c.Close()
+	case <-time.After(3 * time.Second):
+		t.Fatal("молчащее соединение заблокировало приём остальных")
 	}
 }

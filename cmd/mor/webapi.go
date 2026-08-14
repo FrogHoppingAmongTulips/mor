@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"sort"
@@ -89,8 +90,17 @@ func startWebPanel(ctx context.Context, e *env) {
 		return
 	}
 	srv.TLSConfig = tc
+
+	raw, err := net.Listen("tcp", srv.Addr)
+	if err != nil {
+		log.Printf("предупреждение: веб-панель на :%d не поднялась: %v", e.cfg.WebPort, err)
+		return
+	}
+	// Same port answers both: TLS as normal, and plain HTTP with a redirect to
+	// the https address instead of a protocol error nobody can act on.
+	ln := newRedirectingListener(raw, e.cfg.WebPort)
 	log.Printf("веб-панель на https://%s:%d (%s)", e.cfg.PublicHost, e.cfg.WebPort, certSummary(e.paths.WebCertFile))
-	if err := srv.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	if err := srv.ServeTLS(ln, "", ""); err != nil && !errors.Is(err, http.ErrServerClosed) && !errors.Is(err, net.ErrClosed) {
 		log.Printf("предупреждение: веб-панель на :%d не поднялась: %v", e.cfg.WebPort, err)
 	}
 }
