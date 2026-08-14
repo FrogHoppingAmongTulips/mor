@@ -197,12 +197,10 @@ func (c *Config) ReloadIfChanged() bool {
 
 // applyLocked copies the settings and nothing else. Assigning the whole struct
 // would overwrite the lock this call is holding, and the deferred unlock would
-// then take the process down with "unlock of unlocked mutex" — which is exactly
-// what it did the first time this was written.
+// then fail with "unlock of unlocked mutex".
 //
 // A field added above and forgotten here would silently stop syncing, so
-// TestReloadCarriesEveryField compares a full round trip rather than trusting
-// this list to stay complete.
+// TestReloadCarriesEveryField compares a full round trip.
 func (c *Config) applyLocked(n *Config) {
 	c.PublicHost = n.PublicHost
 	c.VPNPort = n.VPNPort

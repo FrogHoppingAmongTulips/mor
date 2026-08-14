@@ -164,10 +164,9 @@ func TestSNIStaysInSync(t *testing.T) {
 // every field: one left out of applyLocked would silently stop syncing, and
 // the panel would go on writing the old value back.
 //
-// The reader is loaded from an earlier file rather than blanked by hand — a
+// The reader is loaded from an earlier file rather than blanked by hand: a
 // field the copy forgets then keeps its previous value instead of an empty one,
-// which is the failure this is looking for and the one a hand-blanked fixture
-// hides.
+// which is what this looks for. A hand-blanked fixture hides it.
 func TestReloadCarriesEveryField(t *testing.T) {
 	path := t.TempDir() + "/config.json"
 
@@ -213,8 +212,8 @@ func TestReloadCarriesEveryField(t *testing.T) {
 	}
 }
 
-// Reloading must not disturb the lock it runs under: the first version of this
-// assigned the whole struct and killed the process on the deferred unlock.
+// Reloading must not disturb the lock it runs under: assigning the whole struct
+// replaces the mutex and the deferred unlock then fails.
 func TestReloadSurvivesConcurrentSaves(t *testing.T) {
 	path := t.TempDir() + "/config.json"
 	c := NewDefault()

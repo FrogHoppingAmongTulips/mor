@@ -264,15 +264,13 @@ test('ни одного нарушения политики безопаснос
 });
 
 // A <button> with no rule of its own is drawn by the browser: grey fill, black
-// text, an outset border. Three controls had slipped into that state — the key
-// row, the link and every switch — and no test noticed, because they all
-// checked text and classes rather than what the thing looked like.
+// text, an outset border. Checks on text and classes do not catch that, so this
+// one reads the computed style.
 test('ни одной кнопки со стилем по умолчанию', async (page) => {
   await login(page);
   const id = await makeKey(page, 'тест-вид');
-  // With a deadline and a cap set: the countdown is a button that only exists
-  // when there is something to count down to, and it was the one that got
-  // missed the first time round.
+  // With a deadline and a cap set: the countdown button exists only when there
+  // is something to count down to.
   await page.evaluate((i) => api('/users/' + i, { method: 'PATCH', body: JSON.stringify({ time: '30d', traffic: '50gb' }) }), id);
   await page.evaluate(() => loadUsers());
 
@@ -335,8 +333,8 @@ test('выбранный протокол переживает обновлен�
 });
 
 // The two facts at the top of a key card are a pair, side by side. An unclosed
-// tag in one of them closed the grid early and dropped the other onto its own
-// line — the card still rendered, so nothing but the geometry catches it.
+// tag in one of them closes the grid early and drops the other onto its own
+// line; the card still renders, so only the geometry shows it.
 test('срок и лимит стоят рядом, а не друг под другом', async (page) => {
   await login(page);
   const id = await makeKey(page, 'тест-пара');
