@@ -219,6 +219,26 @@ Restart=always
 RestartSec=3
 User=root
 
+# mor stays root: it drives systemd, writes engine configs under /etc and opens
+# privileged ports. What it does not need is the rest of the machine, so the
+# blast radius of a bug in the web panel is fenced in here instead.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+# ProtectSystem=strict makes everything read-only, so the paths mor genuinely
+# writes are named back in: its own state, the engine configs it generates and
+# acme.sh's account and certificates.
+ReadWritePaths=${MOR_DIR} /etc/hysteria /usr/local/etc/xray /root/.acme.sh /var/spool/cron
+
 [Install]
 WantedBy=multi-user.target
 EOF

@@ -8,8 +8,10 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -354,5 +356,48 @@ func TestSilentClientDoesNotBlockOthers(t *testing.T) {
 		c.Close()
 	case <-time.After(3 * time.Second):
 		t.Fatal("молчащее соединение заблокировало приём остальных")
+	}
+}
+
+// Every response carries the headers, including error responses and static
+// ones — a header applied only to the routes somebody remembered protects
+// nothing.
+func TestSecurityHeadersOnEveryResponse(t *testing.T) {
+	h := withSecurityHeaders(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/boom" {
+			http.Error(w, "нет", http.StatusNotFound)
+			return
+		}
+		_, _ = w.Write([]byte("ок"))
+	}))
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+
+	for _, path := range []string{"/", "/boom"} {
+		resp, err := http.Get(srv.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		for header, want := range map[string]string{
+			"X-Frame-Options":        "DENY",
+			"Referrer-Policy":        "no-referrer",
+			"X-Content-Type-Options": "nosniff",
+		} {
+			if got := resp.Header.Get(header); got != want {
+				t.Errorf("%s на %s: %q, ждали %q", header, path, got, want)
+			}
+		}
+		csp := resp.Header.Get("Content-Security-Policy")
+		if csp == "" {
+			t.Fatalf("нет CSP на %s", path)
+		}
+		// The two that carry the weight while inline code is still allowed:
+		// nothing may be fetched from elsewhere, and nothing may be sent there.
+		for _, must := range []string{"default-src 'none'", "connect-src 'self'", "frame-ancestors 'none'"} {
+			if !strings.Contains(csp, must) {
+				t.Errorf("в CSP нет %q: %s", must, csp)
+			}
+		}
 	}
 }

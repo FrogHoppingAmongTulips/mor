@@ -9,9 +9,13 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
+	"encoding/json"
+	"os"
 	"strings"
 	"sync"
 	"time"
+
+	"mor/internal/fsutil"
 )
 
 // iterations is a manual stretch: nothing in the standard library does PBKDF2,
@@ -68,10 +72,55 @@ type Sessions struct {
 	mu    sync.Mutex
 	byTok map[string]time.Time
 	ttl   time.Duration
+
+	// path is where the live sessions are kept between runs. Empty means
+	// memory only, which is what the tests and the terminal use.
+	path string
 }
 
 func NewSessions(ttl time.Duration) *Sessions {
 	return &Sessions{byTok: map[string]time.Time{}, ttl: ttl}
+}
+
+// OpenSessions is NewSessions with a file behind it, so a restart of mor does
+// not log the owner out. Updating the server should not cost a login, and the
+// panel restarts itself whenever a certificate is renewed — every couple of
+// days with a short-lived one.
+//
+// A damaged file is not worth failing over: the worst it costs is one login.
+func OpenSessions(ttl time.Duration, path string) *Sessions {
+	s := &Sessions{byTok: map[string]time.Time{}, ttl: ttl, path: path}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return s
+	}
+	var saved map[string]time.Time
+	if err := json.Unmarshal(b, &saved); err != nil {
+		return s
+	}
+	now := time.Now()
+	for tok, exp := range saved {
+		if exp.After(now) {
+			s.byTok[tok] = exp
+		}
+	}
+	return s
+}
+
+// saveLocked writes the sessions out. The caller holds the lock.
+//
+// Tokens are as good as the password while they live, so the file is 0600 and
+// written atomically — a half-written file read at the next start would just
+// look damaged and cost a login, but a readable one costs the server.
+func (s *Sessions) saveLocked() {
+	if s.path == "" {
+		return
+	}
+	b, err := json.Marshal(s.byTok)
+	if err != nil {
+		return
+	}
+	_ = fsutil.WriteAtomic(s.path, b, 0o600)
 }
 
 func (s *Sessions) Issue() string {
@@ -81,6 +130,7 @@ func (s *Sessions) Issue() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.byTok[tok] = time.Now().Add(s.ttl)
+	s.saveLocked()
 	return tok
 }
 
@@ -98,8 +148,12 @@ func (s *Sessions) Valid(tok string) bool {
 	}
 	if time.Now().After(exp) {
 		delete(s.byTok, tok)
+		s.saveLocked()
 		return false
 	}
+	// The expiry slides forward on every check, but the file is not rewritten
+	// each time: the panel polls every 15 seconds, and that would be a disk
+	// write per poll for no gain. A restart costs at most the unsaved slide.
 	s.byTok[tok] = time.Now().Add(s.ttl)
 	return true
 }
@@ -108,4 +162,13 @@ func (s *Sessions) Revoke(tok string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.byTok, tok)
+	s.saveLocked()
+}
+
+// Save flushes the sliding expiries that Valid did not write. The daemon calls
+// it on the way down.
+func (s *Sessions) Save() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.saveLocked()
 }

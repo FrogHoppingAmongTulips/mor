@@ -69,13 +69,16 @@ func startWebPanel(ctx context.Context, e *env) {
 	if !e.cfg.WebOn() {
 		return
 	}
-	ws := &webServer{e: e, sessions: webauth.NewSessions(webSessionTTL), sysHist: openSysHistory(e.paths.SysHistFile), throttle: newLoginThrottle()}
+	ws := &webServer{e: e, sessions: webauth.OpenSessions(webSessionTTL, e.paths.SessionsFile), sysHist: openSysHistory(e.paths.SysHistFile), throttle: newLoginThrottle()}
 	go ws.sysHist.run(ctx)
 	mux := http.NewServeMux()
 	ws.routes(mux)
-	srv := &http.Server{Addr: fmt.Sprintf(":%d", e.cfg.WebPort), Handler: mux, ReadHeaderTimeout: 5 * time.Second}
+	srv := &http.Server{Addr: fmt.Sprintf(":%d", e.cfg.WebPort), Handler: withSecurityHeaders(mux), ReadHeaderTimeout: 5 * time.Second}
 	go func() {
 		<-ctx.Done()
+		// Flush the expiries that Valid slid forward without writing, so a
+		// planned restart does not shorten anybody's session.
+		ws.sessions.Save()
 		shutdown, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 		_ = srv.Shutdown(shutdown)
@@ -107,6 +110,7 @@ func startWebPanel(ctx context.Context, e *env) {
 
 func (ws *webServer) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /", ws.handleIndex)
+	mux.HandleFunc("GET /healthz", ws.handleHealth)
 	mux.HandleFunc("POST /api/login", ws.handleLogin)
 	mux.HandleFunc("POST /api/logout", ws.handleLogout)
 	mux.HandleFunc("GET /api/me", ws.auth(ws.handleMe))
@@ -131,6 +135,25 @@ func (ws *webServer) routes(mux *http.ServeMux) {
 	mux.HandleFunc("PUT /api/config", ws.auth(ws.handleConfigSave))
 	mux.HandleFunc("POST /api/password", ws.auth(ws.handlePassword))
 	mux.HandleFunc("POST /api/ports/{proto}/pick", ws.auth(ws.handlePortPick))
+}
+
+// handleHealth is for something outside to watch: a monitor, a uptime checker,
+// a cron on another box. It is the only route without a session, because a
+// health check that needs credentials is a health check nobody sets up — and
+// it says nothing a stranger could use, only whether the engines are up.
+func (ws *webServer) handleHealth(w http.ResponseWriter, r *http.Request) {
+	ok := true
+	for _, row := range localCheck(ws.e) {
+		if !row.engine || !row.held {
+			ok = false
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	if !ok {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}
+	_ = json.NewEncoder(w).Encode(map[string]any{"ok": ok})
 }
 
 func (ws *webServer) handleIndex(w http.ResponseWriter, r *http.Request) {
@@ -460,9 +483,17 @@ func (ws *webServer) handleUserDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := g[0].Name
+	// The key is gone from the store the moment removeKeys touches it; an
+	// engine that did not answer is a warning, not a failure. Reporting 500
+	// here told the panel the deletion failed while the key was already
+	// deleted — and the collect loop reconciles the engines within the minute
+	// anyway. Ban and edit have always behaved this way.
 	if err := removeKeys(ws.e, g); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		if _, still := findGroup(ws.e, r.PathValue("id")); still {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		log.Printf("предупреждение: «%s» удалён, движок не отозвался: %v", name, err)
 	}
 	ws.e.audit.Add("удалён ключ", name, time.Now())
 	writeJSON(w, map[string]bool{"ok": true})

@@ -116,7 +116,11 @@ func TestEveryReadRouteAnswers(t *testing.T) {
 func TestAuthGuardsEveryApiRoute(t *testing.T) {
 	ws, _ := testPanel(t)
 	t.Setenv("MOR_WEB_DEV_NOAUTH", "")
-	for _, path := range []string{"/api/users", "/api/config", "/api/stats", "/api/audit"} {
+	for _, path := range []string{
+		"/api/users", "/api/config", "/api/stats", "/api/audit", "/api/me",
+		"/api/status", "/api/stats/history", "/api/protocols", "/api/online",
+		"/api/disk", "/api/qr/whatever",
+	} {
 		w := httptest.NewRecorder()
 		ws.mux().ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
 		if w.Code != http.StatusUnauthorized {
@@ -272,4 +276,183 @@ func TestOnlineNeverLeaksAddresses(t *testing.T) {
 			t.Errorf("в ответе о присутствии есть %q — адреса не должны покидать сервер: %s", forbidden, body)
 		}
 	}
+}
+
+// The health route is deliberately the one thing outside a session: a check
+// that needs credentials is a check nobody wires up. It must therefore say
+// nothing beyond up or down.
+func TestHealthNeedsNoSessionAndLeaksNothing(t *testing.T) {
+	ws, _ := testPanel(t)
+	t.Setenv("MOR_WEB_DEV_NOAUTH", "")
+
+	w := httptest.NewRecorder()
+	ws.mux().ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+	if w.Code != http.StatusOK && w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("healthz без сессии = %d", w.Code)
+	}
+
+	var got map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatalf("не JSON: %s", w.Body.String())
+	}
+	if _, ok := got["ok"]; !ok {
+		t.Fatalf("нет поля ok: %v", got)
+	}
+	if len(got) != 1 {
+		t.Fatalf("отдаёт лишнее без авторизации: %v", got)
+	}
+}
+
+// Banning is what cuts somebody off, and unbanning is what lets them back. A
+// silent no-op here would look identical to success in the panel.
+func TestBanAndUnbanRoundTrip(t *testing.T) {
+	ws, _ := testPanel(t)
+	id := createTestKey(t, ws, "телефон")
+
+	if w := do(t, ws, http.MethodPost, "/api/users/"+id+"/ban", `{"banned":true}`); w.Code != http.StatusOK {
+		t.Fatalf("бан = %d: %s", w.Code, w.Body.String())
+	}
+	if !userField(t, ws, id, "banned").(bool) {
+		t.Fatal("ключ не забанен")
+	}
+
+	if w := do(t, ws, http.MethodPost, "/api/users/"+id+"/ban", `{"banned":false}`); w.Code != http.StatusOK {
+		t.Fatalf("разбан = %d", w.Code)
+	}
+	if userField(t, ws, id, "banned").(bool) {
+		t.Fatal("ключ остался забаненным")
+	}
+}
+
+func TestResetTrafficZeroesTheCounter(t *testing.T) {
+	ws, st := testPanel(t)
+	id := createTestKey(t, ws, "телефон")
+
+	for _, u := range st.List() {
+		ws.e.stats.Add(u.ID, 5<<30, time.Now())
+	}
+	if got := userField(t, ws, id, "traffic").(float64); got == 0 {
+		t.Fatal("тест не смог начислить трафик")
+	}
+
+	if w := do(t, ws, http.MethodPost, "/api/users/"+id+"/reset", ""); w.Code != http.StatusOK {
+		t.Fatalf("сброс = %d: %s", w.Code, w.Body.String())
+	}
+	if got := userField(t, ws, id, "traffic").(float64); got != 0 {
+		t.Fatalf("после сброса трафик %v", got)
+	}
+}
+
+func TestDeleteRemovesTheKey(t *testing.T) {
+	ws, _ := testPanel(t)
+	id := createTestKey(t, ws, "телефон")
+
+	if w := do(t, ws, http.MethodDelete, "/api/users/"+id, ""); w.Code != http.StatusOK {
+		t.Fatalf("удаление = %d: %s", w.Code, w.Body.String())
+	}
+	if w := do(t, ws, http.MethodGet, "/api/users/"+id, ""); w.Code != http.StatusNotFound {
+		t.Fatalf("удалённый ключ всё ещё отвечает: %d", w.Code)
+	}
+}
+
+// A protocol toggled off must come back as off, and keys must survive it —
+// switching a protocol is not a way to lose everybody's access.
+func TestProtocolToggleSticksAndKeepsKeys(t *testing.T) {
+	ws, _ := testPanel(t)
+	id := createTestKey(t, ws, "телефон")
+
+	if w := do(t, ws, http.MethodPost, "/api/protocols/ss/toggle", `{"on":false}`); w.Code != http.StatusOK {
+		t.Fatalf("выключение = %d: %s", w.Code, w.Body.String())
+	}
+	if protoOn(t, ws, "ss") {
+		t.Fatal("протокол остался включённым")
+	}
+	if w := do(t, ws, http.MethodGet, "/api/users/"+id, ""); w.Code != http.StatusOK {
+		t.Fatal("ключ пропал после выключения протокола")
+	}
+
+	if w := do(t, ws, http.MethodPost, "/api/protocols/ss/toggle", `{"on":true}`); w.Code != http.StatusOK {
+		t.Fatalf("включение = %d", w.Code)
+	}
+	if !protoOn(t, ws, "ss") {
+		t.Fatal("протокол не включился обратно")
+	}
+}
+
+func TestProtocolToggleRejectsUnknown(t *testing.T) {
+	ws, _ := testPanel(t)
+	if w := do(t, ws, http.MethodPost, "/api/protocols/выдумка/toggle", `{"on":false}`); w.Code != http.StatusBadRequest {
+		t.Fatalf("несуществующий протокол = %d, ждали 400", w.Code)
+	}
+}
+
+// Restart drives systemd, which is absent in a test. It must answer honestly
+// rather than hang or panic.
+func TestRestartAnswersWithoutSystemd(t *testing.T) {
+	ws, _ := testPanel(t)
+	w := do(t, ws, http.MethodPost, "/api/restart", "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("перезапуск = %d: %s", w.Code, w.Body.String())
+	}
+	var got struct {
+		Restarted []string `json:"restarted"`
+		Failed    []string `json:"failed"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatalf("не JSON: %s", w.Body.String())
+	}
+}
+
+func TestPortPickRejectsUnknownProtocol(t *testing.T) {
+	ws, _ := testPanel(t)
+	if w := do(t, ws, http.MethodPost, "/api/ports/выдумка/pick", ""); w.Code != http.StatusBadRequest {
+		t.Fatalf("несуществующий протокол = %d, ждали 400", w.Code)
+	}
+}
+
+// createTestKey makes one key and hands back its group id.
+func createTestKey(t *testing.T, ws *webServer, name string) string {
+	t.Helper()
+	w := do(t, ws, http.MethodPost, "/api/users", `{"name":"`+name+`","protocols":["hy2","ss"]}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("создание = %d: %s", w.Code, w.Body.String())
+	}
+	var made map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &made); err != nil {
+		t.Fatal(err)
+	}
+	id, _ := made["id"].(string)
+	if id == "" {
+		t.Fatalf("создание не вернуло id: %s", w.Body.String())
+	}
+	return id
+}
+
+func userField(t *testing.T, ws *webServer, id, field string) any {
+	t.Helper()
+	w := do(t, ws, http.MethodGet, "/api/users/"+id, "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("чтение ключа = %d", w.Code)
+	}
+	var u map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &u); err != nil {
+		t.Fatal(err)
+	}
+	return u[field]
+}
+
+func protoOn(t *testing.T, ws *webServer, id string) bool {
+	t.Helper()
+	w := do(t, ws, http.MethodGet, "/api/protocols", "")
+	var rows []map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &rows); err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range rows {
+		if r["id"] == id {
+			return r["on"].(bool)
+		}
+	}
+	t.Fatalf("протокол %s не найден", id)
+	return false
 }
