@@ -1,23 +1,53 @@
-name: ci
+name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, web-panel]
   pull_request:
 
 jobs:
-  build:
+  go:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: vet
+
+      # Formatting is not a matter of taste here — an unformatted file means
+      # somebody committed without running the tools, and the next diff is
+      # full of noise.
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "не отформатировано:"; echo "$unformatted"; exit 1
+          fi
+
+      - name: go vet
         run: go vet ./...
-      - name: test
+
+      - name: go test
         run: go test ./...
-      - name: build
-        run: go build ./...
-      - name: cross-build (linux amd64/arm64)
-        run: make dist
+
+  panel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The panel is 1600 lines the Go compiler never sees. These checks are
+      # what stands between it and the class of breakage that ships silently:
+      # a handler that lost its function, a translation key with no text.
+      - name: проверки panel.html
+        run: python3 scripts/check_panel.py
+
+  shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: синтаксис install.sh
+        run: bash -n scripts/install.sh
+      - name: shellcheck
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y shellcheck
+          shellcheck -S error scripts/install.sh

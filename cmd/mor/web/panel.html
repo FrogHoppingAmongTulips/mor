@@ -70,7 +70,7 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
 .sq.on{background:var(--card-h);border-color:var(--border2)}
 .sq-icon{width:30px;height:30px;stroke:var(--t3);stroke-width:1.25;fill:none;stroke-linecap:round;stroke-linejoin:round;transition:stroke .15s}
 .sq:hover .sq-icon,.sq.on .sq-icon{stroke:var(--t1)}
-.sq-label{font-size:10px;font-weight:500;color:var(--t3);text-transform:uppercase;letter-spacing:.14em;text-align:center}
+.sq-label{font-size:10px;font-weight:500;color:var(--t2);text-transform:uppercase;letter-spacing:.14em;text-align:center}
 .sq.on .sq-label{color:var(--t1)}
 
 /* The detail column keeps whatever was picked open — no modal to dismiss and
@@ -581,7 +581,7 @@ details.grp[open]>summary{margin-bottom:14px}
 
 <!-- CREATE -->
 <div class="ov" id="createModal">
-  <form class="modal" autocomplete="off" onsubmit="return false">
+  <div class="modal">
     <div class="mt" data-i18n="createKey">Создать ключ</div>
     <div class="fld"><div class="fl" data-i18n="name">Имя</div><input class="fi" id="createName" autocomplete="off"></div>
     <div class="fld"><div class="fl" data-i18n="protocols">Протоколы</div><div class="pchk" id="createProtos"></div></div>
@@ -590,7 +590,7 @@ details.grp[open]>summary{margin-bottom:14px}
       <div class="fld"><div class="fl" data-i18n="trafficLimit">Лимит трафика</div><input class="fi" id="createTraffic" autocomplete="off" placeholder="50gb"></div>
     </div>
     <div class="mbtn"><button type="button" class="btn" data-act="cancelCreate" data-i18n="cancel">Отмена</button><button type="button" class="btn btn-w" data-act="doCreate" data-i18n="create">Создать</button></div>
-  </form>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -1598,6 +1598,10 @@ async function createUser(){
     // Land on the new key already open: the link and QR are the only reason
     // anyone creates one, and they are inside it.
     select('keys');
+    // The reply already carries the full key, so it goes straight into the
+    // cache the open card renders from. Without it the card unfolded empty:
+    // renderHomeDetail has nothing to draw and quietly returns.
+    detailCache.set(created.id,created);
     homeExpanded=created.id;
     renderHome();
   }catch(e){toast(t('errPrefix')+e.message)}
