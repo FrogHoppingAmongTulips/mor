@@ -261,26 +261,15 @@ func (m *menu) panel() {
 		// screen; repeating them here would be the same two lines twice.
 		// The certificate renews itself through acme.sh's cron and is raised
 		// only by "Проверка", and only when it is actually broken.
+		// The port carries its number in the label rather than a value column:
+		// with three rows there is nothing to line it up against.
 		s.rows = []row{
-			{label: "Новый пароль", do: m.rollPanelPassword},
-			{label: "Задать свой", do: m.askPanelPassword},
-			{label: "Порт", value: strconv.Itoa(c.WebPort), do: m.askPanelPort},
-		}
-		if c.WebPasswordHash != "" {
-			s.rows = append(s.rows,
-				row{sep: true},
-				row{label: onOffLabel(c.WebOff), do: m.togglePanel},
-			)
+			{label: "Случайный пароль", do: m.rollPanelPassword},
+			{label: "Свой пароль", do: m.askPanelPassword},
+			{label: "Порт " + strconv.Itoa(c.WebPort), do: m.askPanelPort},
 		}
 	})
 	m.msg = ""
-}
-
-func onOffLabel(off bool) string {
-	if off {
-		return "Включить"
-	}
-	return "Выключить"
 }
 
 func (m *menu) askPanelPassword() (string, bool) {
@@ -334,17 +323,4 @@ func (m *menu) askPanelPort() (string, bool) {
 	ensureFirewall(m.e)
 	restartSelf()
 	return "порт " + val, true
-}
-
-func (m *menu) togglePanel() (string, bool) {
-	m.e.cfg.WebOff = !m.e.cfg.WebOff
-	if err := m.e.cfg.Save(); err != nil {
-		return err.Error(), false
-	}
-	ensureFirewall(m.e)
-	restartSelf()
-	if m.e.cfg.WebOff {
-		return "панель выключена", true
-	}
-	return fmt.Sprintf("панель на https://%s:%d", m.e.cfg.PublicHost, m.e.cfg.WebPort), true
 }

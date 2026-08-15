@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -52,15 +53,9 @@ func panelEnv(t *testing.T, hash string) *env {
 func TestPanelScreenOffersThePasswordWhenThereIsNone(t *testing.T) {
 	out := screen(t, panelEnv(t, ""), "\n", func(m *menu) { m.panel() })
 
-	for _, want := range []string{"Пароль", "Новый пароль", "Задать свой", "Порт"} {
+	for _, want := range []string{"Пароль", "Случайный пароль", "Свой пароль", "Порт 9090"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("на экране нет %q:\n%s", want, out)
-		}
-	}
-	// Nothing to switch off yet.
-	for _, unwanted := range []string{"Выключить"} {
-		if strings.Contains(out, unwanted) {
-			t.Errorf("до пароля предложено «%s»:\n%s", unwanted, out)
 		}
 	}
 }
@@ -72,15 +67,25 @@ func TestPanelScreenCarriesNoText(t *testing.T) {
 	e.cfg.SetWebPassword("мойпароль123")
 	out := screen(t, e, "\n", func(m *menu) { m.panel() })
 
-	for _, unwanted := range []string{"https://", "мойпароль123", "сертификат"} {
+	for _, unwanted := range []string{"https://", "мойпароль123", "сертификат", "Выключить"} {
 		if strings.Contains(out, unwanted) {
 			t.Errorf("на экране лишнее «%s»:\n%s", unwanted, out)
 		}
 	}
-	if !strings.Contains(out, "Выключить") {
-		t.Errorf("нет пункта выключения:\n%s", out)
+	// Three rows, nothing else. The numbers are bold, so the escapes have to
+	// go before counting them.
+	plain := ansi.ReplaceAllString(out, "")
+	for _, want := range []string{"1  Случайный пароль", "2  Свой пароль", "3  Порт 9090"} {
+		if !strings.Contains(plain, want) {
+			t.Errorf("нет строки «%s»:\n%s", want, plain)
+		}
+	}
+	if strings.Contains(plain, "4  ") {
+		t.Errorf("появился четвёртый пункт:\n%s", plain)
 	}
 }
+
+var ansi = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
 
 func TestPanelIsInTheMainMenu(t *testing.T) {
 	found := false
