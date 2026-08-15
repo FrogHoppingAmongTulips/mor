@@ -355,9 +355,13 @@ details.grp[open]>summary{margin-bottom:14px}
 /* The code unfolds to the right as the card opens instead of appearing at
    full size: the card body animates too, and a square that simply exists
    while everything around it moves reads as a glitch. */
-.qr-b{width:0;height:0;flex-shrink:0;background:#fff;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;opacity:0;
-  transition:width .42s cubic-bezier(.32,.72,0,1),height .42s cubic-bezier(.32,.72,0,1),opacity .28s ease .12s}
-.qr-b.on{width:148px;height:148px;opacity:1}
+/* The square keeps its place whether or not the code is showing. Growing it
+   from nothing squeezed the link into an ellipsis and shifted the chip row
+   left the moment it opened. */
+.qr-b{width:148px;height:148px;flex-shrink:0;background:#fff;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;
+  opacity:0;transform:scale(.9);pointer-events:none;
+  transition:opacity .26s ease,transform .38s cubic-bezier(.32,.72,0,1)}
+.qr-b.on{opacity:1;transform:scale(1);pointer-events:auto}
 .qr-b img{width:100%;height:100%}
 .dact{display:flex;gap:8px;margin-top:14px}
 .dbtns{display:flex;gap:8px;margin-top:20px}
@@ -457,9 +461,12 @@ details.grp[open]>summary{margin-bottom:14px}
   .kedit-row{grid-template-columns:1fr;gap:16px}
   .set-grid{grid-template-columns:1fr}
   .kfacts{grid-template-columns:1fr;gap:10px}
-  /* On a phone the link and the code have no room side by side. */
+  /* On a phone the link and the code have no room side by side, and holding
+     the square empty would cost a screenful — there it folds away. */
   .sharerow{flex-direction:column;align-items:center;gap:12px}
   .sharecol{width:100%}
+  .qr-b{height:0;transition:height .38s cubic-bezier(.32,.72,0,1),opacity .26s ease}
+  .qr-b.on{height:148px}
   .pgrid{grid-template-columns:1fr}
   .grp{padding:14px}
   .modal{margin:12px;padding:20px}

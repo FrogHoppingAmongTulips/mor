@@ -381,10 +381,10 @@ test('имя рабочего ключа белое, отключённого �
   await dropKeys(page, 'тест-');
 });
 
-// The code is a chip in the same row as the protocols: pressed, it unfolds to
-// the right of the link; pressed again it folds away and takes its space with
-// it.
-test('QR раскрывается по нажатию и стоит справа', async (page) => {
+// The code is a chip in the same row as the protocols, and its square keeps
+// its place whether or not the code is showing: growing it on open squeezed
+// the link into an ellipsis and shifted the whole chip row left.
+test('QR раскрывается по нажатию и ничего не сдвигает', async (page) => {
   await login(page);
   await makeKey(page, 'тест-qr', ['hy2', 'reality']);
   await page.click('[data-pane="keys"]');
@@ -393,41 +393,48 @@ test('QR раскрывается по нажатию и стоит справа
   await row.locator('.uh-open').click();
   await page.waitForTimeout(1000);
 
-  const size = () => page.evaluate(() => {
-    const b = document.querySelector('.uh.open .qr-b');
-    const c = document.querySelector('.uh.open .sharecol');
-    if (!b || !c) return null;
-    const rb = b.getBoundingClientRect(), rc = c.getBoundingClientRect();
-    return { ш: Math.round(rb.width), в: Math.round(rb.height), x: Math.round(rb.x), linkX: Math.round(rc.x) };
+  const geom = () => page.evaluate(() => {
+    const t = document.querySelector('.uh.open .linkrow-text');
+    const c = document.querySelector('.uh.open .pchip-qr');
+    const q = document.querySelector('.uh.open .qr-b');
+    if (!t || !c || !q) return null;
+    return {
+      ссылка: Math.round(t.getBoundingClientRect().width),
+      чипX: Math.round(c.getBoundingClientRect().x),
+      qrX: Math.round(q.getBoundingClientRect().x),
+      видно: getComputedStyle(q).opacity !== '0',
+    };
   });
 
-  const closed = await size();
-  eq(closed.ш, 0, 'до нажатия QR занимает место');
-  eq(closed.в, 0, 'до нажатия QR занимает высоту');
+  const closed = await geom();
+  ok(!closed.видно, 'код показан до нажатия');
+  ok(closed.qrX > closed.чипX, 'место под код не справа');
 
   await row.locator('.pchip-qr').click();
   const open = await waitFor(page, () => {
-    const b = document.querySelector('.uh.open .qr-b');
-    const w = Math.round(b.getBoundingClientRect().width);
-    return w > 140 ? w : null;
-  }, 'QR не раскрылся');
-  ok(open > 140, `раскрылся не полностью: ${open}`);
+    const q = document.querySelector('.uh.open .qr-b');
+    return getComputedStyle(q).opacity === '1' ? true : null;
+  }, 'код не показался');
+  ok(open, 'код не показался');
 
-  const now = await size();
-  ok(now.x > now.linkX, `QR не справа: ссылка ${now.linkX}, QR ${now.x}`);
+  const after = await geom();
+  eq(after.ссылка, closed.ссылка, 'ссылка изменила ширину');
+  eq(after.чипX, closed.чипX, 'ряд протоколов сдвинулся');
   ok(await page.locator('.uh.open .qr-b img').count() === 1, 'картинки нет');
 
   // Switching protocol swaps the code and leaves it open.
   const before = await page.locator('.uh.open .qr-b img').getAttribute('src');
   await row.locator('.pchip', { hasText: 'VLESS+Reality' }).click();
   await page.waitForTimeout(500);
-  const after = await page.locator('.uh.open .qr-b img').getAttribute('src');
-  ok(before !== after, `QR не сменился при выборе протокола: ${after}`);
-  ok((await size()).ш > 140, 'QR свернулся при смене протокола');
+  const src = await page.locator('.uh.open .qr-b img').getAttribute('src');
+  ok(before !== src, `QR не сменился при выборе протокола: ${src}`);
+  ok((await geom()).видно, 'код закрылся при смене протокола');
 
   await row.locator('.pchip-qr').click();
-  await waitFor(page, () => Math.round(document.querySelector('.uh.open .qr-b').getBoundingClientRect().width) === 0,
-    'QR не свернулся обратно');
+  await waitFor(page, () => {
+    const q = document.querySelector('.uh.open .qr-b');
+    return getComputedStyle(q).opacity === '0' ? true : null;
+  }, 'код не спрятался обратно');
 
   await dropKeys(page, 'тест-');
 });
