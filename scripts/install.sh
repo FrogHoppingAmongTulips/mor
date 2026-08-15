@@ -379,7 +379,7 @@ self_check() {
       log "готово. Набери mor"
       # The generated password scrolled past during setup; it is what the owner
       # needs first, so it is repeated where they are actually looking.
-      "$BIN" panel | grep -E "адрес:|пароль:" || true
+      "$BIN" panel | grep -E "^  https://" || true
     else
       log "обновлено. Управление: mor"
     fi

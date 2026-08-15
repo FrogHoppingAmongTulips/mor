@@ -23,7 +23,7 @@ func cmdPanel(args []string) {
 		case e.cfg.WebPasswordHash == "":
 			fmt.Println("  пароль не задан — без него панель не запустится")
 		case e.cfg.WebPassword != "":
-			fmt.Printf("  адрес: https://%s:%d\n  пароль: %s\n", e.cfg.PublicHost, e.cfg.WebPort, e.cfg.WebPassword)
+			fmt.Printf("  https://%s:%d   %s\n", e.cfg.PublicHost, e.cfg.WebPort, e.cfg.WebPassword)
 		}
 		fmt.Printf("  сертификат: %s\n", certSummary(e.paths.WebCertFile))
 		fmt.Println("  сменить: panel password <пароль> · panel on · panel off · panel port 9090 · panel cert [домен|ip]")

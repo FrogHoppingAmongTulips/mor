@@ -282,7 +282,7 @@ func setup(args []string) {
 	}
 	fmt.Printf("  настроено: %s\n", cfg.PublicHost)
 	if cfg.WebPassword != "" {
-		fmt.Printf("  панель: https://%s:%d · пароль %s\n", cfg.PublicHost, cfg.WebPort, cfg.WebPassword)
+		fmt.Printf("  панель: https://%s:%d   %s\n", cfg.PublicHost, cfg.WebPort, cfg.WebPassword)
 	}
 }
 

@@ -94,7 +94,7 @@ func (m *menu) draw() {
 	if m.e.cfg.WebOn() {
 		line := fmt.Sprintf("https://%s:%d", m.e.cfg.PublicHost, m.e.cfg.WebPort)
 		if pw := m.e.cfg.WebPassword; pw != "" {
-			line += "   пароль " + pw
+			line += "   " + pw
 		}
 		fmt.Printf("  %s%s%s\n", dim, line, reset)
 	}

@@ -271,9 +271,9 @@ func (m *menu) panel() {
 			// be shown; saying so beats printing nothing and leaving the owner
 			// to wonder where it went.
 			if c.WebPassword != "" {
-				s.state = append(s.state, "пароль "+c.WebPassword)
+				s.state = append(s.state, c.WebPassword)
 			} else {
-				s.state = append(s.state, "пароль задан раньше и не сохранён — можно задать новый")
+				s.state = append(s.state, "задан раньше и не сохранён — можно задать новый")
 			}
 			s.state = append(s.state, "сертификат: "+certSummary(m.e.paths.WebCertFile))
 		}
@@ -322,7 +322,7 @@ func (m *menu) savePanelPassword(pw string) (string, bool) {
 	// The daemon reads the web settings once at startup, so a password set
 	// here only takes effect after it comes back up.
 	restartSelf()
-	return "пароль " + pw, true
+	return pw, true
 }
 
 // rollPanelPassword replaces the password with a fresh generated one — the
