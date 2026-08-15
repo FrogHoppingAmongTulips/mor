@@ -3,8 +3,6 @@ package main
 import (
 	"fmt"
 	"strings"
-
-	"mor/internal/webauth"
 )
 
 // cmdPanel is the web panel's CLI twin: set the one password it needs, or
@@ -21,8 +19,11 @@ func cmdPanel(args []string) {
 			state = "включена"
 		}
 		fmt.Printf("  панель %s, порт %d/tcp\n", state, e.cfg.WebPort)
-		if e.cfg.WebPasswordHash == "" {
+		switch {
+		case e.cfg.WebPasswordHash == "":
 			fmt.Println("  пароль не задан — без него панель не запустится")
+		case e.cfg.WebPassword != "":
+			fmt.Printf("  адрес: https://%s:%d\n  пароль: %s\n", e.cfg.PublicHost, e.cfg.WebPort, e.cfg.WebPassword)
 		}
 		fmt.Printf("  сертификат: %s\n", certSummary(e.paths.WebCertFile))
 		fmt.Println("  сменить: panel password <пароль> · panel on · panel off · panel port 9090 · panel cert [домен|ip]")
@@ -38,7 +39,7 @@ func cmdPanel(args []string) {
 			fmt.Println("  укажи пароль: panel password секрет123")
 			return
 		}
-		e.cfg.WebPasswordHash = webauth.HashPassword(strings.Join(args[1:], " "))
+		e.cfg.SetWebPassword(strings.Join(args[1:], " "))
 	case "on", "off":
 		e.cfg.WebOff = args[0] == "off"
 	case "port":

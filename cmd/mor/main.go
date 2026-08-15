@@ -20,6 +20,7 @@ import (
 	"mor/internal/stats"
 	"mor/internal/store"
 	"mor/internal/sub"
+	"mor/internal/webauth"
 	"mor/internal/xray"
 )
 
@@ -261,6 +262,12 @@ func setup(args []string) {
 			"Укажи его вручную: mor setup --host <публичный-IP-или-домен> --force", pubHost)
 	}
 	cfg.PublicHost = pubHost
+	// A generated password is what makes the panel usable straight after
+	// installation. Without one it does not start at all, and the owner has to
+	// find out from the help text that it exists.
+	if pw := webauth.NewPassword(); pw != "" {
+		cfg.SetWebPassword(pw)
+	}
 	fatal(cfg.Save())
 
 	st, err := store.Open(paths.DataFile)
@@ -274,6 +281,9 @@ func setup(args []string) {
 		log.Printf("предупреждение: конфиг Xray: %v", err)
 	}
 	fmt.Printf("  настроено: %s\n", cfg.PublicHost)
+	if cfg.WebPassword != "" {
+		fmt.Printf("  панель: https://%s:%d · пароль %s\n", cfg.PublicHost, cfg.WebPort, cfg.WebPassword)
+	}
 }
 
 type env struct {

@@ -34,7 +34,7 @@ var menuItems = []struct{ key, title string }{
 	{"7", "Пользователи"},
 	{"8", "Обновление"},
 	{"9", "Перезапуск"},
-	{"10", "Панель"},
+	{"10", "Пароль"},
 	{"", ""},
 	{"0", "Выход"},
 }
@@ -88,11 +88,15 @@ func runMenu() {
 func (m *menu) draw() {
 	fmt.Print(clearScreen)
 	fmt.Printf("\n  %sMOR%s  %s%s%s\n", bold, reset, dim, m.e.cfg.PublicHost, reset)
-	// The panel's address is not guessable from the host alone — it depends on
-	// a port the owner may have changed — so the header spells it out rather
-	// than leaving them to remember it.
+	// The address and the password together: neither is guessable, the password
+	// is generated at install and nobody memorises one. Anyone who can read
+	// this screen is already root on the server.
 	if m.e.cfg.WebOn() {
-		fmt.Printf("  %shttps://%s:%d%s\n", dim, m.e.cfg.PublicHost, m.e.cfg.WebPort, reset)
+		line := fmt.Sprintf("https://%s:%d", m.e.cfg.PublicHost, m.e.cfg.WebPort)
+		if pw := m.e.cfg.WebPassword; pw != "" {
+			line += "   пароль " + pw
+		}
+		fmt.Printf("  %s%s%s\n", dim, line, reset)
 	}
 	fmt.Println()
 

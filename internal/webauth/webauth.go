@@ -172,3 +172,30 @@ func (s *Sessions) Save() {
 	defer s.mu.Unlock()
 	s.saveLocked()
 }
+
+// passwordAlphabet leaves out the characters people misread when copying a
+// password off a screen: 0/O, 1/l/I, 5/S.
+const passwordAlphabet = "abcdefghijkmnpqrtuvwxyz2346789"
+
+// NewPassword makes the password the installer puts on a fresh server, so the
+// panel works the moment mor is installed instead of waiting for the owner to
+// think one up.
+//
+// Sixteen characters out of thirty is about 78 bits — far past anything that
+// can be guessed through a login form, and still short enough to retype from a
+// phone.
+func NewPassword() string {
+	const n = 16
+	b := make([]byte, n)
+	if _, err := rand.Read(b); err != nil {
+		// Without randomness there is no safe password to return, and a
+		// predictable one would be worse than none: the caller leaves the
+		// panel off instead.
+		return ""
+	}
+	out := make([]byte, n)
+	for i, v := range b {
+		out[i] = passwordAlphabet[int(v)%len(passwordAlphabet)]
+	}
+	return string(out)
+}

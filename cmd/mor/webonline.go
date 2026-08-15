@@ -390,7 +390,7 @@ func (ws *webServer) handlePassword(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "пароль — минимум 8 символов", http.StatusBadRequest)
 		return
 	}
-	ws.e.cfg.WebPasswordHash = webauth.HashPassword(req.New)
+	ws.e.cfg.SetWebPassword(req.New)
 	if err := ws.e.cfg.Save(); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

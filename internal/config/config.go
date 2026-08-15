@@ -10,6 +10,7 @@ import (
 
 	"mor/internal/fsutil"
 	"mor/internal/keys"
+	"mor/internal/webauth"
 )
 
 type Paths struct {
@@ -84,8 +85,20 @@ type Config struct {
 	// owner sets one. The panel refuses to start with no password set — a web
 	// login is reachable from anywhere, unlike the terminal.
 	WebPasswordHash string `json:"web_password_hash,omitempty"`
-	WebPort         int    `json:"web_port"`
-	WebOff          bool   `json:"web_off,omitempty"`
+
+	// WebPassword is the same password in the clear, so the menu can show it
+	// next to the panel's address. The installer generates one, and nobody
+	// remembers a generated password — a panel whose password cannot be looked
+	// up is a panel nobody gets into.
+	//
+	// It costs something: config.json is 0600 and root-only, but the password
+	// now leaks with the file if the file ever leaks. On a server where root
+	// already means every key and every setting, that is a small addition;
+	// on a shared one it is not, and there the owner can still set a password
+	// by hand, which is stored the same way.
+	WebPassword string `json:"web_password,omitempty"`
+	WebPort     int    `json:"web_port"`
+	WebOff      bool   `json:"web_off,omitempty"`
 
 	// Off lists protocols the owner switched off. Empty means everything runs.
 	Off []string `json:"off,omitempty"`
@@ -213,6 +226,7 @@ func (c *Config) applyLocked(n *Config) {
 	c.SubPort = n.SubPort
 	c.SubOff = n.SubOff
 	c.WebPasswordHash = n.WebPasswordHash
+	c.WebPassword = n.WebPassword
 	c.WebPort = n.WebPort
 	c.WebOff = n.WebOff
 	c.Off = n.Off
@@ -276,6 +290,13 @@ func (c *Config) Save() error {
 }
 
 func (c *Config) SetPath(p string) { c.path = p }
+
+// SetWebPassword keeps the hash and the readable copy in step. Everything that
+// changes the panel password goes through here, so the two can never disagree.
+func (c *Config) SetWebPassword(pw string) {
+	c.WebPassword = pw
+	c.WebPasswordHash = webauth.HashPassword(pw)
+}
 
 // SetSNI changes the site every protocol pretends to be. Hysteria2 proxies to
 // it and Reality shakes hands with it, so the two must never drift apart —

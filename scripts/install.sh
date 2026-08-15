@@ -377,6 +377,9 @@ self_check() {
     echo
     if [ "$fresh" = "1" ]; then
       log "готово. Набери mor"
+      # The generated password scrolled past during setup; it is what the owner
+      # needs first, so it is repeated where they are actually looking.
+      "$BIN" panel | grep -E "адрес:|пароль:" || true
     else
       log "обновлено. Управление: mor"
     fi

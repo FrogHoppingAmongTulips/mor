@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"mor/internal/config"
+	"mor/internal/webauth"
 )
 
 // screen runs one menu screen with canned input and returns what it printed.
@@ -51,7 +52,7 @@ func panelEnv(t *testing.T, hash string) *env {
 func TestPanelScreenOffersThePasswordWhenThereIsNone(t *testing.T) {
 	out := screen(t, panelEnv(t, ""), "\n", func(m *menu) { m.panel() })
 
-	for _, want := range []string{"Панель", "пароль не задан", "Пароль", "Порт"} {
+	for _, want := range []string{"Пароль", "пароль не задан", "Задать свой", "Сгенерировать новый", "Порт"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("на экране нет %q:\n%s", want, out)
 		}
@@ -65,10 +66,16 @@ func TestPanelScreenOffersThePasswordWhenThereIsNone(t *testing.T) {
 }
 
 func TestPanelScreenShowsTheAddressOnceItRuns(t *testing.T) {
-	out := screen(t, panelEnv(t, "соль:хеш"), "\n", func(m *menu) { m.panel() })
+	e := panelEnv(t, "")
+	e.cfg.SetWebPassword("мойпароль123")
+	out := screen(t, e, "\n", func(m *menu) { m.panel() })
 
 	if !strings.Contains(out, "https://203.0.113.7:9090") {
 		t.Errorf("нет адреса панели:\n%s", out)
+	}
+	// The whole point: the password is readable without asking anyone.
+	if !strings.Contains(out, "мойпароль123") {
+		t.Errorf("пароль не показан:\n%s", out)
 	}
 	for _, want := range []string{"Выключить", "сертификат заново"} {
 		if !strings.Contains(out, want) {
@@ -80,12 +87,12 @@ func TestPanelScreenShowsTheAddressOnceItRuns(t *testing.T) {
 func TestPanelIsInTheMainMenu(t *testing.T) {
 	found := false
 	for _, it := range menuItems {
-		if it.title == "Панель" {
+		if it.title == "Пароль" {
 			found = true
 		}
 	}
 	if !found {
-		t.Fatal("пункта «Панель» нет в главном меню")
+		t.Fatal("пункта «Пароль» нет в главном меню")
 	}
 }
 
@@ -101,5 +108,47 @@ func TestShortPasswordIsRefused(t *testing.T) {
 	}
 	if e.cfg.WebPasswordHash != "" {
 		t.Error("пароль всё-таки записан")
+	}
+}
+
+// A password set before mor kept a readable copy cannot be shown. Saying so is
+// the point — printing nothing would look like the password had been lost.
+func TestOldPasswordWithoutReadableCopySaysSo(t *testing.T) {
+	out := screen(t, panelEnv(t, "соль:хеш"), "\n", func(m *menu) { m.panel() })
+
+	if !strings.Contains(out, "не сохранён") {
+		t.Errorf("не сказано, что старый пароль не показать:\n%s", out)
+	}
+}
+
+// The installer generates one so the panel works out of the box.
+func TestGeneratedPasswordIsUsable(t *testing.T) {
+	seen := map[string]bool{}
+	for range 50 {
+		pw := webauth.NewPassword()
+		if len(pw) != 16 {
+			t.Fatalf("длина %d, ожидалось 16: %q", len(pw), pw)
+		}
+		if strings.ContainsAny(pw, "0O1lI5S") {
+			t.Errorf("в пароле легко спутать знаки: %q", pw)
+		}
+		if seen[pw] {
+			t.Fatalf("пароль повторился: %q", pw)
+		}
+		seen[pw] = true
+	}
+}
+
+// The hash and the readable copy are written together, so a login can never
+// disagree with what the menu shows.
+func TestSetWebPasswordKeepsBothInStep(t *testing.T) {
+	c := config.NewDefault()
+	c.SetWebPassword("пароль-которым-входят")
+
+	if c.WebPassword != "пароль-которым-входят" {
+		t.Errorf("читаемая копия: %q", c.WebPassword)
+	}
+	if !webauth.VerifyPassword(c.WebPasswordHash, c.WebPassword) {
+		t.Error("показанным паролем нельзя войти")
 	}
 }

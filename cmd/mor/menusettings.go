@@ -254,7 +254,7 @@ func (m *menu) askSNI(onEmpty string) (string, bool) {
 // menu — which is what most people ever see — said nothing about the panel at
 // all until it was already running.
 func (m *menu) panel() {
-	sec := &section{title: "Панель"}
+	sec := &section{title: "Пароль"}
 	m.walk(sec, func(s *section) {
 		c := m.e.cfg
 		s.state = nil
@@ -262,15 +262,25 @@ func (m *menu) panel() {
 		case c.WebPasswordHash == "":
 			s.state = append(s.state, "пароль не задан — панель не работает")
 		case c.WebOff:
-			s.state = append(s.state, "выключена")
+			s.state = append(s.state, "панель выключена")
 		default:
-			s.state = append(s.state,
-				fmt.Sprintf("https://%s:%d", c.PublicHost, c.WebPort),
-				"сертификат: "+certSummary(m.e.paths.WebCertFile))
+			s.state = append(s.state, fmt.Sprintf("https://%s:%d", c.PublicHost, c.WebPort))
+		}
+		if c.WebPasswordHash != "" {
+			// A password set before mor started keeping a readable copy cannot
+			// be shown; saying so beats printing nothing and leaving the owner
+			// to wonder where it went.
+			if c.WebPassword != "" {
+				s.state = append(s.state, "пароль "+c.WebPassword)
+			} else {
+				s.state = append(s.state, "пароль задан раньше и не сохранён — можно задать новый")
+			}
+			s.state = append(s.state, "сертификат: "+certSummary(m.e.paths.WebCertFile))
 		}
 
 		s.rows = []row{
-			{label: "Пароль", hint: passwordHint(c.WebPasswordHash), do: m.askPanelPassword},
+			{label: "Задать свой", hint: "от 8 знаков", do: m.askPanelPassword},
+			{label: "Сгенерировать новый", do: m.rollPanelPassword},
 			{label: "Порт", value: strconv.Itoa(c.WebPort), do: m.askPanelPort},
 		}
 		if c.WebPasswordHash != "" {
@@ -282,13 +292,6 @@ func (m *menu) panel() {
 		}
 	})
 	m.msg = ""
-}
-
-func passwordHint(hash string) string {
-	if hash == "" {
-		return "без него панель не запустится"
-	}
-	return "задан — можно сменить"
 }
 
 func onOffLabel(off bool) string {
@@ -307,7 +310,11 @@ func (m *menu) askPanelPassword() (string, bool) {
 	if len([]rune(val)) < 8 {
 		return "слишком короткий — от 8 знаков", false
 	}
-	m.e.cfg.WebPasswordHash = webauth.HashPassword(val)
+	return m.savePanelPassword(val)
+}
+
+func (m *menu) savePanelPassword(pw string) (string, bool) {
+	m.e.cfg.SetWebPassword(pw)
 	if err := m.e.cfg.Save(); err != nil {
 		return err.Error(), false
 	}
@@ -315,7 +322,17 @@ func (m *menu) askPanelPassword() (string, bool) {
 	// The daemon reads the web settings once at startup, so a password set
 	// here only takes effect after it comes back up.
 	restartSelf()
-	return fmt.Sprintf("панель на https://%s:%d", m.e.cfg.PublicHost, m.e.cfg.WebPort), true
+	return "пароль " + pw, true
+}
+
+// rollPanelPassword replaces the password with a fresh generated one — the
+// answer to a password that leaked or was shown to the wrong person.
+func (m *menu) rollPanelPassword() (string, bool) {
+	pw := webauth.NewPassword()
+	if pw == "" {
+		return "не удалось сгенерировать", false
+	}
+	return m.savePanelPassword(pw)
 }
 
 func (m *menu) askPanelPort() (string, bool) {
