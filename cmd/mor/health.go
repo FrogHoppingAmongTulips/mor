@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
@@ -242,14 +243,32 @@ func subProblem(e *env) *problem {
 	if token == "" {
 		return nil // nobody has a subscription link yet
 	}
-	url := "http://" + net.JoinHostPort("127.0.0.1", strconv.Itoa(e.cfg.SubPort)) + "/sub/" + token
+	// The scheme has to match what the port actually speaks. Asking an HTTPS
+	// subscription over plain http gets a redirect, and following it to
+	// 127.0.0.1 fails the certificate — which is issued for the public host —
+	// so the check reported a dead subscription on every server that had a
+	// real certificate.
+	scheme := "http://"
+	if subSecure(e) {
+		scheme = "https://"
+	}
+	url := scheme + net.JoinHostPort("127.0.0.1", strconv.Itoa(e.cfg.SubPort)) + "/sub/" + token
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil
 	}
-	resp, err := (&http.Client{Timeout: 4 * time.Second}).Do(req)
+	// Talking to ourselves over loopback: the question is whether the
+	// subscription answers, not who it claims to be, and the name on the
+	// certificate is the public address rather than 127.0.0.1.
+	client := &http.Client{
+		Timeout: 4 * time.Second,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // loopback liveness probe
+		},
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return &problem{text: "раздача ссылок не отвечает — приложения не обновят настройки", level: levelBad, fix: subFix()}
 	}

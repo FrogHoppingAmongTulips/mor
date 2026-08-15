@@ -2,13 +2,26 @@ package main
 
 import (
 	"bufio"
+	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"io"
+	"math/big"
+	"net"
 	"os"
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"mor/internal/config"
+	"mor/internal/proxy"
+	"mor/internal/store"
+	"mor/internal/sub"
 	"mor/internal/webauth"
 )
 
@@ -172,4 +185,101 @@ func TestRealCertificateIsNotAProblem(t *testing.T) {
 	if got := certProblem(e); got != nil {
 		t.Errorf("без сертификата поднята тревога: %+v", got)
 	}
+}
+
+// The subscription check talks to the port over whatever it actually speaks.
+// When the subscription moved to HTTPS this probe stayed on http, followed the
+// redirect to 127.0.0.1, failed the certificate — issued for the public host,
+// not for loopback — and reported a dead subscription on every server that had
+// a real certificate.
+func TestSubscriptionCheckSpeaksTLSWhenTheSubscriptionDoes(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(dir + "/users.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, err := st.Add(&store.User{Name: "телефон", Proto: store.ProtoHy2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SetSub(u.ID, "a1b2c3"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Named for the public host and signed by nobody. The common name is what
+	// tells mor's own stand-in apart, so a different one makes this count as a
+	// real certificate — which is what puts the subscription on https.
+	certPath, keyPath := dir+"/web.crt", dir+"/web.key"
+	if err := writeNamedCert(t, certPath, keyPath, "203.0.113.7"); err != nil {
+		t.Fatal(err)
+	}
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	port := ln.Addr().(*net.TCPAddr).Port
+	ln.Close()
+
+	cfg := config.NewDefault()
+	cfg.EnsureDefaults()
+	cfg.SetPath(dir + "/config.json")
+	cfg.PublicHost = "203.0.113.7"
+	cfg.SubPort = port
+	e := &env{cfg: cfg, st: st, paths: config.Paths{WebCertFile: certPath, WebKeyFile: keyPath}}
+
+	if !subSecure(e) {
+		t.Fatal("подписка не считается защищённой — проверять нечего")
+	}
+
+	tlsCfg, err := tlsConfig(e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, stop := context.WithCancel(context.Background())
+	defer stop()
+	h := sub.New(st, func(*store.User) (proxy.Proxy, bool) {
+		return proxy.Proxy{Name: "телефон", Kind: proxy.Hysteria2, Server: "203.0.113.7", Port: 443, Password: "п"}, true
+	}, "сервер", nil)
+	go sub.Serve(ctx, port, h, tlsCfg)
+
+	// The server needs a moment to bind before the check means anything.
+	var got *problem
+	for range 50 {
+		got = subProblem(e)
+		if got == nil {
+			return
+		}
+		time.Sleep(40 * time.Millisecond)
+	}
+	t.Fatalf("подписка по https объявлена нерабочей: %s", got.text)
+}
+
+func writeNamedCert(t *testing.T, certPath, keyPath, host string) error {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return err
+	}
+	tmpl := x509.Certificate{
+		SerialNumber: big.NewInt(2),
+		Subject:      pkix.Name{CommonName: host},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(time.Hour),
+		IPAddresses:  []net.IP{net.ParseIP(host)},
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, &key.PublicKey, key)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(certPath, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), 0o600); err != nil {
+		return err
+	}
+	kd, err := x509.MarshalECPrivateKey(key)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(keyPath, pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: kd}), 0o600)
 }

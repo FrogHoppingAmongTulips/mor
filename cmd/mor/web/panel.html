@@ -347,8 +347,11 @@ details.grp[open]>summary{margin-bottom:14px}
 .dcl{font-size:10px;font-weight:500;letter-spacing:.12em;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
 .dcv{font-size:14px;font-weight:400;color:var(--t1);letter-spacing:-.01em}
 .hidden{display:none}
-.qr-w{text-align:center;margin:14px 0}
-.qr-b{width:148px;height:148px;background:#fff;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;overflow:hidden}
+/* The QR sits beside the links rather than under them: it is the thing most
+   people came for, and unfolding it below pushed the rest of the card down. */
+.sharerow{display:flex;align-items:flex-start;gap:16px;margin-top:4px}
+.sharecol{flex:1;min-width:0}
+.qr-b{width:148px;height:148px;flex-shrink:0;background:#fff;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;overflow:hidden}
 .qr-b img{width:100%;height:100%}
 .dact{display:flex;gap:8px;margin-top:14px}
 .dbtns{display:flex;gap:8px;margin-top:20px}
@@ -448,6 +451,9 @@ details.grp[open]>summary{margin-bottom:14px}
   .kedit-row{grid-template-columns:1fr;gap:16px}
   .set-grid{grid-template-columns:1fr}
   .kfacts{grid-template-columns:1fr;gap:10px}
+  /* On a phone the link and the code have no room side by side. */
+  .sharerow{flex-direction:column;align-items:center;gap:12px}
+  .sharecol{width:100%}
   .pgrid{grid-template-columns:1fr}
   .grp{padding:14px}
   .modal{margin:12px;padding:20px}
@@ -1273,16 +1279,19 @@ function renderHomeDetail(id){
     ' data-act="pickLink" data-arg="'+id+'" data-proto="'+val+'" aria-pressed="'+(lp===val?'true':'false')+'">'+label+'</button>';
 
   h+='<div class="kcard"><div class="ksec">'+t('shareSec')+'</div>'+
-     '<div class="pchk lchoice" id="lch-'+id+'">'+
-       chip('',t('all'))+
-       u.protocols.map(p=>chip(p,PROTO_NAMES[p]||p)).join('')+
-     '</div>'+
-     '<button type="button" class="linkrow" data-act="copyLink" data-arg="'+id+'" title="'+t('copyLink')+'">'+
-       '<span class="linkrow-text" id="ltext-'+id+'">'+esc(lp?(u.links&&u.links[lp]||''):(u.subLink||u.link||''))+'</span>'+
-       '<svg class="linkrow-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>'+
-     '</div>'+
-     '<div class="dact"><button type="button" class="btn btn-sm" data-act="qr" data-arg="'+id+'">'+t('qr')+'</button></div>'+
-     '<div class="qr-w hidden" id="uh-qr-'+id+'"><div class="qr-b" id="uh-qr-box-'+id+'"></div></div></div>';
+     '<div class="sharerow">'+
+       '<div class="sharecol">'+
+         '<div class="pchk lchoice" id="lch-'+id+'">'+
+           chip('',t('all'))+
+           u.protocols.map(p=>chip(p,PROTO_NAMES[p]||p)).join('')+
+         '</div>'+
+         '<button type="button" class="linkrow" data-act="copyLink" data-arg="'+id+'" title="'+t('copyLink')+'">'+
+           '<span class="linkrow-text" id="ltext-'+id+'">'+esc(lp?(u.links&&u.links[lp]||''):(u.subLink||u.link||''))+'</span>'+
+           '<svg class="linkrow-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>'+
+         '</button>'+
+       '</div>'+
+       '<div class="qr-b" id="uh-qr-box-'+id+'"></div>'+
+     '</div></div>';
 
   // Delete sits apart from the reversible two: banning and resetting can be
   // undone, this cannot.
@@ -1293,6 +1302,7 @@ function renderHomeDetail(id){
      '</div>';
   box.innerHTML=h;
   applySizes(box);
+  renderQR(id);
 }
 
 // Bytes back into the shorthand the box accepts, so saving without touching
@@ -1393,23 +1403,27 @@ function pickLink(id,proto){
   const u=detailCache.get(id);if(!u)return;
   document.querySelectorAll('#lch-'+id+' .pchip').forEach(c=>c.classList.toggle('on',c.dataset.l===proto));
   document.getElementById('ltext-'+id).textContent=proto?(u.links&&u.links[proto]||''):(u.subLink||u.link||'');
-  // The QR belongs to whatever link is on screen, so it is dropped and
-  // refetched rather than left showing the previous protocol.
+  renderQR(id);
+}
+
+// renderQR draws the code for whatever link is on screen. The image is left
+// alone when nothing changed: the list redraws every fifteen seconds, and
+// refetching there would blink the code in front of a phone camera.
+function renderQR(id){
   const box=document.getElementById('uh-qr-box-'+id);
-  if(box)box.innerHTML='';
-  document.getElementById('uh-qr-'+id).classList.add('hidden');
+  if(!box)return;
+  const text=(document.getElementById('ltext-'+id)||{}).textContent||'';
+  if(!text){box.innerHTML='';box.dataset.key='';return}
+  const proto=linkPick.get(id)||'';
+  const key=id+'|'+proto+'|'+text;
+  if(box.dataset.key===key)return;
+  box.dataset.key=key;
+  box.innerHTML='<img src="/api/qr/'+encodeURIComponent(id)+'.png'+(proto?'?proto='+encodeURIComponent(proto):'')+'" alt="QR">';
 }
 function copyShown(id){
   const text=document.getElementById('ltext-'+id).textContent;
   if(!text){toast(t('noLink'));return}
   navigator.clipboard.writeText(text).then(()=>toast(t('copied'))).catch(()=>toast(t('copyFail')));
-}
-function toggleHomeQR(id){
-  const wrap=document.getElementById('uh-qr-'+id),box=document.getElementById('uh-qr-box-'+id);
-  const show=wrap.classList.contains('hidden');
-  const proto=linkPick.get(id)||'';
-  if(show&&!box.innerHTML)box.innerHTML='<img src="/api/qr/'+encodeURIComponent(id)+'.png?t='+Date.now()+(proto?'&proto='+encodeURIComponent(proto):'')+'" alt="QR">';
-  wrap.classList.toggle('hidden',!show);
 }
 // Ban, reset and delete all change what the opened key shows, so the list is
 // reloaded and the open card redrawn from the fresh data.
@@ -1751,7 +1765,6 @@ const ACTIONS = {
   pick:          el => togglePick(el.dataset.arg),
   openKey:       el => toggleHomeUser(el.dataset.arg),
   saveKey:       el => saveKeyEdit(el.dataset.arg),
-  qr:            el => toggleHomeQR(el.dataset.arg),
   copyLink:      el => copyShown(el.dataset.arg),
   pickLink:      el => pickLink(el.dataset.arg, el.dataset.proto),
   ban:           () => toggleBan(),

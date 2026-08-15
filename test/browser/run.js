@@ -381,6 +381,38 @@ test('имя рабочего ключа белое, отключённого �
   await dropKeys(page, 'тест-');
 });
 
+// The code is the thing most people came for: it is beside the links, not
+// under them, and it is there without being asked for.
+test('QR стоит справа от ссылки и рисуется сразу', async (page) => {
+  await login(page);
+  await makeKey(page, 'тест-qr', ['hy2', 'reality']);
+  await page.click('[data-pane="keys"]');
+  await page.waitForTimeout(600);
+  const row = page.locator('.uh', { has: page.locator('.uh-name', { hasText: 'тест-qr' }) });
+  await row.locator('.uh-open').click();
+  await page.waitForTimeout(1000);
+
+  const box = await waitFor(page, () => {
+    const b = document.querySelector('.uh.open .qr-b');
+    const c = document.querySelector('.uh.open .sharecol');
+    if (!b || !c || !b.querySelector('img')) return null;
+    const rb = b.getBoundingClientRect(), rc = c.getBoundingClientRect();
+    return { qrX: Math.round(rb.x), qrY: Math.round(rb.y), linkX: Math.round(rc.x), linkY: Math.round(rc.y) };
+  }, 'QR не появился сам');
+
+  ok(box.qrX > box.linkX, `QR не справа: ссылка на ${box.linkX}, QR на ${box.qrX}`);
+  ok(Math.abs(box.qrY - box.linkY) < 8, `QR не на одной высоте со ссылкой: ${box.linkY} и ${box.qrY}`);
+
+  // Switching protocol must swap the code, not leave the previous one.
+  const before = await page.locator('.uh.open .qr-b img').getAttribute('src');
+  await row.locator('.pchip', { hasText: 'VLESS+Reality' }).click();
+  await page.waitForTimeout(500);
+  const after = await page.locator('.uh.open .qr-b img').getAttribute('src');
+  ok(before !== after, `QR не сменился при выборе протокола: ${after}`);
+
+  await dropKeys(page, 'тест-');
+});
+
 test('смена языка переводит интерфейс', async (page) => {
   await login(page);
   const before = await page.locator('.btn-plus').textContent();
