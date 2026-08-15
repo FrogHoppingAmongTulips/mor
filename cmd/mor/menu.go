@@ -34,6 +34,7 @@ var menuItems = []struct{ key, title string }{
 	{"7", "Пользователи"},
 	{"8", "Обновление"},
 	{"9", "Перезапуск"},
+	{"10", "Панель"},
 	{"", ""},
 	{"0", "Выход"},
 }
@@ -95,12 +96,20 @@ func (m *menu) draw() {
 	}
 	fmt.Println()
 
+	// Keys are padded to the widest one so the titles stay in a column once
+	// the list runs past nine items.
+	w := 0
+	for _, it := range menuItems {
+		if len(it.key) > w {
+			w = len(it.key)
+		}
+	}
 	for _, it := range menuItems {
 		if it.key == "" {
 			fmt.Println()
 			continue
 		}
-		fmt.Printf("  %s%s%s  %s\n", bold, it.key, reset, it.title)
+		fmt.Printf("  %s%*s%s  %s\n", bold, w, it.key, reset, it.title)
 	}
 	if m.warn != "" {
 		fmt.Printf("\n  %s%s%s\n", bold, m.warn, reset)
@@ -118,6 +127,38 @@ func (m *menu) ask(prompt string) (string, bool) {
 		return "", false
 	}
 	return strings.TrimSpace(line), true
+}
+
+// askHidden reads a line without echoing it. A password typed into a terminal
+// stays in the scrollback of whoever is looking over the shoulder, and on a
+// server that terminal is often shared or recorded.
+//
+// Echo is turned off through stty rather than a library: mor has one
+// dependency and this is not worth a second. If stty is missing the password
+// is still read, just visibly — refusing to set one would be worse.
+func (m *menu) askHidden(prompt string) (string, bool) {
+	restore, hidden := hideInput()
+	if hidden {
+		defer restore()
+	}
+	val, ok := m.ask(prompt)
+	if hidden {
+		fmt.Println()
+	}
+	return val, ok
+}
+
+func hideInput() (func(), bool) {
+	saved, err := exec.Command("stty", "-F", "/dev/tty", "-g").Output()
+	if err != nil {
+		return nil, false
+	}
+	if exec.Command("stty", "-F", "/dev/tty", "-echo").Run() != nil {
+		return nil, false
+	}
+	return func() {
+		_ = exec.Command("stty", "-F", "/dev/tty", strings.TrimSpace(string(saved))).Run()
+	}, true
 }
 
 func (m *menu) run(choice string) {
@@ -140,6 +181,8 @@ func (m *menu) run(choice string) {
 		m.update()
 	case "9":
 		m.restart()
+	case "10":
+		m.panel()
 	default:
 		m.msg = nearestItem(choice)
 	}

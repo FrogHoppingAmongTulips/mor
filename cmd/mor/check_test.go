@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
@@ -257,7 +258,7 @@ func TestHealthyEngineUnreachableIsAPortProblem(t *testing.T) {
 
 func TestMenuSpacersAreNotItems(t *testing.T) {
 	seen := map[string]bool{}
-	order := ""
+	var order []string
 	for _, it := range menuItems {
 		if it.key == "" {
 			if it.title != "" {
@@ -272,12 +273,19 @@ func TestMenuSpacersAreNotItems(t *testing.T) {
 			t.Errorf("номер %q встречается дважды", it.key)
 		}
 		seen[it.key] = true
-		order += it.key
+		order = append(order, it.key)
 	}
 	// Numbers people already know must stay where they were: a list that reads
 	// 1 7 2 3 is harder to scan than the solid block the spacers came to break.
-	if order != "1234567890" {
-		t.Errorf("номера идут не по порядку: %s", order)
+	// Exit is last and always zero.
+	if len(order) == 0 || order[len(order)-1] != "0" {
+		t.Fatalf("выход не последний: %v", order)
+	}
+	for i, key := range order[:len(order)-1] {
+		if key != strconv.Itoa(i+1) {
+			t.Errorf("номера идут не по порядку: %v", order)
+			break
+		}
 	}
 }
 

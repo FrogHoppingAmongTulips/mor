@@ -7,6 +7,7 @@ import (
 
 	"mor/internal/config"
 	"mor/internal/store"
+	"mor/internal/webauth"
 )
 
 // The menu screens about the server itself: which ports it listens on, which
@@ -246,4 +247,111 @@ func (m *menu) askSNI(onEmpty string) (string, bool) {
 		}
 		return domain, true
 	}
+}
+
+// panel is where the web panel gets its password. Before this existed the
+// only way to switch it on was `panel password …` from the help text, and the
+// menu — which is what most people ever see — said nothing about the panel at
+// all until it was already running.
+func (m *menu) panel() {
+	sec := &section{title: "Панель"}
+	m.walk(sec, func(s *section) {
+		c := m.e.cfg
+		s.state = nil
+		switch {
+		case c.WebPasswordHash == "":
+			s.state = append(s.state, "пароль не задан — панель не работает")
+		case c.WebOff:
+			s.state = append(s.state, "выключена")
+		default:
+			s.state = append(s.state,
+				fmt.Sprintf("https://%s:%d", c.PublicHost, c.WebPort),
+				"сертификат: "+certSummary(m.e.paths.WebCertFile))
+		}
+
+		s.rows = []row{
+			{label: "Пароль", hint: passwordHint(c.WebPasswordHash), do: m.askPanelPassword},
+			{label: "Порт", value: strconv.Itoa(c.WebPort), do: m.askPanelPort},
+		}
+		if c.WebPasswordHash != "" {
+			s.rows = append(s.rows,
+				row{sep: true},
+				row{label: onOffLabel(c.WebOff), do: m.togglePanel},
+				row{label: "Выпустить сертификат заново", hint: "нужен свободный порт 80", do: m.reissueCert},
+			)
+		}
+	})
+	m.msg = ""
+}
+
+func passwordHint(hash string) string {
+	if hash == "" {
+		return "без него панель не запустится"
+	}
+	return "задан — можно сменить"
+}
+
+func onOffLabel(off bool) string {
+	if off {
+		return "Включить"
+	}
+	return "Выключить"
+}
+
+func (m *menu) askPanelPassword() (string, bool) {
+	fmt.Printf("\n  %sот 8 знаков, вводится не отображаясь (Enter — отмена)%s\n", dim, reset)
+	val, ok := m.askHidden("Пароль")
+	if !ok || val == "" {
+		return "отменено", false
+	}
+	if len([]rune(val)) < 8 {
+		return "слишком короткий — от 8 знаков", false
+	}
+	m.e.cfg.WebPasswordHash = webauth.HashPassword(val)
+	if err := m.e.cfg.Save(); err != nil {
+		return err.Error(), false
+	}
+	ensureFirewall(m.e)
+	// The daemon reads the web settings once at startup, so a password set
+	// here only takes effect after it comes back up.
+	restartSelf()
+	return fmt.Sprintf("панель на https://%s:%d", m.e.cfg.PublicHost, m.e.cfg.WebPort), true
+}
+
+func (m *menu) askPanelPort() (string, bool) {
+	fmt.Printf("\n  %sномер от 1 до 65535 (Enter — отмена)%s\n", dim, reset)
+	val, ok := m.ask("Порт")
+	if !ok || val == "" {
+		return "отменено", false
+	}
+	p, err := parsePort(val)
+	if err != nil {
+		return err.Error(), false
+	}
+	m.e.cfg.WebPort = p
+	if err := m.e.cfg.Save(); err != nil {
+		return err.Error(), false
+	}
+	ensureFirewall(m.e)
+	restartSelf()
+	return "порт " + val, true
+}
+
+func (m *menu) togglePanel() (string, bool) {
+	m.e.cfg.WebOff = !m.e.cfg.WebOff
+	if err := m.e.cfg.Save(); err != nil {
+		return err.Error(), false
+	}
+	ensureFirewall(m.e)
+	restartSelf()
+	if m.e.cfg.WebOff {
+		return "панель выключена", true
+	}
+	return fmt.Sprintf("панель на https://%s:%d", m.e.cfg.PublicHost, m.e.cfg.WebPort), true
+}
+
+func (m *menu) reissueCert() (string, bool) {
+	fmt.Printf("\n  %sвыпускаю…%s\n", dim, reset)
+	cmdPanelCert([]string{m.e.cfg.PublicHost})
+	return certSummary(m.e.paths.WebCertFile), true
 }
