@@ -351,7 +351,12 @@ details.grp[open]>summary{margin-bottom:14px}
    people came for, and unfolding it below pushed the rest of the card down. */
 .sharerow{display:flex;align-items:flex-start;gap:16px;margin-top:4px}
 .sharecol{flex:1;min-width:0}
-.qr-b{width:148px;height:148px;flex-shrink:0;background:#fff;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;overflow:hidden}
+/* The code unfolds to the right as the card opens instead of appearing at
+   full size: the card body animates too, and a square that simply exists
+   while everything around it moves reads as a glitch. */
+.qr-b{width:0;height:148px;flex-shrink:0;background:#fff;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;opacity:0;
+  transition:width .42s cubic-bezier(.32,.72,0,1),opacity .28s ease .12s}
+.qr-b.on{width:148px;opacity:1}
 .qr-b img{width:100%;height:100%}
 .dact{display:flex;gap:8px;margin-top:14px}
 .dbtns{display:flex;gap:8px;margin-top:20px}
@@ -1413,12 +1418,16 @@ function renderQR(id){
   const box=document.getElementById('uh-qr-box-'+id);
   if(!box)return;
   const text=(document.getElementById('ltext-'+id)||{}).textContent||'';
-  if(!text){box.innerHTML='';box.dataset.key='';return}
+  if(!text){box.innerHTML='';box.dataset.key='';box.classList.remove('on');return}
   const proto=linkPick.get(id)||'';
   const key=id+'|'+proto+'|'+text;
   if(box.dataset.key===key)return;
   box.dataset.key=key;
   box.innerHTML='<img src="/api/qr/'+encodeURIComponent(id)+'.png'+(proto?'?proto='+encodeURIComponent(proto):'')+'" alt="QR">';
+  // The class has to land on a later frame than the markup, or the browser
+  // has nothing to animate from. Once open it stays open: switching protocol
+  // swaps the image and must not fold the square away and back.
+  if(!box.classList.contains('on'))requestAnimationFrame(()=>box.classList.add('on'));
 }
 function copyShown(id){
   const text=document.getElementById('ltext-'+id).textContent;
