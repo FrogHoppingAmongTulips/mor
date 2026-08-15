@@ -381,9 +381,10 @@ test('имя рабочего ключа белое, отключённого �
   await dropKeys(page, 'тест-');
 });
 
-// The code is the thing most people came for: it is beside the links, not
-// under them, and it is there without being asked for.
-test('QR стоит справа от ссылки и рисуется сразу', async (page) => {
+// The code is a chip in the same row as the protocols: pressed, it unfolds to
+// the right of the link; pressed again it folds away and takes its space with
+// it.
+test('QR раскрывается по нажатию и стоит справа', async (page) => {
   await login(page);
   await makeKey(page, 'тест-qr', ['hy2', 'reality']);
   await page.click('[data-pane="keys"]');
@@ -392,23 +393,41 @@ test('QR стоит справа от ссылки и рисуется сраз�
   await row.locator('.uh-open').click();
   await page.waitForTimeout(1000);
 
-  const box = await waitFor(page, () => {
+  const size = () => page.evaluate(() => {
     const b = document.querySelector('.uh.open .qr-b');
     const c = document.querySelector('.uh.open .sharecol');
-    if (!b || !c || !b.querySelector('img')) return null;
+    if (!b || !c) return null;
     const rb = b.getBoundingClientRect(), rc = c.getBoundingClientRect();
-    return { qrX: Math.round(rb.x), qrY: Math.round(rb.y), linkX: Math.round(rc.x), linkY: Math.round(rc.y) };
-  }, 'QR не появился сам');
+    return { ш: Math.round(rb.width), в: Math.round(rb.height), x: Math.round(rb.x), linkX: Math.round(rc.x) };
+  });
 
-  ok(box.qrX > box.linkX, `QR не справа: ссылка на ${box.linkX}, QR на ${box.qrX}`);
-  ok(Math.abs(box.qrY - box.linkY) < 8, `QR не на одной высоте со ссылкой: ${box.linkY} и ${box.qrY}`);
+  const closed = await size();
+  eq(closed.ш, 0, 'до нажатия QR занимает место');
+  eq(closed.в, 0, 'до нажатия QR занимает высоту');
 
-  // Switching protocol must swap the code, not leave the previous one.
+  await row.locator('.pchip-qr').click();
+  const open = await waitFor(page, () => {
+    const b = document.querySelector('.uh.open .qr-b');
+    const w = Math.round(b.getBoundingClientRect().width);
+    return w > 140 ? w : null;
+  }, 'QR не раскрылся');
+  ok(open > 140, `раскрылся не полностью: ${open}`);
+
+  const now = await size();
+  ok(now.x > now.linkX, `QR не справа: ссылка ${now.linkX}, QR ${now.x}`);
+  ok(await page.locator('.uh.open .qr-b img').count() === 1, 'картинки нет');
+
+  // Switching protocol swaps the code and leaves it open.
   const before = await page.locator('.uh.open .qr-b img').getAttribute('src');
   await row.locator('.pchip', { hasText: 'VLESS+Reality' }).click();
   await page.waitForTimeout(500);
   const after = await page.locator('.uh.open .qr-b img').getAttribute('src');
   ok(before !== after, `QR не сменился при выборе протокола: ${after}`);
+  ok((await size()).ш > 140, 'QR свернулся при смене протокола');
+
+  await row.locator('.pchip-qr').click();
+  await waitFor(page, () => Math.round(document.querySelector('.uh.open .qr-b').getBoundingClientRect().width) === 0,
+    'QR не свернулся обратно');
 
   await dropKeys(page, 'тест-');
 });

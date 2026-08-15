@@ -339,6 +339,7 @@ details.grp[open]>summary{margin-bottom:14px}
 /* "All" is a control, not a protocol — outlined so it reads as a different
    kind of thing next to the chips it drives. */
 .pchip-all{background:transparent;border-color:var(--border2)}
+.pchip-qr{margin-left:auto}
 .pchip-all.on{background:var(--t1);border-color:var(--t1)}
 
 .dgrid{display:flex;flex-direction:column;gap:14px;margin-bottom:18px}
@@ -354,9 +355,9 @@ details.grp[open]>summary{margin-bottom:14px}
 /* The code unfolds to the right as the card opens instead of appearing at
    full size: the card body animates too, and a square that simply exists
    while everything around it moves reads as a glitch. */
-.qr-b{width:0;height:148px;flex-shrink:0;background:#fff;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;opacity:0;
-  transition:width .42s cubic-bezier(.32,.72,0,1),opacity .28s ease .12s}
-.qr-b.on{width:148px;opacity:1}
+.qr-b{width:0;height:0;flex-shrink:0;background:#fff;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;opacity:0;
+  transition:width .42s cubic-bezier(.32,.72,0,1),height .42s cubic-bezier(.32,.72,0,1),opacity .28s ease .12s}
+.qr-b.on{width:148px;height:148px;opacity:1}
 .qr-b img{width:100%;height:100%}
 .dact{display:flex;gap:8px;margin-top:14px}
 .dbtns{display:flex;gap:8px;margin-top:20px}
@@ -1289,6 +1290,8 @@ function renderHomeDetail(id){
          '<div class="pchk lchoice" id="lch-'+id+'">'+
            chip('',t('all'))+
            u.protocols.map(p=>chip(p,PROTO_NAMES[p]||p)).join('')+
+           '<button type="button" class="pchip pchip-qr'+(qrOpen.has(id)?' on':'')+'" data-act="qr" data-arg="'+id+'"'+
+             ' aria-pressed="'+(qrOpen.has(id)?'true':'false')+'">'+t('qr')+'</button>'+
          '</div>'+
          '<button type="button" class="linkrow" data-act="copyLink" data-arg="'+id+'" title="'+t('copyLink')+'">'+
            '<span class="linkrow-text" id="ltext-'+id+'">'+esc(lp?(u.links&&u.links[lp]||''):(u.subLink||u.link||''))+'</span>'+
@@ -1411,22 +1414,35 @@ function pickLink(id,proto){
   renderQR(id);
 }
 
-// renderQR draws the code for whatever link is on screen. The image is left
-// alone when nothing changed: the list redraws every fifteen seconds, and
-// refetching there would blink the code in front of a phone camera.
+// Which keys have their code unfolded. Kept outside the markup because the
+// list redraws every fifteen seconds and would otherwise fold it away under
+// the person reading it.
+const qrOpen=new Set();
+
+function toggleQR(id){
+  qrOpen.has(id)?qrOpen.delete(id):qrOpen.add(id);
+  const c=document.querySelector('#lch-'+id+' .pchip-qr');
+  if(c){c.classList.toggle('on',qrOpen.has(id));syncPressed(c)}
+  renderQR(id);
+}
+
+// renderQR draws the code for whatever link is on screen, and only while it is
+// open. The image is left alone when nothing changed: the list redraws every
+// fifteen seconds, and refetching there would blink the code in front of a
+// phone camera.
 function renderQR(id){
   const box=document.getElementById('uh-qr-box-'+id);
   if(!box)return;
   const text=(document.getElementById('ltext-'+id)||{}).textContent||'';
-  if(!text){box.innerHTML='';box.dataset.key='';box.classList.remove('on');return}
+  if(!qrOpen.has(id)||!text){box.classList.remove('on');return}
   const proto=linkPick.get(id)||'';
   const key=id+'|'+proto+'|'+text;
-  if(box.dataset.key===key)return;
-  box.dataset.key=key;
-  box.innerHTML='<img src="/api/qr/'+encodeURIComponent(id)+'.png'+(proto?'?proto='+encodeURIComponent(proto):'')+'" alt="QR">';
-  // The class has to land on a later frame than the markup, or the browser
-  // has nothing to animate from. Once open it stays open: switching protocol
-  // swaps the image and must not fold the square away and back.
+  if(box.dataset.key!==key){
+    box.dataset.key=key;
+    box.innerHTML='<img src="/api/qr/'+encodeURIComponent(id)+'.png'+(proto?'?proto='+encodeURIComponent(proto):'')+'" alt="QR">';
+  }
+  // The class has to land on a later frame than the markup, or the browser has
+  // nothing to animate from.
   if(!box.classList.contains('on'))requestAnimationFrame(()=>box.classList.add('on'));
 }
 function copyShown(id){
@@ -1777,6 +1793,7 @@ const ACTIONS = {
   copyLink:      el => copyShown(el.dataset.arg),
   pickLink:      el => pickLink(el.dataset.arg, el.dataset.proto),
   ban:           () => toggleBan(),
+  qr:            el => toggleQR(el.dataset.arg),
   resetTraffic:  () => resetTraffic(),
   resetDevices:  el => resetDevices(el.dataset.arg),
   deleteKey:     () => deleteUser(),
