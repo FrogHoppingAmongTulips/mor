@@ -175,7 +175,44 @@ open_firewall() {
     return
   fi
 
-  log "firewall не найден — считаю, что порты открыты"
+  setup_ufw "$hy" "$tcp_ports"
+}
+
+# setup_ufw puts a firewall on a server that has none.
+#
+# Without one every port anything ever binds is open to the internet, which on
+# a machine holding the keys to a VPN is not a state to leave it in. mor knows
+# exactly which ports it needs, so it can close the rest without asking.
+#
+# The one way this goes wrong is locking the owner out of ssh, so the ssh port
+# is taken from sshd itself rather than assumed to be 22, and nothing is
+# enabled if sshd cannot be asked.
+setup_ufw() {
+  local hy="$1" tcp_ports="$2" p ssh_ports=""
+  command -v apt-get >/dev/null 2>&1 || { log "нет apt-get — firewall не ставлю"; return 0; }
+
+  if ! command -v ufw >/dev/null 2>&1; then
+    wait_apt_lock
+    apt-get install -y ufw >>"$LOGFILE" 2>&1 || { log "ufw не поставился — пропускаю"; return 0; }
+  fi
+
+  ssh_ports="$(sshd -T 2>/dev/null | grep -E '^port [0-9]+' | cut -d' ' -f2)"
+  if [ -z "$ssh_ports" ]; then
+    ssh_ports="$(grep -Ei '^[[:space:]]*Port[[:space:]]+[0-9]+' /etc/ssh/sshd_config 2>/dev/null | tr -s ' ' | cut -d' ' -f2)"
+  fi
+  if [ -z "$ssh_ports" ]; then
+    log "не смог узнать порт ssh — firewall не включаю, чтобы не отрезать доступ"
+    return 0
+  fi
+
+  for p in $ssh_ports; do ufw allow "$p"/tcp >/dev/null 2>&1 || true; done
+  ufw allow "$hy"/udp >/dev/null 2>&1 || true
+  for p in $tcp_ports; do ufw allow "$p"/tcp >/dev/null 2>&1 || true; done
+  ufw default deny incoming  >/dev/null 2>&1 || true
+  ufw default allow outgoing >/dev/null 2>&1 || true
+  # Established connections survive this, so the session running it does too.
+  ufw --force enable >/dev/null 2>&1 || { log "ufw не включился"; return 0; }
+  log "firewall включён, открыты ssh ($ssh_ports), $hy/udp и $tcp_ports"
 }
 
 close_firewall() {
