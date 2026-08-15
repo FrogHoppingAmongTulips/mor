@@ -55,6 +55,29 @@ type repair struct {
 	do    func(e *env) error
 }
 
+// certProblem reports a panel certificate that browsers will not accept.
+//
+// Issuing needs port 80 free, so it can fail at install time and leave the
+// panel on its self-signed stand-in. Renewal after that is acme.sh's own cron
+// and needs nobody, which is why this is the only place the certificate is
+// ever raised — and it says so only when something is actually wrong.
+func certProblem(e *env) *problem {
+	if !e.cfg.WebOn() || !fileExists(e.paths.WebCertFile) {
+		return nil
+	}
+	if !certIsSelfSigned(e.paths.WebCertFile) {
+		return nil
+	}
+	return &problem{
+		text:  "панель на своём сертификате — браузер будет предупреждать",
+		code:  "certSelfSigned",
+		level: levelWarn,
+		fix: &repair{"выпускаю сертификат Let's Encrypt", func(e *env) error {
+			return issueCert(e, e.cfg.PublicHost)
+		}},
+	}
+}
+
 // localProblems answers from this machine alone, with no network and no
 // waiting. The main menu asks on every redraw, so this has to stay instant.
 func localProblems(e *env) []problem {
@@ -65,6 +88,7 @@ func localProblems(e *env) []problem {
 		}
 	}
 	add(clockProblem())
+	add(certProblem(e))
 	add(diskProblem(e.paths.BaseDir))
 	out = append(out, firewallProblems(e)...)
 	return out

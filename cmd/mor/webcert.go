@@ -51,7 +51,12 @@ func issueCert(e *env, host string) error {
 		"--fullchain-file", e.paths.WebCertFile,
 	}
 	if net.ParseIP(host) != nil {
-		args = append(args, "--cert-profile", "shortlived")
+		// The renewal window has to be spelled out for this profile. acme.sh
+		// renews sixty days before expiry by default, which for a certificate
+		// that lives six days means never — it would expire with the cron
+		// running and nothing to show for it. Three days leaves half the
+		// lifetime to retry in.
+		args = append(args, "--cert-profile", "shortlived", "--days", "3")
 	}
 
 	fmt.Printf("  выпускаю сертификат для %s…\n", host)

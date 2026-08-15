@@ -52,35 +52,33 @@ func panelEnv(t *testing.T, hash string) *env {
 func TestPanelScreenOffersThePasswordWhenThereIsNone(t *testing.T) {
 	out := screen(t, panelEnv(t, ""), "\n", func(m *menu) { m.panel() })
 
-	for _, want := range []string{"Пароль", "пароль не задан", "Задать свой", "Сгенерировать новый", "Порт"} {
+	for _, want := range []string{"Пароль", "Новый пароль", "Задать свой", "Порт"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("на экране нет %q:\n%s", want, out)
 		}
 	}
-	// Nothing to switch off or re-issue a certificate for yet.
-	for _, unwanted := range []string{"Выключить", "сертификат заново"} {
+	// Nothing to switch off yet.
+	for _, unwanted := range []string{"Выключить"} {
 		if strings.Contains(out, unwanted) {
 			t.Errorf("до пароля предложено «%s»:\n%s", unwanted, out)
 		}
 	}
 }
 
-func TestPanelScreenShowsTheAddressOnceItRuns(t *testing.T) {
+// The screen is actions and nothing else: the address and the password are in
+// the header of every screen already, and the certificate looks after itself.
+func TestPanelScreenCarriesNoText(t *testing.T) {
 	e := panelEnv(t, "")
 	e.cfg.SetWebPassword("мойпароль123")
 	out := screen(t, e, "\n", func(m *menu) { m.panel() })
 
-	if !strings.Contains(out, "https://203.0.113.7:9090") {
-		t.Errorf("нет адреса панели:\n%s", out)
-	}
-	// The whole point: the password is readable without asking anyone.
-	if !strings.Contains(out, "мойпароль123") {
-		t.Errorf("пароль не показан:\n%s", out)
-	}
-	for _, want := range []string{"Выключить", "сертификат заново"} {
-		if !strings.Contains(out, want) {
-			t.Errorf("нет пункта %q:\n%s", want, out)
+	for _, unwanted := range []string{"https://", "мойпароль123", "сертификат"} {
+		if strings.Contains(out, unwanted) {
+			t.Errorf("на экране лишнее «%s»:\n%s", unwanted, out)
 		}
+	}
+	if !strings.Contains(out, "Выключить") {
+		t.Errorf("нет пункта выключения:\n%s", out)
 	}
 }
 
@@ -108,16 +106,6 @@ func TestShortPasswordIsRefused(t *testing.T) {
 	}
 	if e.cfg.WebPasswordHash != "" {
 		t.Error("пароль всё-таки записан")
-	}
-}
-
-// A password set before mor kept a readable copy cannot be shown. Saying so is
-// the point — printing nothing would look like the password had been lost.
-func TestOldPasswordWithoutReadableCopySaysSo(t *testing.T) {
-	out := screen(t, panelEnv(t, "соль:хеш"), "\n", func(m *menu) { m.panel() })
-
-	if !strings.Contains(out, "не сохранён") {
-		t.Errorf("не сказано, что старый пароль не показать:\n%s", out)
 	}
 }
 
@@ -150,5 +138,33 @@ func TestSetWebPasswordKeepsBothInStep(t *testing.T) {
 	}
 	if !webauth.VerifyPassword(c.WebPasswordHash, c.WebPassword) {
 		t.Error("показанным паролем нельзя войти")
+	}
+}
+
+// Renewal is acme.sh's cron, not the owner's job — the certificate is raised
+// only when it is actually broken, and only by the check screen.
+func TestSelfSignedCertificateIsOfferedForRepair(t *testing.T) {
+	e := panelEnv(t, "")
+	e.cfg.SetWebPassword("пароль12345")
+	if err := writeSelfSigned(e.paths.WebCertFile, e.paths.WebCertFile+".key", "203.0.113.7"); err != nil {
+		t.Fatal(err)
+	}
+
+	p := certProblem(e)
+	if p == nil {
+		t.Fatal("самоподписанный сертификат не замечен")
+	}
+	if p.fix == nil {
+		t.Error("не предложено исправление")
+	}
+}
+
+func TestRealCertificateIsNotAProblem(t *testing.T) {
+	e := panelEnv(t, "")
+	e.cfg.SetWebPassword("пароль12345")
+	// No certificate at all is not a problem either: the panel writes its own
+	// on first start.
+	if got := certProblem(e); got != nil {
+		t.Errorf("без сертификата поднята тревога: %+v", got)
 	}
 }

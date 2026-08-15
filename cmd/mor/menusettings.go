@@ -257,37 +257,19 @@ func (m *menu) panel() {
 	sec := &section{title: "Пароль"}
 	m.walk(sec, func(s *section) {
 		c := m.e.cfg
-		s.state = nil
-		switch {
-		case c.WebPasswordHash == "":
-			s.state = append(s.state, "пароль не задан — панель не работает")
-		case c.WebOff:
-			s.state = append(s.state, "панель выключена")
-		default:
-			s.state = append(s.state, fmt.Sprintf("https://%s:%d", c.PublicHost, c.WebPort))
-		}
-		if c.WebPasswordHash != "" {
-			// A password set before mor started keeping a readable copy cannot
-			// be shown; saying so beats printing nothing and leaving the owner
-			// to wonder where it went.
-			if c.WebPassword != "" {
-				s.state = append(s.state, c.WebPassword)
-			} else {
-				s.state = append(s.state, "задан раньше и не сохранён — можно задать новый")
-			}
-			s.state = append(s.state, "сертификат: "+certSummary(m.e.paths.WebCertFile))
-		}
-
+		// The password and the address are already in the header of every
+		// screen; repeating them here would be the same two lines twice.
+		// The certificate renews itself through acme.sh's cron and is raised
+		// only by "Проверка", and only when it is actually broken.
 		s.rows = []row{
-			{label: "Задать свой", hint: "от 8 знаков", do: m.askPanelPassword},
-			{label: "Сгенерировать новый", do: m.rollPanelPassword},
+			{label: "Новый пароль", do: m.rollPanelPassword},
+			{label: "Задать свой", do: m.askPanelPassword},
 			{label: "Порт", value: strconv.Itoa(c.WebPort), do: m.askPanelPort},
 		}
 		if c.WebPasswordHash != "" {
 			s.rows = append(s.rows,
 				row{sep: true},
 				row{label: onOffLabel(c.WebOff), do: m.togglePanel},
-				row{label: "Выпустить сертификат заново", hint: "нужен свободный порт 80", do: m.reissueCert},
 			)
 		}
 	})
@@ -365,10 +347,4 @@ func (m *menu) togglePanel() (string, bool) {
 		return "панель выключена", true
 	}
 	return fmt.Sprintf("панель на https://%s:%d", m.e.cfg.PublicHost, m.e.cfg.WebPort), true
-}
-
-func (m *menu) reissueCert() (string, bool) {
-	fmt.Printf("\n  %sвыпускаю…%s\n", dim, reset)
-	cmdPanelCert([]string{m.e.cfg.PublicHost})
-	return certSummary(m.e.paths.WebCertFile), true
 }
