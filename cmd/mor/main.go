@@ -281,9 +281,6 @@ func setup(args []string) {
 		log.Printf("предупреждение: конфиг Xray: %v", err)
 	}
 	fmt.Printf("  настроено: %s\n", cfg.PublicHost)
-	if cfg.WebPassword != "" {
-		fmt.Printf("  панель: https://%s:%d   %s\n", cfg.PublicHost, cfg.WebPort, cfg.WebPassword)
-	}
 }
 
 type env struct {
