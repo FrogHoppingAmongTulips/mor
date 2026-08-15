@@ -8,8 +8,39 @@ BASE_URL="${MOR_URL:-https://github.com/${MOR_REPO}/releases/latest/download}"
 VPN_PORT="${VPN_PORT:-2096}"
 SNI="${SNI:-www.cloudflare.com}"
 
-log()  { printf '\033[36m[mor]\033[0m %s\n' "$*"; }
-die()  { printf '\033[31m[mor] %s\033[0m\n' "$*" >&2; exit 1; }
+# During an install nothing is printed but the bar: apt, the engine installers
+# and mor itself all write into the log instead, and it is named only if
+# something fails. quiet is off for uninstall, which has nothing to draw.
+LOGFILE="${MOR_LOG:-/tmp/mor-install.log}"
+quiet=0
+
+log() {
+  if [ "$quiet" = "1" ]; then
+    printf '[mor] %s\n' "$*" >>"$LOGFILE"
+  else
+    printf '\033[36m[mor]\033[0m %s\n' "$*"
+  fi
+}
+
+die() {
+  [ "$quiet" = "1" ] && printf '\n'
+  printf '\033[31m[mor] %s\033[0m\n' "$*" >&2
+  [ "$quiet" = "1" ] && printf '\033[31m[mor] подробности: %s\033[0m\n' "$LOGFILE" >&2
+  exit 1
+}
+
+# bar draws the progress line in place. A pipe gets nothing: carriage returns
+# in a file are noise, and there is no one watching to animate for.
+bar() {
+  [ "$quiet" = "1" ] || return 0
+  [ -t 1 ] || return 0
+  local pct="$1" width=24 filled i out=""
+  filled=$(( pct * width / 100 ))
+  for (( i = 0; i < width; i++ )); do
+    if [ "$i" -lt "$filled" ]; then out="$out█"; else out="$out░"; fi
+  done
+  printf '\r  %s  %3d%%' "$out" "$pct"
+}
 
 require_root() { [ "$(id -u)" = "0" ] || die "запусти от root (sudo bash …)"; }
 
@@ -42,11 +73,11 @@ ensure_deps() {
   wait_apt_lock
   local out
   if ! out="$(apt-get update -y 2>&1)"; then
-    echo "$out" | tail -5
+    log "$out"
     log "предупреждение: apt-get update прошёл с ошибками — продолжаю"
   fi
   if ! out="$(apt-get install -y curl ca-certificates cron 2>&1)"; then
-    echo "$out" | tail -5
+    log "$out"
     die "не удалось поставить curl/ca-certificates — проверь сеть и репозитории сервера"
   fi
 }
@@ -73,7 +104,7 @@ install_hysteria() {
   log "ставлю Hysteria2…"
   local out
   out="$(bash -c "$(curl -fsSL https://get.hy2.sh/)" 2>&1)" \
-    || { echo "$out"; die "не удалось поставить Hysteria2 (get.hy2.sh) — проверь сеть и повтори"; }
+    || { log "$out"; die "не удалось поставить Hysteria2 (get.hy2.sh) — проверь сеть и повтори"; }
 }
 
 install_xray() {
@@ -296,10 +327,18 @@ migrate_from_aqu() {
 
 install() {
   require_root
+  quiet=1
+  : >"$LOGFILE"
+
+  bar 0
   ensure_deps
+  bar 10
   install_hysteria
+  bar 30
   install_xray
+  bar 50
   install_mor
+  bar 65
   migrate_from_aqu
   mkdir -p "$MOR_DIR"
 
@@ -307,23 +346,26 @@ install() {
   if [ ! -f "$MOR_DIR/config.json" ]; then
     fresh=1
     local ip; ip="$(public_ip)"
-    "$BIN" setup --host "$ip" --port "${VPN_PORT}" --sni "${SNI}" \
-      || die "mor setup не удался (см. вывод выше)"
+    "$BIN" setup --host "$ip" --port "${VPN_PORT}" --sni "${SNI}" >>"$LOGFILE" 2>&1 \
+      || die "mor setup не удался"
   fi
+  bar 72
 
   install_service
   systemctl enable mor >/dev/null 2>&1 || true
-  systemctl restart mor || die "не удалось запустить сервис mor"
+  systemctl restart mor >>"$LOGFILE" 2>&1 || die "не удалось запустить сервис mor"
+  bar 80
 
   start_engine hysteria-server hy2
   if command -v xray >/dev/null 2>&1; then
     if xray_off; then log "Xray выключен в настройках mor — не запускаю"; else start_engine xray; fi
   fi
   drop_singbox
+  bar 88
   open_firewall >/dev/null
   panel_cert
+  bar 95
 
-  echo
   self_check "$fresh"
 }
 
@@ -373,20 +415,22 @@ self_check() {
     "$BIN" check --fast >/dev/null 2>&1 && break
     sleep 1
   done
-  if "$BIN" check --fast; then
-    echo
-    if [ "$fresh" = "1" ]; then
-      log "готово. Набери mor"
-    else
-      log "обновлено. Управление: mor"
-    fi
-    log "проверить, доходят ли порты снаружи: mor check"
+  if "$BIN" check --fast >>"$LOGFILE" 2>&1; then
+    bar 100
+    done_line "установлено"
     return 0
   fi
-  echo
-  log "часть движков не запустилась — mor установлен, но пока работает не всё"
-  log "смотри: journalctl -u mor -u hysteria-server -u xray --since '5 min ago'"
+  bar 100
+  done_line "установлено, но часть движков не поднялась — mor check"
   return 0
+}
+
+# done_line replaces the bar with the one sentence worth keeping.
+done_line() {
+  if [ "$quiet" = "1" ] && [ -t 1 ]; then
+    printf '\r\033[K'
+  fi
+  printf '  %s\n' "$*"
 }
 
 case "${1:-install}" in
