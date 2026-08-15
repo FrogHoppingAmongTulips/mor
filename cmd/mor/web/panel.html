@@ -1416,19 +1416,18 @@ const linkPick=new Map();
 function pickLink(id,proto){
   linkPick.set(id,proto);
   const u=detailCache.get(id);if(!u)return;
-  document.querySelectorAll('#lch-'+id+' .pchip').forEach(c=>c.classList.toggle('on',c.dataset.l===proto));
+  document.querySelectorAll('#lch-'+id+' .pchip[data-l]').forEach(c=>{c.classList.toggle('on',c.dataset.l===proto);syncPressed(c)});
   document.getElementById('ltext-'+id).textContent=proto?(u.links&&u.links[proto]||''):(u.subLink||u.link||'');
   renderQR(id);
 }
 
-// Whether codes are shown at all. One setting for the whole panel, remembered
-// like the theme: somebody who hands out keys by camera wants the code on every
-// key and wants it there after a reload, not switched on again each time.
-let qrShown=localStorage.getItem('morQR')==='1';
+// Whether codes are shown at all — one switch for the whole panel, off every
+// time the panel is opened. Somebody who came to look at the list did not ask
+// for a code on the screen; whoever needs one presses it.
+let qrShown=false;
 
-function toggleQR(id){
+function toggleQR(){
   qrShown=!qrShown;
-  localStorage.setItem('morQR',qrShown?'1':'0');
   document.querySelectorAll('.pchip-qr').forEach(c=>{c.classList.toggle('on',qrShown);syncPressed(c)});
   document.querySelectorAll('.qr-b').forEach(b=>renderQR(b.id.replace('uh-qr-box-','')));
 }
@@ -1800,7 +1799,7 @@ const ACTIONS = {
   copyLink:      el => copyShown(el.dataset.arg),
   pickLink:      el => pickLink(el.dataset.arg, el.dataset.proto),
   ban:           () => toggleBan(),
-  qr:            el => toggleQR(el.dataset.arg),
+  qr:            () => toggleQR(),
   resetTraffic:  () => resetTraffic(),
   resetDevices:  el => resetDevices(el.dataset.arg),
   deleteKey:     () => deleteUser(),

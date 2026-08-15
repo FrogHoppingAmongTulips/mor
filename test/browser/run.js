@@ -439,59 +439,61 @@ test('QR раскрывается по нажатию и ничего не сд�
   await dropKeys(page, 'тест-');
 });
 
-// The switch is one setting for the whole panel, not a per-key toggle:
-// somebody handing out keys by camera wants it on for every key, and still on
-// after a reload.
-test('показ QR запоминается и действует на все ключи', async (page) => {
+// One switch for the whole panel, off on arrival. Opening the list is not a
+// request for a code on the screen, and picking a protocol must leave the
+// switch alone — the loop that highlights the chosen protocol used to walk
+// every chip in the row, the QR chip included, so choosing a protocol greyed
+// it out while the code stayed on screen and closing then took two presses.
+test('QR выключен при заходе и не гаснет от выбора протокола', async (page) => {
   await login(page);
-  await makeKey(page, 'тест-qr-1', ['hy2']);
-  await makeKey(page, 'тест-qr-2', ['hy2']);
+  await makeKey(page, 'тест-qr-2', ['hy2', 'reality']);
   await page.click('[data-pane="keys"]');
   await page.waitForTimeout(600);
 
   const openKey = async (name) => {
-    const row = page.locator('.uh', { has: page.locator('.uh-name', { hasText: name }) });
-    await row.locator('.uh-open').click();
+    const r = page.locator('.uh', { has: page.locator('.uh-name', { hasText: name }) });
+    await r.locator('.uh-open').click();
     await page.waitForTimeout(900);
-    return row;
+    return r;
   };
   const state = () => page.evaluate(() => {
     const q = document.querySelector('.uh.open .qr-b');
     const c = document.querySelector('.uh.open .pchip-qr');
-    return q && c ? { код: getComputedStyle(q).opacity === '1', чип: c.classList.contains('on') } : null;
+    const picked = [...document.querySelectorAll('.uh.open .pchip[data-l].on')].map((e) => e.textContent);
+    return q && c ? { код: getComputedStyle(q).opacity === '1', чип: c.classList.contains('on'), выбрано: picked.join(',') } : null;
   });
 
-  const first = await openKey('тест-qr-1');
-  await first.locator('.pchip-qr').click();
+  const row = await openKey('тест-qr-2');
+  const arrived = await state();
+  ok(!arrived.код && !arrived.чип, 'при заходе код уже показан');
+
+  await row.locator('.pchip-qr').click();
   await page.waitForTimeout(700);
-  const on = await state();
-  ok(on.код && on.чип, 'после нажатия код не показан или чип не горит');
+  ok((await state()).чип, 'чип не загорелся');
 
-  await first.locator('.uh-open').click();
-  await page.waitForTimeout(400);
-  const second = await openKey('тест-qr-2');
-  const other = await state();
-  ok(other.код && other.чип, 'на другом ключе код выключен');
+  await row.locator('.pchip', { hasText: 'VLESS+Reality' }).click();
+  await page.waitForTimeout(600);
+  const afterPick = await state();
+  ok(afterPick.чип, 'выбор протокола погасил чип QR');
+  ok(afterPick.код, 'выбор протокола спрятал код');
+  eq(afterPick.выбрано, 'VLESS+Reality', 'протокол не выбрался');
 
-  await page.reload();
-  await page.waitForTimeout(1500);
-  await page.click('[data-pane="keys"]');
+  // One press closes it, not two.
+  await row.locator('.pchip-qr').click();
   await page.waitForTimeout(700);
-  await openKey('тест-qr-2');
-  const afterReload = await state();
-  ok(afterReload.код && afterReload.чип, 'после перезагрузки код погас');
+  const closed = await state();
+  ok(!closed.код && !closed.чип, 'с одного нажатия не закрылся');
 
-  // And off means off, just as durably.
-  const back = page.locator('.uh', { has: page.locator('.uh-name', { hasText: 'тест-qr-2' }) });
-  await back.locator('.pchip-qr').click();
+  // And a fresh visit starts with it off again.
+  await row.locator('.pchip-qr').click();
   await page.waitForTimeout(500);
   await page.reload();
   await page.waitForTimeout(1500);
   await page.click('[data-pane="keys"]');
   await page.waitForTimeout(700);
-  await openKey('тест-qr-1');
-  const offAgain = await state();
-  ok(!offAgain.код && !offAgain.чип, 'выключение не запомнилось');
+  await openKey('тест-qr-2');
+  const again = await state();
+  ok(!again.код && !again.чип, 'после перезагрузки код остался включённым');
 
   await dropKeys(page, 'тест-');
 });
