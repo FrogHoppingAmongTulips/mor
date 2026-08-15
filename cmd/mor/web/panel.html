@@ -1297,8 +1297,8 @@ function renderHomeDetail(id){
          '<div class="pchk lchoice" id="lch-'+id+'">'+
            chip('',t('all'))+
            u.protocols.map(p=>chip(p,PROTO_NAMES[p]||p)).join('')+
-           '<button type="button" class="pchip pchip-qr'+(qrOpen.has(id)?' on':'')+'" data-act="qr" data-arg="'+id+'"'+
-             ' aria-pressed="'+(qrOpen.has(id)?'true':'false')+'">'+t('qr')+'</button>'+
+           '<button type="button" class="pchip pchip-qr'+(qrShown?' on':'')+'" data-act="qr" data-arg="'+id+'"'+
+             ' aria-pressed="'+(qrShown?'true':'false')+'">'+t('qr')+'</button>'+
          '</div>'+
          '<button type="button" class="linkrow" data-act="copyLink" data-arg="'+id+'" title="'+t('copyLink')+'">'+
            '<span class="linkrow-text" id="ltext-'+id+'">'+esc(lp?(u.links&&u.links[lp]||''):(u.subLink||u.link||''))+'</span>'+
@@ -1421,16 +1421,16 @@ function pickLink(id,proto){
   renderQR(id);
 }
 
-// Which keys have their code unfolded. Kept outside the markup because the
-// list redraws every fifteen seconds and would otherwise fold it away under
-// the person reading it.
-const qrOpen=new Set();
+// Whether codes are shown at all. One setting for the whole panel, remembered
+// like the theme: somebody who hands out keys by camera wants the code on every
+// key and wants it there after a reload, not switched on again each time.
+let qrShown=localStorage.getItem('morQR')==='1';
 
 function toggleQR(id){
-  qrOpen.has(id)?qrOpen.delete(id):qrOpen.add(id);
-  const c=document.querySelector('#lch-'+id+' .pchip-qr');
-  if(c){c.classList.toggle('on',qrOpen.has(id));syncPressed(c)}
-  renderQR(id);
+  qrShown=!qrShown;
+  localStorage.setItem('morQR',qrShown?'1':'0');
+  document.querySelectorAll('.pchip-qr').forEach(c=>{c.classList.toggle('on',qrShown);syncPressed(c)});
+  document.querySelectorAll('.qr-b').forEach(b=>renderQR(b.id.replace('uh-qr-box-','')));
 }
 
 // renderQR draws the code for whatever link is on screen, and only while it is
@@ -1441,7 +1441,7 @@ function renderQR(id){
   const box=document.getElementById('uh-qr-box-'+id);
   if(!box)return;
   const text=(document.getElementById('ltext-'+id)||{}).textContent||'';
-  if(!qrOpen.has(id)||!text){box.classList.remove('on');return}
+  if(!qrShown||!text){box.classList.remove('on');return}
   const proto=linkPick.get(id)||'';
   const key=id+'|'+proto+'|'+text;
   if(box.dataset.key!==key){

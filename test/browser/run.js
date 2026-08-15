@@ -439,6 +439,63 @@ test('QR раскрывается по нажатию и ничего не сд�
   await dropKeys(page, 'тест-');
 });
 
+// The switch is one setting for the whole panel, not a per-key toggle:
+// somebody handing out keys by camera wants it on for every key, and still on
+// after a reload.
+test('показ QR запоминается и действует на все ключи', async (page) => {
+  await login(page);
+  await makeKey(page, 'тест-qr-1', ['hy2']);
+  await makeKey(page, 'тест-qr-2', ['hy2']);
+  await page.click('[data-pane="keys"]');
+  await page.waitForTimeout(600);
+
+  const openKey = async (name) => {
+    const row = page.locator('.uh', { has: page.locator('.uh-name', { hasText: name }) });
+    await row.locator('.uh-open').click();
+    await page.waitForTimeout(900);
+    return row;
+  };
+  const state = () => page.evaluate(() => {
+    const q = document.querySelector('.uh.open .qr-b');
+    const c = document.querySelector('.uh.open .pchip-qr');
+    return q && c ? { код: getComputedStyle(q).opacity === '1', чип: c.classList.contains('on') } : null;
+  });
+
+  const first = await openKey('тест-qr-1');
+  await first.locator('.pchip-qr').click();
+  await page.waitForTimeout(700);
+  const on = await state();
+  ok(on.код && on.чип, 'после нажатия код не показан или чип не горит');
+
+  await first.locator('.uh-open').click();
+  await page.waitForTimeout(400);
+  const second = await openKey('тест-qr-2');
+  const other = await state();
+  ok(other.код && other.чип, 'на другом ключе код выключен');
+
+  await page.reload();
+  await page.waitForTimeout(1500);
+  await page.click('[data-pane="keys"]');
+  await page.waitForTimeout(700);
+  await openKey('тест-qr-2');
+  const afterReload = await state();
+  ok(afterReload.код && afterReload.чип, 'после перезагрузки код погас');
+
+  // And off means off, just as durably.
+  const back = page.locator('.uh', { has: page.locator('.uh-name', { hasText: 'тест-qr-2' }) });
+  await back.locator('.pchip-qr').click();
+  await page.waitForTimeout(500);
+  await page.reload();
+  await page.waitForTimeout(1500);
+  await page.click('[data-pane="keys"]');
+  await page.waitForTimeout(700);
+  await openKey('тест-qr-1');
+  const offAgain = await state();
+  ok(!offAgain.код && !offAgain.чип, 'выключение не запомнилось');
+
+  await dropKeys(page, 'тест-');
+});
+
 test('смена языка переводит интерфейс', async (page) => {
   await login(page);
   const before = await page.locator('.btn-plus').textContent();
