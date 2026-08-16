@@ -77,11 +77,10 @@ jobs:
       - name: настроить и запустить
         run: |
           sudo mkdir -p /etc/mor
-          # mor отказывается считать loopback публичным адресом, и правильно
-          # делает: у бегунка берётся его собственный адрес в сети.
-          ip="$(hostname -I | awk '{print $1}')"
-          echo "адрес бегунка: $ip"
-          sudo mor setup --host "$ip" --force
+          # mor не принимает ни loopback, ни приватные адреса как публичные —
+          # и правильно делает. Для сборки ставится адрес из документации, а
+          # клиент в проверке стучится на 127.0.0.1 (CONNECT_HOST ниже).
+          sudo mor setup --host 203.0.113.7 --force
           sudo mor panel password проверка12345
           sudo systemctl restart hysteria-server xray || true
           sudo nohup mor serve >/tmp/mor.log 2>&1 &
@@ -91,7 +90,7 @@ jobs:
           done
 
       - name: сквозная проверка
-        run: sudo bash scripts/e2e.sh
+        run: sudo CONNECT_HOST=127.0.0.1 bash scripts/e2e.sh
 
       - name: что было в журналах
         if: failure()

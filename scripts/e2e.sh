@@ -12,6 +12,12 @@
 #   bash scripts/e2e.sh
 set -euo pipefail
 
+# CONNECT_HOST — куда стучаться клиенту. По умолчанию адрес из ссылки, то есть
+# проверяется в том числе и он. На машине, где mor настроен на чужой адрес
+# (сборка в CI), сюда подставляется 127.0.0.1: проверяются ключи, конфиги и
+# движки, а верность самого адреса — только на настоящем сервере.
+CONNECT_HOST="${CONNECT_HOST:-}"
+
 MOR_DIR="${MOR_DIR:-/etc/mor}"
 BIN="${BIN:-/usr/local/bin/mor}"
 KEY_NAME="${KEY_NAME:-e2e-проверка}"
@@ -64,10 +70,11 @@ printf '%s' "$DETAIL" > "$WORK/detail.json"
 
 # Ссылки собирает mor, конфиги клиентов — этот скрипт. Совпасть они обязаны
 # сами, иначе клиент не подключится, что и проверяется.
-python3 - "$WORK" <<'PY'
+python3 - "$WORK" "$CONNECT_HOST" <<'PY'
 import base64, json, sys, urllib.parse as up
 
 work = sys.argv[1]
+connect = sys.argv[2] if len(sys.argv) > 2 else ""
 d = json.load(open(work + "/detail.json"))
 links = d.get("links") or {}
 made = []
@@ -78,9 +85,10 @@ def q(u):
 for proto, link in links.items():
     u = up.urlsplit(link)
     p = q(u)
+    host = connect or u.hostname
     port = 10800 + len(made) + 1
     if proto == "hy2":
-        cfg = ["server: %s:%d" % (u.hostname, u.port),
+        cfg = ["server: %s:%d" % (host, u.port),
                "auth: %s" % up.unquote(u.username or ""),
                "tls:",
                "  sni: %s" % p.get("sni", ""),
@@ -101,7 +109,7 @@ for proto, link in links.items():
         pad = "=" * (-len(raw) % 4)
         method, password = base64.urlsafe_b64decode(raw + pad).decode().split(":", 1)
         out = {"protocol": "shadowsocks", "settings": {"servers": [
-            {"address": u.hostname, "port": u.port, "method": method, "password": password}]}}
+            {"address": host, "port": u.port, "method": method, "password": password}]}}
     else:
         user = {"id": u.username, "encryption": p.get("encryption", "none")}
         if p.get("flow"):
@@ -114,7 +122,7 @@ for proto, link in links.items():
                 "shortId": p.get("sid", ""), "fingerprint": p.get("fp", "chrome"),
             }
         out = {"protocol": "vless", "settings": {"vnext": [
-            {"address": u.hostname, "port": u.port, "users": [user]}]},
+            {"address": host, "port": u.port, "users": [user]}]},
             "streamSettings": stream}
     json.dump({"log": {"loglevel": "warning"}, "inbounds": [inbound], "outbounds": [out]},
               open("%s/%s.json" % (work, proto), "w"))
