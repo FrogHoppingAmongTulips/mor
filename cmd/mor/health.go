@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"mor/internal/config"
+	"mor/internal/priv"
 	"mor/internal/store"
 )
 
@@ -285,10 +286,10 @@ func subProblem(e *env) *problem {
 // firewallPorts reports what the firewall lets through, and whether there is a
 // firewall to ask at all. A server without one is open already.
 func firewallPorts() (map[string]bool, bool) {
-	if out, err := exec.Command("ufw", "status").Output(); err == nil && ufwActive(string(out)) {
+	if out, err := priv.Command("ufw", "status").Output(); err == nil && ufwActive(string(out)) {
 		return parseUfw(string(out)), true
 	}
-	if out, err := exec.Command("firewall-cmd", "--list-ports").Output(); err == nil {
+	if out, err := priv.Command("firewall-cmd", "--list-ports").Output(); err == nil {
 		return parseFirewalld(string(out)), true
 	}
 	return nil, false
@@ -386,7 +387,7 @@ func ensureFirewall(e *env) {
 		return
 	}
 	useUfw := false
-	if out, err := exec.Command("ufw", "status").Output(); err == nil && ufwActive(string(out)) {
+	if out, err := priv.Command("ufw", "status").Output(); err == nil && ufwActive(string(out)) {
 		useUfw = true
 	}
 	for _, p := range wantedPorts(e) {
@@ -394,13 +395,13 @@ func ensureFirewall(e *env) {
 			continue
 		}
 		if useUfw {
-			_ = exec.Command("ufw", "allow", p).Run()
+			_ = priv.Command("ufw", "allow", p).Run()
 			continue
 		}
-		_ = exec.Command("firewall-cmd", "--permanent", "--add-port="+p).Run()
+		_ = priv.Command("firewall-cmd", "--permanent", "--add-port="+p).Run()
 	}
 	if !useUfw {
-		_ = exec.Command("firewall-cmd", "--reload").Run()
+		_ = priv.Command("firewall-cmd", "--reload").Run()
 	}
 }
 

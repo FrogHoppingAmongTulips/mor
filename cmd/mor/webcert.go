@@ -45,7 +45,10 @@ func issueCert(e *env, host string) error {
 		// Renewal has to keep working after mor stops looking: acme.sh's own
 		// cron calls this back, and reloadcmd restarts mor so the fresh files
 		// are picked up even if the running process somehow missed them.
-		"--reloadcmd", "systemctl restart mor",
+		// Продление идёт от root, а служба работает не от root: без смены
+		// владельца свежий сертификат оказался бы ей недоступен. Запуск службы
+		// чинит права и сам, но чинить их сразу дешевле, чем ждать перезапуска.
+		"--reloadcmd", "chown -R mor /etc/mor 2>/dev/null; systemctl restart mor",
 		"--cert-file", e.paths.WebCertFile,
 		"--key-file", e.paths.WebKeyFile,
 		"--fullchain-file", e.paths.WebCertFile,

@@ -3,13 +3,13 @@ package main
 import (
 	"fmt"
 	"net"
-	"os/exec"
 	"strconv"
 	"strings"
 
 	"mor/internal/config"
 	"mor/internal/hysteria"
 	"mor/internal/keys"
+	"mor/internal/priv"
 	"mor/internal/store"
 	"mor/internal/xray"
 )
@@ -72,7 +72,7 @@ func stopUnit(unit string, installed bool) error {
 	if !installed {
 		return nil
 	}
-	out, err := exec.Command("systemctl", "disable", "--now", unit).CombinedOutput()
+	out, err := priv.Command("systemctl", "disable", "--now", unit).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("остановить %s: %w: %s", unit, err, strings.TrimSpace(string(out)))
 	}
@@ -80,7 +80,7 @@ func stopUnit(unit string, installed bool) error {
 }
 
 func enable(unit string) {
-	_ = exec.Command("systemctl", "enable", unit).Run()
+	_ = priv.Command("systemctl", "enable", unit).Run()
 }
 
 // portRow is one line of the ports screen: what listens where. The proto is the

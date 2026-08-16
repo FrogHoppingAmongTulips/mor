@@ -7,13 +7,14 @@ package systemd
 
 import (
 	"fmt"
-	"os/exec"
+
+	"mor/internal/priv"
 )
 
 // Restart brings a service up, clearing the start-rate block first.
 func Restart(service string) error {
-	_ = exec.Command("systemctl", "reset-failed", service).Run()
-	out, err := exec.Command("systemctl", "restart", service).CombinedOutput()
+	_ = priv.Command("systemctl", "reset-failed", service).Run()
+	out, err := priv.Command("systemctl", "restart", service).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("restart %s: %w: %s", service, err, out)
 	}

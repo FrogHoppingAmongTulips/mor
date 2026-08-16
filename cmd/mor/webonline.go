@@ -319,6 +319,12 @@ func (ws *webServer) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	}
 	ws.e.audit.Add("изменены настройки", "", time.Now())
 
+	// A port changed here has to be opened in the firewall, or the protocol
+	// moves to a port nothing can reach and every key on it stops working with
+	// no sign of why. The terminal has always done this; the panel never did,
+	// which went unnoticed while servers had no firewall at all.
+	ensureFirewall(ws.e)
+
 	// The panel's own port only takes effect on the next start: rebinding the
 	// listener underneath the request that asked for it would drop the answer.
 	if err := applyProtos(ws.e, store.ProtoHy2, store.ProtoReality, store.ProtoEnc, store.ProtoSS); err != nil {

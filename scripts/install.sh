@@ -292,6 +292,96 @@ start_engine() {
     || log "предупреждение: $unit не запустился — проверь journalctl -u $unit"
 }
 
+# MOR_USER is who the daemon runs as. Not root: it serves a web panel to the
+# internet, and a hole in that panel should cost the panel, not the machine.
+MOR_USER="mor"
+
+# ensure_user creates the account and hands it exactly what the daemon touches.
+#
+# Returns non-zero when the machine will not cooperate — no useradd, no sudo —
+# and the caller then leaves the service as root rather than installing
+# something that cannot start.
+ensure_user() {
+  command -v useradd >/dev/null 2>&1 || { log "нет useradd — служба останется от root"; return 1; }
+  command -v sudo    >/dev/null 2>&1 || { log "нет sudo — служба останется от root"; return 1; }
+
+  id -u "$MOR_USER" >/dev/null 2>&1 || \
+    useradd --system --no-create-home --shell /usr/sbin/nologin "$MOR_USER" >>"$LOGFILE" 2>&1 || {
+      log "не удалось создать пользователя $MOR_USER — служба останется от root"; return 1; }
+
+  # mor's own directory: nobody else has any business in it.
+  chown -R "$MOR_USER":"$MOR_USER" "$MOR_DIR" 2>/dev/null || true
+  chmod 700 "$MOR_DIR" 2>/dev/null || true
+
+  # The engine configs are written by mor and read by the engines under their
+  # own users, so ownership goes to mor and the read bit stays for everyone
+  # else. The directory has to be mor's too: a config is replaced by writing a
+  # temp file next to it and renaming.
+  grant_engine_files /etc/hysteria hysteria
+  grant_engine_files /usr/local/etc/xray ""
+
+  install_sudoers || return 1
+  return 0
+}
+
+# grant_engine_files gives mor write access to one engine's config directory
+# while leaving the engine able to read it.
+grant_engine_files() {
+  local dir="$1" reader="$2" f
+  [ -d "$dir" ] || return 0
+  chown "$MOR_USER" "$dir" 2>/dev/null || true
+  chmod 755 "$dir" 2>/dev/null || true
+  for f in "$dir"/*; do
+    [ -f "$f" ] || continue
+    case "$f" in
+      # A private key stays unreadable to the rest of the machine: mor writes
+      # it, the engine's own group reads it, nobody else.
+      *.key) chown "$MOR_USER":"${reader:-$MOR_USER}" "$f" 2>/dev/null || true
+             chmod 640 "$f" 2>/dev/null || true ;;
+      *)     chown "$MOR_USER" "$f" 2>/dev/null || true
+             chmod 644 "$f" 2>/dev/null || true ;;
+    esac
+  done
+}
+
+# install_sudoers spells out the two things the daemon cannot do itself.
+#
+# Restarting the engines and opening a port are the whole list. Everything else
+# — reading its own files, binding its ports, talking to the engines' APIs — it
+# does as itself.
+install_sudoers() {
+  local sctl ufw_bin fwcmd out
+  sctl="$(command -v systemctl || echo /usr/bin/systemctl)"
+  ufw_bin="$(command -v ufw || true)"
+  fwcmd="$(command -v firewall-cmd || true)"
+
+  {
+    echo "# Поставлено mor. Демон работает не от root и просит ровно это."
+    echo "Cmnd_Alias MOR_ENGINES = \\"
+    echo "  $sctl restart hysteria-server, $sctl restart xray, \\"
+    echo "  $sctl reset-failed hysteria-server, $sctl reset-failed xray, \\"
+    echo "  $sctl enable hysteria-server, $sctl enable xray, \\"
+    echo "  $sctl disable --now hysteria-server, $sctl disable --now xray"
+    [ -n "$ufw_bin" ] && echo "Cmnd_Alias MOR_UFW = $ufw_bin status, $ufw_bin allow *"
+    [ -n "$fwcmd" ]   && echo "Cmnd_Alias MOR_FW = $fwcmd --list-ports, $fwcmd --permanent --add-port=*, $fwcmd --reload"
+    printf '%s ALL=(root) NOPASSWD: MOR_ENGINES' "$MOR_USER"
+    [ -n "$ufw_bin" ] && printf ', MOR_UFW'
+    [ -n "$fwcmd" ]   && printf ', MOR_FW'
+    printf '\n'
+  } > /etc/sudoers.d/mor.tmp
+
+  # A broken sudoers file locks the machine out of sudo entirely, so it is
+  # checked before it is put in place.
+  if ! out="$(visudo -cf /etc/sudoers.d/mor.tmp 2>&1)"; then
+    log "sudoers не прошёл проверку: $out"
+    rm -f /etc/sudoers.d/mor.tmp
+    return 1
+  fi
+  chmod 440 /etc/sudoers.d/mor.tmp
+  mv -f /etc/sudoers.d/mor.tmp /etc/sudoers.d/mor
+  return 0
+}
+
 # harden_engines makes the engines come back on their own.
 #
 # Hysteria2's own unit ships Restart=no and Xray's is on-failure, so an engine
@@ -322,6 +412,38 @@ EOF
 
 install_service() {
   harden_engines
+
+  # The account is prepared first: if anything about it fails, the unit below
+  # is written for root instead, because a service that cannot read its own
+  # files is worse than one with too many rights.
+  local run_as="root" sandbox
+  if ensure_user; then
+    run_as="$MOR_USER"
+    log "служба будет работать от $MOR_USER"
+  fi
+
+  # Два набора ограничений, потому что они несовместимы.
+  #
+  # RestrictSUIDSGID, ProtectKernelTunables, PrivateDevices и соседние опции
+  # молча включают NoNewPrivileges, а он запрещает sudo — то есть перезапуск
+  # движков и правку firewall. Под отдельным пользователем эти запреты почти
+  # ничего не добавляют: прав менять ядро или ставить suid у него всё равно
+  # нет. Под root они нужны, и там sudo не требуется.
+  if [ "$run_as" = "root" ]; then
+    sandbox="NoNewPrivileges=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK"
+  else
+    sandbox="# Ограничения, включающие NoNewPrivileges, здесь сняты: они запрещают
+# sudo, которым перезапускаются движки. Под отдельным пользователем прав,
+# которые они отбирают, и так нет."
+  fi
+
   cat >/etc/systemd/system/mor.service <<EOF
 [Unit]
 Description=mor VPN
@@ -330,30 +452,31 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+# Права чинятся при каждом запуске, а не один раз при установке. Сертификат
+# продлевает acme.sh от root, и после продления файл принадлежал бы root —
+# демон перестал бы его читать через несколько дней после установки, когда
+# связать поломку с ней уже никто не сможет. Плюс перед ExecStartPre означает
+# «выполнить от root, несмотря на User=».
+ExecStartPre=+/bin/sh -c 'chown -R ${run_as} ${MOR_DIR} 2>/dev/null || true'
 ExecStart=${BIN} serve
 Restart=always
 RestartSec=3
-User=root
+User=${run_as}
 
-# mor stays root: it drives systemd, writes engine configs under /etc and opens
-# privileged ports. What it does not need is the rest of the machine, so the
-# blast radius of a bug in the web panel is fenced in here instead.
-NoNewPrivileges=true
+# Демон отдаёт панель в интернет, поэтому держит при себе минимум: свой
+# каталог, конфиги двух движков и — через sudoers — право перезапустить эти
+# движки и открыть порт. Остальная машина ему недоступна.
+${sandbox}
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
-PrivateDevices=true
-ProtectKernelTunables=true
-ProtectKernelModules=true
 ProtectControlGroups=true
-RestrictSUIDSGID=true
-RestrictRealtime=true
-LockPersonality=true
-RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
-# ProtectSystem=strict makes everything read-only, so the paths mor genuinely
-# writes are named back in: its own state, the engine configs it generates and
-# acme.sh's account and certificates.
-ReadWritePaths=${MOR_DIR} /etc/hysteria /usr/local/etc/xray /root/.acme.sh /var/spool/cron
+# ProtectSystem=strict делает всё только для чтения, поэтому пути, куда mor
+# действительно пишет, названы обратно. /etc/ufw и /etc/firewalld — не для
+# самого mor: запрет распространяется и на то, что он запускает, а ufw пишет
+# свои правила туда. Без этой строки смена порта из панели молча не открывала
+# бы его в firewall. Дефис перед путём означает «пропустить, если нет».
+ReadWritePaths=${MOR_DIR} /etc/hysteria /usr/local/etc/xray -/root/.acme.sh -/var/spool/cron -/etc/ufw -/etc/firewalld -/var/lib/ufw
 
 [Install]
 WantedBy=multi-user.target
@@ -387,6 +510,11 @@ uninstall() {
   rm -f "$BIN" /usr/local/bin/aqu /usr/local/bin/hysteria
   rm -rf "$MOR_DIR" /etc/aqu /etc/hysteria /etc/sing-box
   rm -f /usr/local/bin/sing-box
+  # The account and the one permission it was given go too: leaving a sudoers
+  # entry for a user that no longer exists is exactly the kind of leftover
+  # nobody finds later.
+  rm -f /etc/sudoers.d/mor
+  id -u mor >/dev/null 2>&1 && userdel mor >/dev/null 2>&1 || true
   # acme.sh leaves an account key and a renewal cron behind; both are useless
   # once mor is gone and the cron would fail nightly forever.
   if [ -x /root/.acme.sh/acme.sh ]; then
@@ -470,6 +598,13 @@ panel_cert() {
   local host
   host="$(cfg_host)"
   [ -n "$host" ] || return 0
+  # Let's Encrypt ограничивает число одинаковых сертификатов в неделю, а
+  # установку запускают и по десять раз подряд. Пока есть настоящий и живой —
+  # он не перевыпускается: продлевает его собственный cron acme.sh.
+  if cert_is_fresh; then
+    log "сертификат на месте — перевыпуск не нужен"
+    return 0
+  fi
   # Port 80 must be free and reachable for the ACME challenge. If something
   # already listens there, leave it alone rather than fighting over it.
   if ss -tln 2>/dev/null | grep -q ":80 "; then
@@ -482,6 +617,16 @@ panel_cert() {
   else
     log "сертификат не выпустился — панель работает на своём, повтори: mor panel cert"
   fi
+}
+
+# cert_is_fresh: сертификат выдан удостоверяющим центром и не истекает в
+# ближайшие двое суток.
+cert_is_fresh() {
+  local crt="$MOR_DIR/web.crt"
+  [ -f "$crt" ] || return 1
+  command -v openssl >/dev/null 2>&1 || return 1
+  openssl x509 -in "$crt" -noout -subject 2>/dev/null | grep -q "mor panel" && return 1
+  openssl x509 -in "$crt" -noout -checkend 172800 >/dev/null 2>&1
 }
 
 # cfg_host reads the public address mor is configured with.

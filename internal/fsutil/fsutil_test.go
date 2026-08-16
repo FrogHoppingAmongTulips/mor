@@ -97,3 +97,29 @@ func TestFileStateRemember(t *testing.T) {
 		t.Error("file created after a no-op Remember was not seen as changed")
 	}
 }
+
+// The daemon and the command line write the same files under different
+// accounts. Without an owner to adopt, a key created from the terminal leaves
+// a file the daemon cannot read — and nothing says so.
+func TestOwnerIsAppliedBeforeTheFileAppears(t *testing.T) {
+	// Ownership can only be set by root, so on an ordinary test run this
+	// checks the other half: that naming an owner does not break the write and
+	// does not leave the temp file behind.
+	SetOwner(0, 0)
+	defer SetOwner(-1, -1)
+
+	path := t.TempDir() + "/data.json"
+	if err := WriteAtomic(path, []byte(`{"ключ":"значение"}`), 0o600); err != nil {
+		t.Fatalf("запись с назначенным владельцем не удалась: %v", err)
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(b) != `{"ключ":"значение"}` {
+		t.Fatalf("содержимое испортилось: %s", b)
+	}
+	if _, err := os.Stat(path + ".tmp"); !os.IsNotExist(err) {
+		t.Error("временный файл остался рядом")
+	}
+}

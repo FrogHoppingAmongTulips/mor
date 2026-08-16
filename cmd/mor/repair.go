@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"os/exec"
+	"mor/internal/priv"
 	"strconv"
 	"strings"
 	"time"
@@ -220,9 +220,9 @@ func (m *menu) restart() {
 // systemd's job to finish: it does, even with nobody left to watch.
 func restartUnits(units []string) error {
 	for _, u := range units {
-		_ = exec.Command("systemctl", "reset-failed", u).Run()
+		_ = priv.Command("systemctl", "reset-failed", u).Run()
 	}
-	if out, err := exec.Command("systemctl", append([]string{"restart"}, units...)...).CombinedOutput(); err != nil {
+	if out, err := priv.Command("systemctl", append([]string{"restart"}, units...)...).CombinedOutput(); err != nil {
 		return fmt.Errorf("%s", strings.TrimSpace(string(out)))
 	}
 	dead := []string{}

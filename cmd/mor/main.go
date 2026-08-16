@@ -32,6 +32,7 @@ var stdin = bufio.NewReader(os.Stdin)
 
 func main() {
 	log.SetFlags(0)
+	adoptDaemonOwner()
 
 	if len(os.Args) < 2 {
 		if interactive() {

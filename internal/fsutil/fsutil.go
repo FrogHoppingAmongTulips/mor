@@ -26,12 +26,38 @@ func WriteAtomicDir(path string, data []byte, dirPerm, filePerm os.FileMode) err
 		if err := os.MkdirAll(dir, dirPerm); err != nil {
 			return err
 		}
+		chown(dir)
 	}
 	tmp := path + ".tmp"
 	if err := os.WriteFile(tmp, data, filePerm); err != nil {
 		return err
 	}
+	// Ownership is set before the rename, so the file is never visible under
+	// the wrong owner even for an instant.
+	chown(tmp)
 	return os.Rename(tmp, path)
+}
+
+// ownerUID and ownerGID are who every file mor writes should belong to.
+//
+// The daemon runs as its own user while the command line runs as root, and
+// both write the same files. Without this a key created from the terminal
+// leaves a root-owned file the daemon can no longer read — the panel then
+// shows stale data or refuses a freshly issued token, with nothing in any log
+// to say why. Left at -1 nothing is changed, which is the case on a machine
+// where the daemon runs as root too.
+var ownerUID, ownerGID = -1, -1
+
+// SetOwner names the user files should belong to. Called once at startup.
+func SetOwner(uid, gid int) { ownerUID, ownerGID = uid, gid }
+
+func chown(path string) {
+	if ownerUID < 0 || os.Geteuid() != 0 {
+		return
+	}
+	// A failure here is not worth stopping for: the write itself succeeded,
+	// and the next start reports the real problem if there is one.
+	_ = os.Chown(path, ownerUID, ownerGID)
 }
 
 // FileState remembers a file's modtime and size so a second process's writes
