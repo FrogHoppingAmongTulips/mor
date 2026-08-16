@@ -51,3 +51,46 @@ jobs:
         run: |
           sudo apt-get update -qq && sudo apt-get install -y shellcheck
           shellcheck -S error scripts/install.sh
+
+  # Everything above checks that mor wrote what it meant to write. This checks
+  # that a key made from it actually connects: the engines are installed, mor
+  # is set up on the runner, and a real client built from the issued link
+  # fetches a page through each protocol. It is the only test that fails when
+  # the link and the engine config drift apart.
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: собрать mor
+        run: |
+          go build -o /usr/local/bin/mor ./cmd/mor
+
+      - name: поставить движки
+        run: |
+          curl -fsSL https://get.hy2.sh/ | sudo bash
+          curl -fsSL https://github.com/XTLS/Xray-install/raw/main/install-release.sh | sudo bash -s -- install
+
+      - name: настроить и запустить
+        run: |
+          sudo mkdir -p /etc/mor
+          sudo mor setup --host 127.0.0.1 --force
+          sudo mor panel password проверка12345
+          sudo systemctl restart hysteria-server xray || true
+          sudo nohup mor serve >/tmp/mor.log 2>&1 &
+          for _ in $(seq 30); do
+            curl -sk -o /dev/null https://127.0.0.1:9090/healthz && break
+            sleep 1
+          done
+
+      - name: сквозная проверка
+        run: sudo bash scripts/e2e.sh
+
+      - name: что было в журналах
+        if: failure()
+        run: |
+          tail -40 /tmp/mor.log || true
+          sudo journalctl -u hysteria-server -u xray -n 40 --no-pager || true

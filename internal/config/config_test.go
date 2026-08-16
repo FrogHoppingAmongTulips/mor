@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -233,4 +234,38 @@ func TestReloadSurvivesConcurrentSaves(t *testing.T) {
 		c.ReloadIfChanged()
 	}
 	<-done
+}
+
+// The format marker travels with the file. Without it a release that has to
+// change the shape of config.json would have to guess the old shape from which
+// fields happen to be present.
+func TestVersionIsStamped(t *testing.T) {
+	path := t.TempDir() + "/config.json"
+
+	// A file written before the marker existed gets one on first load.
+	if err := os.WriteFile(path, []byte(`{"public_host":"203.0.113.7","dns":"1.1.1.1"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Version != ConfigVersion {
+		t.Fatalf("версия %d, ожидалось %d", c.Version, ConfigVersion)
+	}
+	if c.PublicHost != "203.0.113.7" || c.DNS != "1.1.1.1" {
+		t.Fatal("остальные настройки потерялись при проставлении версии")
+	}
+
+	c.SetPath(path)
+	if err := c.Save(); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), `"version"`) {
+		t.Fatalf("версия не записана в файл:\n%s", b)
+	}
 }

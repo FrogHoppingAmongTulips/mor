@@ -88,9 +88,10 @@ func (p Proxy) clashEntry() string {
 // yamlStr quotes every scalar. Names carry spaces, dots and non-Latin letters,
 // any of which turn an unquoted YAML value into something the parser reads as
 // a different type — or refuses outright.
-func yamlStr(s string) string {
-	return `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", " ").Replace(s) + `"`
-}
+// yamlStr quotes a name for the Clash profile. Same reasoning as jsonStr: a
+// control character inside a double-quoted YAML scalar is not portable, and a
+// newline would split one entry into two.
+func yamlStr(s string) string { return jsonStr(s) }
 
 // SingBox renders a complete sing-box configuration: the official clients read
 // a whole config, not a proxy fragment, so a bare outbound list would not
@@ -178,6 +179,33 @@ func uniqueNames(in []Proxy) []Proxy {
 	return out
 }
 
+// jsonStr quotes a string for the profiles that are assembled by hand.
+//
+// encoding/json would be the obvious answer, but these files are built as text
+// with fixed indentation the clients are used to reading, and swapping to a
+// marshaller would rewrite every line of them. What matters is that no
+// character a person can type into a name changes the shape of the document:
+// a stray control character used to make the whole sing-box profile invalid,
+// and an app that cannot parse the profile drops every key in it, not one.
 func jsonStr(s string) string {
-	return `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", " ", "\t", " ").Replace(s) + `"`
+	var b strings.Builder
+	b.WriteByte('"')
+	for _, r := range s {
+		switch {
+		case r == '\\' || r == '"':
+			b.WriteByte('\\')
+			b.WriteRune(r)
+		case r == '\n' || r == '\r' || r == '\t':
+			b.WriteByte(' ')
+		case r < 0x20 || r == 0x7f:
+			// Anything else unprintable is dropped rather than escaped: it can
+			// only have arrived by accident, and it has no business in a name
+			// shown in a phone's server list.
+			continue
+		default:
+			b.WriteRune(r)
+		}
+	}
+	b.WriteByte('"')
+	return b.String()
 }

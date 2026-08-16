@@ -292,7 +292,36 @@ start_engine() {
     || log "предупреждение: $unit не запустился — проверь journalctl -u $unit"
 }
 
+# harden_engines makes the engines come back on their own.
+#
+# Hysteria2's own unit ships Restart=no and Xray's is on-failure, so an engine
+# that dies takes the VPN with it until somebody notices — which, for something
+# people rely on, means an evening. mor's unit already restarts itself; these
+# drop-ins say the same for the two it drives. Drop-ins rather than edits: the
+# engines' own installers overwrite their unit files on every upgrade.
+harden_engines() {
+  local unit dir
+  for unit in hysteria-server xray; do
+    systemctl list-unit-files "$unit.service" >/dev/null 2>&1 || continue
+    dir="/etc/systemd/system/$unit.service.d"
+    mkdir -p "$dir"
+    cat >"$dir/mor-restart.conf" <<EOF
+# Поставлено mor: движок должен подниматься сам.
+# Предел попыток снимается в [Unit] — в [Service] systemd его игнорирует, и
+# движок, падающий в цикле, встал бы навсегда после пятой попытки.
+[Unit]
+StartLimitIntervalSec=0
+
+[Service]
+Restart=always
+RestartSec=3
+EOF
+  done
+  systemctl daemon-reload >/dev/null 2>&1 || true
+}
+
 install_service() {
+  harden_engines
   cat >/etc/systemd/system/mor.service <<EOF
 [Unit]
 Description=mor VPN
@@ -350,6 +379,10 @@ uninstall() {
   rm -f /etc/systemd/system/hysteria-server.service /etc/systemd/system/hysteria-server@.service
   rm -f /etc/systemd/system/sing-box.service
   rm -rf /etc/systemd/system/hysteria-server.service.d
+  # The drop-in mor put on Xray's unit: Xray itself may stay, so only mor's
+  # file goes, not the directory somebody else may be using.
+  rm -f /etc/systemd/system/xray.service.d/mor-restart.conf
+  rmdir /etc/systemd/system/xray.service.d 2>/dev/null || true
   systemctl daemon-reload
   rm -f "$BIN" /usr/local/bin/aqu /usr/local/bin/hysteria
   rm -rf "$MOR_DIR" /etc/aqu /etc/hysteria /etc/sing-box

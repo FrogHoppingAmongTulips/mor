@@ -58,7 +58,16 @@ const DefaultDNS = "1.1.1.1"
 
 const DefaultSNI = "www.cloudflare.com"
 
+// ConfigVersion is the shape of config.json, not the version of mor. It is
+// written so that a future release which has to change the format can tell an
+// old file from a new one instead of guessing from which fields are present —
+// and so that an older mor, handed a newer file, can say so rather than
+// silently dropping the settings it does not understand.
+const ConfigVersion = 1
+
 type Config struct {
+	Version int `json:"version"`
+
 	PublicHost string `json:"public_host"`
 
 	VPNPort int    `json:"vpn_port"`
@@ -215,6 +224,7 @@ func (c *Config) ReloadIfChanged() bool {
 // A field added above and forgotten here would silently stop syncing, so
 // TestReloadCarriesEveryField compares a full round trip.
 func (c *Config) applyLocked(n *Config) {
+	c.Version = n.Version
 	c.PublicHost = n.PublicHost
 	c.VPNPort = n.VPNPort
 	c.SNI = n.SNI
@@ -235,6 +245,10 @@ func (c *Config) applyLocked(n *Config) {
 
 func (c *Config) EnsureDefaults() bool {
 	changed := false
+	if c.Version != ConfigVersion {
+		c.Version = ConfigVersion
+		changed = true
+	}
 	set := func(cond bool, fn func()) {
 		if cond {
 			fn()
