@@ -180,7 +180,19 @@ fi
 
 # Подписка — то, что человек вставляет в приложение. Проверяется отдельно: она
 # может отдавать пустоту, когда сами ссылки в порядке.
-SUB="$(python3 -c "import json;print(json.load(open('$WORK/detail.json')).get('subLink',''))")"
+python3 - "$WORK" "$CONNECT_HOST" > "$WORK/sub.txt" <<'PY'
+import json, sys, urllib.parse as up
+link = json.load(open(sys.argv[1] + "/detail.json")).get("subLink", "")
+host = sys.argv[2] if len(sys.argv) > 2 else ""
+# The subscription URL carries the configured address, which on a build machine
+# points nowhere. Same substitution as for the protocol links.
+if link and host:
+    u = up.urlsplit(link)
+    port = ":%d" % u.port if u.port else ""
+    link = up.urlunsplit((u.scheme, host + port, u.path, u.query, u.fragment))
+print(link)
+PY
+SUB="$(cat "$WORK/sub.txt")"
 if [ -n "$SUB" ]; then
   body="$(curl -sk --max-time 15 "$SUB" | base64 -d 2>/dev/null || true)"
   n="$(printf '%s' "$body" | grep -c '://' || true)"
