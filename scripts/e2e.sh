@@ -153,6 +153,23 @@ while read -r proto engine port; do
   fi
 done < "$WORK/plan"
 
+# Байты должны быть посчитаны mor. Проверка отдельная и важная: на одной
+# машине «вышли с того же адреса» ничего не доказывает — трафик мог пойти мимо
+# туннеля. Счётчик растёт только если он прошёл через движок и был опознан как
+# этот ключ.
+if [ "$FAILED" = "0" ]; then
+  info "жду пересчёт трафика (до 80 с)…"
+  spent=0
+  for _ in $(seq 16); do
+    spent="$(curl -sk -H "Authorization: Bearer $TOKEN" "$API/api/users/$KEY_ID" |
+      python3 -c 'import sys,json;print(json.load(sys.stdin).get("traffic",0))')"
+    [ "${spent:-0}" -gt 0 ] && break
+    sleep 5
+  done
+  [ "${spent:-0}" -gt 0 ] && ok "mor насчитал $spent байт — трафик шёл через движок" \
+    || bad "счётчик трафика остался нулевым — байты прошли мимо mor"
+fi
+
 # Подписка — то, что человек вставляет в приложение. Проверяется отдельно: она
 # может отдавать пустоту, когда сами ссылки в порядке.
 SUB="$(python3 -c "import json;print(json.load(open('$WORK/detail.json')).get('subLink',''))")"
