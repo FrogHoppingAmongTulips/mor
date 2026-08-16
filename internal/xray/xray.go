@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strings"
 
 	"mor/internal/config"
 	"mor/internal/fsutil"
@@ -73,8 +74,11 @@ func (m *Manager) BuildConfig(users []*store.User) ([]byte, error) {
 		}
 	}
 	doc := map[string]any{
-		"log":   map[string]any{"loglevel": "warning"},
-		"dns":   map[string]any{"servers": []string{m.cfg.DNS}},
+		"log": map[string]any{"loglevel": "warning"},
+		// DoH for the same reason as Hysteria2's resolver: plain port 53 hands
+		// the hosting provider every domain every client opens. The literal
+		// address needs no bootstrap resolver of its own.
+		"dns":   map[string]any{"servers": []string{dohURL(m.cfg.DNS)}},
 		"api":   map[string]any{"tag": apiInbound, "services": []string{"HandlerService", "StatsService"}},
 		"stats": map[string]any{},
 		"policy": map[string]any{
@@ -192,4 +196,22 @@ func stream(r config.Reality, names []string) map[string]any {
 		s["xhttpSettings"] = map[string]any{"path": r.Path, "mode": "auto"}
 	}
 	return s
+}
+
+// dohURL turns a resolver address into the DNS-over-HTTPS form Xray accepts.
+// Cloudflare, Quad9 and AdGuard all answer /dns-query on their own address, so
+// no separate mapping is needed; anything already spelled out as a URL is left
+// alone.
+func dohURL(dns string) string {
+	dns = strings.TrimSpace(dns)
+	if dns == "" || strings.Contains(dns, "://") {
+		return dns
+	}
+	if h, _, err := net.SplitHostPort(dns); err == nil {
+		dns = h
+	}
+	if ip := net.ParseIP(dns); ip != nil && ip.To4() == nil {
+		dns = "[" + dns + "]"
+	}
+	return "https+local://" + dns + "/dns-query"
 }

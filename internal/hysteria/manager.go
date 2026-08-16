@@ -77,11 +77,16 @@ func resolverBlock(dns string) string {
 	if dns == "" {
 		return ""
 	}
-	addr := dns
-	if _, _, err := net.SplitHostPort(dns); err != nil {
-		addr = net.JoinHostPort(dns, "53")
+	// DNS over HTTPS rather than port 53: the queries leave the server for the
+	// resolver either way, and in the clear they tell whoever runs the machine
+	// room every site every client visits. The address is used directly, so
+	// there is no name to look up first.
+	host := dns
+	if h, _, err := net.SplitHostPort(dns); err == nil {
+		host = h
 	}
-	return fmt.Sprintf("resolver:\n  type: udp\n  udp:\n    addr: %s\n    timeout: 4s\n", addr)
+	addr := net.JoinHostPort(host, "443")
+	return fmt.Sprintf("resolver:\n  type: https\n  https:\n    addr: %s\n    timeout: 4s\n", addr)
 }
 
 func (m *Manager) WriteConfig() error {

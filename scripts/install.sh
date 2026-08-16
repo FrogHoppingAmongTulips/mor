@@ -124,8 +124,27 @@ install_mor() {
     rm -f "$tmp"
     die "не удалось скачать бинарник mor. Проверь BASE_URL или собери из исходников: go build -o $BIN ./cmd/mor"
   fi
+  verify_sum "$tmp" "mor-linux-$arch" || { rm -f "$tmp"; die "скачанный mor не совпал с контрольной суммой — повтори установку"; }
   chmod +x "$tmp"
   mv -f "$tmp" "$BIN"
+}
+
+# verify_sum checks the download against checksums.txt from the same release.
+#
+# https already protects the transfer, but not against a half-finished download
+# — one of those installed a binary that segfaulted on every call — and not
+# against a release that was replaced at the source. A missing checksums file
+# is not fatal: older releases and local builds do not have one, and refusing
+# to install then would break more than it protects.
+verify_sum() {
+  local file="$1" name="$2" want got
+  command -v sha256sum >/dev/null 2>&1 || { log "нет sha256sum — сумму не проверяю"; return 0; }
+  want="$(curl -fsSL "$BASE_URL/checksums.txt" 2>/dev/null | awk -v n="$name" '$2 == n { print $1 }')"
+  [ -n "$want" ] || { log "checksums.txt недоступен — сумму не проверяю"; return 0; }
+  got="$(sha256sum "$file" | cut -d" " -f1)"
+  [ "$got" = "$want" ] || { log "сумма не сошлась: ждали $want, получили $got"; return 1; }
+  log "контрольная сумма сошлась"
+  return 0
 }
 
 public_ip() {

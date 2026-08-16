@@ -250,6 +250,10 @@ func (ws *webServer) handleLogin(w http.ResponseWriter, r *http.Request) {
 	tok := ws.sessions.Issue()
 	http.SetCookie(w, &http.Cookie{
 		Name: webSessionCookie, Value: tok, Path: "/", HttpOnly: true,
+		// Secure keeps the browser from sending this over plain http at all.
+		// The panel redirects http to https, but the redirect arrives after the
+		// request — and the request already carried the cookie in the clear.
+		Secure:   true,
 		SameSite: http.SameSiteLaxMode, MaxAge: int(webSessionTTL.Seconds()),
 	})
 	writeJSON(w, map[string]bool{"ok": true})
