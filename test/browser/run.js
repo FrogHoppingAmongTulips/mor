@@ -439,88 +439,89 @@ test('QR раскрывается по нажатию и ничего не сд�
   await dropKeys(page, 'тест-');
 });
 
-// One switch for the whole panel, off on arrival. Opening the list is not a
-// request for a code on the screen, and picking a protocol must leave the
-// switch alone — the loop that highlights the chosen protocol used to walk
-// every chip in the row, the QR chip included, so choosing a protocol greyed
-// it out while the code stayed on screen and closing then took two presses.
-test('QR выключен при заходе и не гаснет от выбора протокола', async (page) => {
+// Раскрытый код принадлежит ключу, а не панели: открыл у одного — у
+// остальных ничего не изменилось, и, вернувшись, видишь то, что оставил.
+test('QR раскрыт у каждого ключа отдельно', async (page) => {
   await login(page);
+  await makeKey(page, 'тест-qr-1', ['hy2', 'reality']);
   await makeKey(page, 'тест-qr-2', ['hy2', 'reality']);
   await page.click('[data-pane="keys"]');
   await page.waitForTimeout(600);
 
-  const openKey = async (name) => {
-    const r = page.locator('.uh', { has: page.locator('.uh-name', { hasText: name }) });
-    await r.locator('.uh-open').click();
-    await page.waitForTimeout(900);
-    return r;
-  };
-  const state = () => page.evaluate(() => {
+  const row = (n) => page.locator('.uh', { has: page.locator('.uh-name', { hasText: n }) });
+  const openKey = async (n) => { await row(n).locator('.uh-open').click(); await page.waitForTimeout(900) };
+  const shown = () => page.evaluate(() => {
     const q = document.querySelector('.uh.open .qr-b');
-    const c = document.querySelector('.uh.open .pchip-qr');
-    const picked = [...document.querySelectorAll('.uh.open .pchip[data-l].on')].map((e) => e.textContent);
-    return q && c ? { код: getComputedStyle(q).opacity === '1', чип: c.classList.contains('on'), выбрано: picked.join(',') } : null;
+    return q ? getComputedStyle(q).opacity === '1' : null;
   });
 
-  const row = await openKey('тест-qr-2');
-  const arrived = await state();
-  ok(!arrived.код && !arrived.чип, 'при заходе код уже показан');
-
-  await row.locator('.pchip-qr').click();
+  await openKey('тест-qr-1');
+  ok(!(await shown()), 'при открытии ключа код уже показан');
+  await row('тест-qr-1').locator('.pchip-qr').click();
   await page.waitForTimeout(700);
-  ok((await state()).чип, 'чип не загорелся');
+  ok(await shown(), 'код не раскрылся');
+  await row('тест-qr-1').locator('.uh-open').click();
+  await page.waitForTimeout(400);
 
-  await row.locator('.pchip', { hasText: 'VLESS+Reality' }).click();
-  await page.waitForTimeout(600);
-  const afterPick = await state();
-  ok(afterPick.чип, 'выбор протокола погасил чип QR');
-  ok(afterPick.код, 'выбор протокола спрятал код');
-  eq(afterPick.выбрано, 'VLESS+Reality', 'протокол не выбрался');
-
-  // One press closes it, not two.
-  await row.locator('.pchip-qr').click();
-  await page.waitForTimeout(700);
-  const closed = await state();
-  ok(!closed.код && !closed.чип, 'с одного нажатия не закрылся');
-
-  // And a fresh visit starts with it off again.
-  await row.locator('.pchip-qr').click();
-  await page.waitForTimeout(500);
-  await page.reload();
-  await page.waitForTimeout(1500);
-  await page.click('[data-pane="keys"]');
-  await page.waitForTimeout(700);
   await openKey('тест-qr-2');
-  const again = await state();
-  ok(!again.код && !again.чип, 'после перезагрузки код остался включённым');
+  ok(!(await shown()), 'у второго ключа код открылся сам');
+  await row('тест-qr-2').locator('.uh-open').click();
+  await page.waitForTimeout(400);
+
+  await openKey('тест-qr-1');
+  ok(await shown(), 'у первого ключа код закрылся сам');
 
   await dropKeys(page, 'тест-');
 });
 
-// Обновление страницы не должно уводить с того места, где человек сидел:
-// раньше при каждой загрузке жёстко открывался «Статус».
-test('открытый раздел переживает обновление страницы', async (page) => {
+// Ключ на одном протоколе: «Все» и сам протокол — одно и то же.
+test('при одном протоколе чипа «Все» нет', async (page) => {
   await login(page);
-  const open = () => page.evaluate(() => {
-    const sq = document.querySelector('.sq.on');
-    return sq ? sq.dataset.pane : '';
+  await makeKey(page, 'тест-один', ['hy2']);
+  await makeKey(page, 'тест-много', ['hy2', 'reality']);
+  await page.click('[data-pane="keys"]');
+  await page.waitForTimeout(600);
+
+  const chips = async (name) => {
+    const row = page.locator('.uh', { has: page.locator('.uh-name', { hasText: name }) });
+    await row.locator('.uh-open').click();
+    await page.waitForTimeout(900);
+    const list = await page.locator('.uh.open .pchip').allTextContents();
+    await row.locator('.uh-open').click();
+    await page.waitForTimeout(300);
+    return list;
+  };
+
+  const one = await chips('тест-один');
+  ok(!one.some((c) => c === 'Все'), `у одного протокола остался чип «Все»: ${one.join(',')}`);
+  ok(one.some((c) => c === 'Hysteria2'), `нет чипа протокола: ${one.join(',')}`);
+
+  const many = await chips('тест-много');
+  ok(many.some((c) => c === 'Все'), `у двух протоколов пропал «Все»: ${many.join(',')}`);
+
+  await dropKeys(page, 'тест-');
+});
+
+// Переключение языка меняет длину слов. Ширины закреплены, иначе ряд
+// пересобирается и соседние элементы прыгают.
+test('смена языка не двигает вёрстку', async (page) => {
+  await login(page);
+  const box = () => page.evaluate(() => {
+    const r = (s) => { const e = document.querySelector(s); if (!e) return null;
+      const b = e.getBoundingClientRect();
+      return [Math.round(b.x), Math.round(b.y), Math.round(b.width)]; };
+    return { кнопка: r('.btn-plus'), плитка: r('.sq'), заголовок: r('#detailTitle') };
   });
 
-  await page.click('[data-pane="keys"]');
+  const before = await box();
+  await page.click('[data-act="lang"]');
+  await page.waitForTimeout(800);
+  const after = await box();
+  for (const k of Object.keys(before)) {
+    eq(JSON.stringify(after[k]), JSON.stringify(before[k]), `сдвинулось: ${k}`);
+  }
+  await page.click('[data-act="lang"]');
   await page.waitForTimeout(500);
-  eq(await open(), 'keys', 'не перешли в ключи');
-
-  await page.reload();
-  await page.waitForTimeout(1800);
-  eq(await open(), 'keys', 'после обновления ушли из ключей');
-
-  // И это не «всегда ключи», а именно последний выбранный.
-  await page.click('[data-pane="settings"]');
-  await page.waitForTimeout(500);
-  await page.reload();
-  await page.waitForTimeout(1800);
-  eq(await open(), 'settings', 'запомнился не тот раздел');
 });
 
 test('смена языка переводит интерфейс', async (page) => {

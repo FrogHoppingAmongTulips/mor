@@ -4,15 +4,18 @@
 <style>
 :root{
   --bg:#000;--bg2:#0a0a0a;--card:#141414;--card-h:#1e1e1e;
-  --border:#262626;--border2:#373737;--card-border:rgba(255,255,255,.04);
+  --border:#2e2e2e;--border2:#404040;--card-border:rgba(255,255,255,.09);
   --t1:#fafafa;--t2:#a3a3a3;--t3:#525252;--t4:#373737;
   --r:20px;
   --font:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text','Helvetica Neue',system-ui,sans-serif;
 }
 :root[data-theme="light"]{
   --bg:#ffffff;--bg2:#fafafa;--card:#f0f0f0;--card-h:#e8e8e8;
-  --border:#e5e5e5;--border2:#d4d4d4;--card-border:rgba(0,0,0,.03);
-  --t1:#0a0a0a;--t2:#525252;--t3:#8a8a8a;--t4:#d4d4d4;
+  --border:#d4d4d4;--border2:#b0b0b0;--card-border:rgba(0,0,0,.10);
+  /* На белом #8a8a8a давал 3.4:1, а #d4d4d4 — 1.5:1: подписи, время на
+     графиках и «пока пусто» просто не читались. Взяты значения, проходящие
+     порог: 5.3:1 для обычного текста и 3.4:1 для осей. */
+  --t1:#0a0a0a;--t2:#3d3d3d;--t3:#6b6b6b;--t4:#8a8a8a;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--font);font-size:14px;font-weight:300;letter-spacing:-.005em;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;overflow:hidden}
@@ -34,16 +37,19 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
 
 /* TOPBAR */
 .topbar{position:fixed;top:0;left:0;right:0;height:52px;background:var(--bg);display:flex;align-items:center;padding:0 28px;z-index:100}
-.sw-txt{background:none;border:none;font-family:var(--font);font-size:11px;font-weight:500;letter-spacing:.04em;color:var(--t4);cursor:pointer;padding:0;display:flex;gap:7px}
+.sw-txt{min-width:3.2em;background:none;border:none;font-family:var(--font);font-size:11px;font-weight:500;letter-spacing:.04em;color:var(--t4);cursor:pointer;padding:0;display:flex;gap:7px}
 .sw-txt span{transition:color .15s}
 .sw-txt span.on{color:var(--t1)}
 .topbar-r{display:flex;align-items:center;gap:26px;margin-left:auto}
-.btn-plus{background:var(--t1);color:var(--bg);border:none;font-family:var(--font);font-size:13px;font-weight:400;padding:7px 20px;border-radius:8px;cursor:pointer;transition:opacity .15s;letter-spacing:-.01em}
+/* Ширина закреплена под самое длинное слово из обоих языков: без этого
+   «Создать» и «Create» дают разную ширину, ряд пересобирается и соседние
+   элементы прыгают при переключении языка. */
+.btn-plus{min-width:7em;justify-content:center;background:var(--t1);color:var(--bg);border:none;font-family:var(--font);font-size:13px;font-weight:400;padding:7px 20px;border-radius:8px;cursor:pointer;transition:opacity .15s;letter-spacing:-.01em}
 .btn-plus:hover{background:var(--t1)}
 .theme-sw{cursor:pointer;background:none;border:none;padding:0;display:flex;align-items:center}
-.theme-icon{width:16px;height:16px;color:var(--t2);transition:color .3s}
+.theme-icon{width:16px;height:16px;color:var(--t1);transition:color .3s}
 .theme-icon:hover{color:var(--t1)}
-.logout-btn{background:none;border:none;font-family:var(--font);font-size:12px;color:var(--t3);cursor:pointer}
+.logout-btn{min-width:4.6em;text-align:center;background:none;border:none;font-family:var(--font);font-size:12px;color:var(--t3);cursor:pointer}
 .logout-btn:hover{color:var(--t1)}
 
 /* MAIN */
@@ -69,8 +75,10 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
 .squares{width:min(46%,430px);flex-shrink:0;display:grid;grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(3,1fr);gap:14px;min-width:0;min-height:0}
 .sq{background:var(--card);border:1px solid var(--card-border);border-radius:var(--r);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;min-width:0;cursor:pointer;transition:background .15s,border-color .15s}
 .sq:hover{background:var(--card-h)}
-.sq.on{background:var(--card-h);border-color:var(--border2)}
-.sq-icon{width:30px;height:30px;stroke:var(--t3);stroke-width:1.25;fill:none;stroke-linecap:round;stroke-linejoin:round;transition:stroke .15s}
+/* Выбранная плитка держит рамку в два раза толще: раньше отличие сводилось к
+   едва заметному оттенку фона, и понять, какой раздел открыт, было нельзя. */
+.sq.on{background:var(--card-h);border-color:var(--t3);box-shadow:inset 0 0 0 1px var(--t3)}
+.sq-icon{width:30px;height:30px;stroke:var(--t2);stroke-width:1.25;fill:none;stroke-linecap:round;stroke-linejoin:round;transition:stroke .15s}
 .sq:hover .sq-icon,.sq.on .sq-icon{stroke:var(--t1)}
 .sq-label{font-size:10px;font-weight:500;color:var(--t2);text-transform:uppercase;letter-spacing:.14em;text-align:center}
 .sq.on .sq-label{color:var(--t1)}
@@ -196,7 +204,11 @@ weight:500;color:var(--t1);margin-bottom:14px;letter-spacing:.14em;text-transfor
 .uh.dead .uh-spark-line{stroke:var(--t4)}
 .uh.dead .uh-pill{color:var(--t3)}
 .uh-status{flex-shrink:0}
-.uh-seen{font-size:11px;color:var(--t3);white-space:nowrap}
+.uh-num{font-size:11px;color:var(--t3);font-variant-numeric:tabular-nums;min-width:1.6em;text-align:right;flex-shrink:0}
+/* Колонка справа: расход и «в сети» друг под другом, ширина под 9999 ГБ. */
+.uh-right{display:flex;flex-direction:column;align-items:flex-end;gap:1px;min-width:7.5em;flex-shrink:0}
+.uh-live{font-size:10px;color:var(--t2);white-space:nowrap;text-transform:lowercase}
+.uh.dead .uh-live{color:var(--t3)}
 .uh-pill{font-size:11px;font-weight:500;color:var(--t1);background:var(--card-h);padding:5px 13px;border-radius:999px;white-space:nowrap}
 .uh-pill.on{color:var(--t1)}
 .uh-val{font-size:12px;color:var(--t2);font-variant-numeric:tabular-nums;flex-shrink:0}
@@ -361,10 +373,11 @@ details.grp[open]>summary{margin-bottom:14px}
 /* The square keeps its place whether or not the code is showing. Growing it
    from nothing squeezed the link into an ellipsis and shifted the chip row
    left the moment it opened. */
-.qr-b{width:148px;height:148px;flex-shrink:0;background:#fff;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;
+.qr-b{width:210px;height:210px;flex-shrink:0;background:#fff;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;
   opacity:0;transform:scale(.9);pointer-events:none;
   transition:opacity .26s ease,transform .38s cubic-bezier(.32,.72,0,1)}
 .qr-b.on{opacity:1;transform:scale(1);pointer-events:auto}
+.sharecol{min-width:0}
 .qr-b img{width:100%;height:100%}
 .dact{display:flex;gap:8px;margin-top:14px}
 .dbtns{display:flex;gap:8px;margin-top:20px}
@@ -453,10 +466,11 @@ details.grp[open]>summary{margin-bottom:14px}
   .uh-open{display:grid;grid-template-columns:auto 1fr auto;grid-template-rows:auto auto;
     column-gap:10px;row-gap:2px;align-items:center}
   .uh-dot{grid-row:1}
+  .uh-num{grid-column:1;grid-row:1}
   .uh-name{grid-column:2;grid-row:1;font-size:15px}
-  .uh-val{grid-column:3;grid-row:1;width:auto;font-size:13px}
+  .uh-right{grid-column:3;grid-row:1;min-width:0;font-size:13px}
   .uh-status{grid-column:2/4;grid-row:2;width:auto;justify-self:start}
-  .uh-seen,.uh-pill{font-size:11px}
+  .uh-pill,.uh-live{font-size:11px}
   /* Fingers need a target, not a 16px square. */
   .uh-pick{width:22px;height:22px}
   .uh-pick.on::after{width:4px;height:9px}
@@ -469,7 +483,7 @@ details.grp[open]>summary{margin-bottom:14px}
   .sharerow{flex-direction:column;align-items:center;gap:12px}
   .sharecol{width:100%}
   .qr-b{height:0;transition:height .38s cubic-bezier(.32,.72,0,1),opacity .26s ease}
-  .qr-b.on{height:148px}
+  .qr-b.on{height:210px}
   .pgrid{grid-template-columns:1fr}
   .grp{padding:14px}
   .modal{margin:12px;padding:20px}
@@ -1071,7 +1085,7 @@ function renderAttn(){
   const w=document.getElementById('attnBox');
   const now=Date.now();
   const items=[];
-  users.forEach(u=>{
+  users.forEach((u,idx)=>{
     if(u.banned){items.push([u.name,'забанен']);return}
     if(u.expiresAt){
       const days=Math.ceil((new Date(u.expiresAt)-now)/864e5);
@@ -1112,7 +1126,7 @@ function renderHome(){
   const scroll=scroller?scroller.scrollTop:0;
   for(const id of [...picked])if(!users.some(u=>u.id===id))picked.delete(id);
   w.innerHTML='';
-  users.forEach(u=>{
+  users.forEach((u,idx)=>{
     // A live session beats the traffic guess: Hysteria2 says so outright. A
     // key that has run out cannot be online whatever the counters say — the
     // engines stopped letting it in.
@@ -1129,11 +1143,18 @@ function renderHome(){
           ' data-act="pick" data-arg="'+u.id+'"></button>'+
         '<button type="button" class="uh-open" data-act="openKey" data-arg="'+u.id+'"'+
           ' aria-expanded="'+(isOpen?'true':'false')+'">'+
+          '<span class="uh-num">'+(idx+1)+'</span>'+
           '<span class="uh-dot '+(on?'on':'off')+'"></span>'+
           '<span class="uh-name">'+esc(u.name)+'</span>'+
-          '<span class="uh-status">'+statusPill(u,on)+'</span>'+
+          '<span class="uh-status">'+deadPill(u)+'</span>'+
           sparkSvg(u.spark)+
-          '<span class="uh-val">'+fmtBytes(u.traffic)+'</span>'+
+          // Расход и «в сети» — колонкой, цифра под цифрой. Ширина рассчитана
+          // на 9999 ГБ: больше одному человеку не набрать, а фиксированная
+          // колонка держит числа в одном столбце, как в таблице.
+          '<span class="uh-right">'+
+            '<span class="uh-val">'+fmtBytes(u.traffic)+'</span>'+
+            (on?'<span class="uh-live">'+t('onlineShort')+'</span>':'')+
+          '</span>'+
         '</button>'+
       '</div>'+
       '<div class="uh-body'+(isOpen?' open':'')+'"><div class="uh-body-in"><div class="uh-content" id="uh-content-'+u.id+'"></div></div></div>';
@@ -1218,11 +1239,12 @@ function keyDead(u){return deadReason(u)!==''}
 
 // The row's status column: a pill only when there is a real state to shout
 // about; otherwise the quiet useful fact — when they were last seen.
-function statusPill(u,online){
+// Строка ключа говорит только о том, что не в порядке. Когда человек не в
+// сети, писать нечего: «не заходил» повторялось у каждого ключа и вытесняло
+// то, что действительно требует внимания.
+function deadPill(u){
   const why=deadReason(u);
-  if(why)return '<span class="uh-pill">'+t(why)+'</span>';
-  if(online)return '<span class="uh-pill on">'+t('onlineShort')+'</span>';
-  return '<span class="uh-seen">'+ago(u.lastSeen)+'</span>';
+  return why?'<span class="uh-pill">'+t(why)+'</span>':'';
 }
 // 24h of hourly traffic as a bare line — scaled to its own peak, since one
 // key's busy day and another's idle one are not worth comparing pixel to pixel.
@@ -1290,7 +1312,9 @@ function renderHomeDetail(id){
   // chips from the remembered choice rather than hardcoding "all" is what
   // keeps a picked protocol picked instead of snapping back mid-copy.
   let lp=linkPick.get(id)||'';
-  if(lp&&!u.protocols.includes(lp)){lp='';linkPick.set(id,lp)}
+  if(u.protocols.length===1)lp=u.protocols[0];
+  if(lp&&!u.protocols.includes(lp)){lp='';}
+  linkPick.set(id,lp);
   const chip=(val,label)=>'<button type="button" class="pchip'+(lp===val?' on':'')+'" data-l="'+val+'"'+
     ' data-act="pickLink" data-arg="'+id+'" data-proto="'+val+'" aria-pressed="'+(lp===val?'true':'false')+'">'+label+'</button>';
 
@@ -1298,10 +1322,12 @@ function renderHomeDetail(id){
      '<div class="sharerow">'+
        '<div class="sharecol">'+
          '<div class="pchk lchoice" id="lch-'+id+'">'+
-           chip('',t('all'))+
+           // При одном протоколе «Все» и сам протокол дают одно и то же —
+           // выбирать не из чего, и чип только занимает место.
+           (u.protocols.length>1?chip('',t('all')):'')+
            u.protocols.map(p=>chip(p,PROTO_NAMES[p]||p)).join('')+
-           '<button type="button" class="pchip pchip-qr'+(qrShown?' on':'')+'" data-act="qr" data-arg="'+id+'"'+
-             ' aria-pressed="'+(qrShown?'true':'false')+'">'+t('qr')+'</button>'+
+           '<button type="button" class="pchip pchip-qr'+(qrOpen.has(id)?' on':'')+'" data-act="qr" data-arg="'+id+'"'+
+             ' aria-pressed="'+(qrOpen.has(id)?'true':'false')+'">'+t('qr')+'</button>'+
          '</div>'+
          '<button type="button" class="linkrow" data-act="copyLink" data-arg="'+id+'" title="'+t('copyLink')+'">'+
            '<span class="linkrow-text" id="ltext-'+id+'">'+esc(lp?(u.links&&u.links[lp]||''):(u.subLink||u.link||''))+'</span>'+
@@ -1424,15 +1450,17 @@ function pickLink(id,proto){
   renderQR(id);
 }
 
-// Whether codes are shown at all — one switch for the whole panel, off every
-// time the panel is opened. Somebody who came to look at the list did not ask
-// for a code on the screen; whoever needs one presses it.
-let qrShown=false;
+// Ключи, у которых код раскрыт. У каждого своё: открыл код у одного — у
+// остальных ничего не изменилось, и, вернувшись, видишь именно то, что
+// оставил. При загрузке панели пусто: посмотреть список — не просьба показать
+// код на экране.
+const qrOpen=new Set();
 
-function toggleQR(){
-  qrShown=!qrShown;
-  document.querySelectorAll('.pchip-qr').forEach(c=>{c.classList.toggle('on',qrShown);syncPressed(c)});
-  document.querySelectorAll('.qr-b').forEach(b=>renderQR(b.id.replace('uh-qr-box-','')));
+function toggleQR(id){
+  qrOpen.has(id)?qrOpen.delete(id):qrOpen.add(id);
+  const c=document.querySelector('#lch-'+id+' .pchip-qr');
+  if(c){c.classList.toggle('on',qrOpen.has(id));syncPressed(c)}
+  renderQR(id);
 }
 
 // renderQR draws the code for whatever link is on screen, and only while it is
@@ -1443,7 +1471,7 @@ function renderQR(id){
   const box=document.getElementById('uh-qr-box-'+id);
   if(!box)return;
   const text=(document.getElementById('ltext-'+id)||{}).textContent||'';
-  if(!qrShown||!text){box.classList.remove('on');return}
+  if(!qrOpen.has(id)||!text){box.classList.remove('on');return}
   const proto=linkPick.get(id)||'';
   const key=id+'|'+proto+'|'+text;
   if(box.dataset.key!==key){
@@ -1811,7 +1839,7 @@ const ACTIONS = {
   copyLink:      el => copyShown(el.dataset.arg),
   pickLink:      el => pickLink(el.dataset.arg, el.dataset.proto),
   ban:           () => toggleBan(),
-  qr:            () => toggleQR(),
+  qr:            el => toggleQR(el.dataset.arg),
   resetTraffic:  () => resetTraffic(),
   resetDevices:  el => resetDevices(el.dataset.arg),
   deleteKey:     () => deleteUser(),
