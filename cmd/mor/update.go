@@ -45,6 +45,17 @@ func latest(ctx context.Context) (string, error) {
 
 // newerThanRunning compares tags as plain strings after stripping the v. Version
 // numbers here are always vX.Y.Z from the same tool, so this is enough.
+// olderThanRunning: выложенная версия ниже установленной. Так бывает, когда
+// нумерацию релизов начали заново — машина, где стоит прежняя, иначе молча
+// осталась бы на ней навсегда, считая, что обновляться не нужно.
+func olderThanRunning(tag string) bool {
+	have, want := norm(version), norm(tag)
+	if have == "" || have == "dev" || want == "" {
+		return false
+	}
+	return compareVersions(want, have) < 0
+}
+
 func newerThanRunning(tag string) bool {
 	have, want := norm(version), norm(tag)
 	if have == "" || have == "dev" || want == "" {
@@ -85,9 +96,18 @@ func part(list []string, i int) int {
 
 // cmdUpdate — явная команда «поставь свежую версию»: её набирают, когда
 // именно этого и хотят, поэтому она ставит.
-func cmdUpdate() {
+func cmdUpdate(args ...string) {
+	force := false
+	for _, a := range args {
+		if a == "--force" || a == "-f" {
+			force = true
+		}
+	}
 	tag, newer, ok := checkUpdate()
-	if !ok || !newer {
+	if !ok {
+		return
+	}
+	if !newer && !force {
 		return
 	}
 	installUpdate(tag)
@@ -103,6 +123,11 @@ func checkUpdate() (tag string, newer, ok bool) {
 		return "", false, false
 	}
 	fmt.Printf("  установлено: %s\n  доступно:    %s\n", version, tag)
+	if olderThanRunning(tag) {
+		fmt.Println("\n  выложенная версия ниже установленной — нумерацию начали заново")
+		fmt.Println("  поставить её: mor update --force")
+		return tag, false, true
+	}
 	if !newerThanRunning(tag) {
 		fmt.Println("\n  обновление не требуется")
 		return tag, false, true
@@ -138,6 +163,14 @@ func (m *menu) update() {
 		switch {
 		case !ok:
 			s.state = append(s.state, "не удалось узнать последнюю версию")
+		case olderThanRunning(tag):
+			s.state = append(s.state,
+				"установлено "+version, "выложено "+tag,
+				"нумерацию релизов начали заново")
+			s.rows = []row{{label: "Поставить " + tag, do: func() (string, bool) {
+				installUpdate(tag)
+				return "установлено — сервис перезапущен", true
+			}}}
 		case !newer:
 			s.state = append(s.state, "установлено "+version, "новее нет")
 		default:

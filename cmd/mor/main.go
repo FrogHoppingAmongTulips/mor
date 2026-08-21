@@ -117,7 +117,7 @@ func run(cmd string, args []string) bool {
 	case "check":
 		cmdCheck(args)
 	case "update":
-		cmdUpdate()
+		cmdUpdate(args...)
 	case "clear", "cls":
 		cmdClear()
 	case "help", "?":

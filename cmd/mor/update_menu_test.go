@@ -83,3 +83,58 @@ func TestNothingToInstallWhenUpToDate(t *testing.T) {
 		t.Errorf("предложена установка без новой версии:\n%s", out)
 	}
 }
+
+// Нумерацию релизов начали заново — на машине с прежней версией «обновление не
+// требуется» было бы неправдой: она навсегда осталась бы на старой сборке.
+func TestRenumberedReleaseIsOfferedNotHidden(t *testing.T) {
+	installed := ""
+	origVersion, origInstall, origLatest := version, installUpdate, latestFn
+	version = "v0.4.0"
+	installUpdate = func(tag string) { installed = tag }
+	latestFn = func(context.Context) (string, error) { return "v0.0.1", nil }
+	defer func() { version, installUpdate, latestFn = origVersion, origInstall, origLatest }()
+
+	e := panelEnv(t, "")
+	out := screen(t, e, "\n", func(m *menu) {
+		m.in = bufio.NewReader(strings.NewReader("\n"))
+		m.update()
+	})
+
+	if installed != "" {
+		t.Fatal("экран поставил сам, хотя должен спросить")
+	}
+	if strings.Contains(out, "новее нет") {
+		t.Errorf("сказано «новее нет», хотя версия просто ниже:\n%s", out)
+	}
+	if !strings.Contains(out, "Поставить v0.0.1") {
+		t.Errorf("нет пункта, чтобы поставить выложенную версию:\n%s", out)
+	}
+
+	// И по выбору — ставится.
+	screen(t, e, "1\n\n", func(m *menu) {
+		m.in = bufio.NewReader(strings.NewReader("1\n\n"))
+		m.update()
+	})
+	if installed != "v0.0.1" {
+		t.Fatalf("выбор пункта не поставил: %q", installed)
+	}
+}
+
+// mor update --force ставит выложенную версию, даже когда её номер ниже.
+func TestForceInstallsLowerVersion(t *testing.T) {
+	installed := ""
+	origVersion, origInstall, origLatest := version, installUpdate, latestFn
+	version = "v0.4.0"
+	installUpdate = func(tag string) { installed = tag }
+	latestFn = func(context.Context) (string, error) { return "v0.0.1", nil }
+	defer func() { version, installUpdate, latestFn = origVersion, origInstall, origLatest }()
+
+	cmdUpdate()
+	if installed != "" {
+		t.Fatal("без --force поставил сам")
+	}
+	cmdUpdate("--force")
+	if installed != "v0.0.1" {
+		t.Fatalf("--force не поставил: %q", installed)
+	}
+}
