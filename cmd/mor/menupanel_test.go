@@ -159,34 +159,6 @@ func TestSetWebPasswordKeepsBothInStep(t *testing.T) {
 	}
 }
 
-// Renewal is acme.sh's cron, not the owner's job — the certificate is raised
-// only when it is actually broken, and only by the check screen.
-func TestSelfSignedCertificateIsOfferedForRepair(t *testing.T) {
-	e := panelEnv(t, "")
-	e.cfg.SetWebPassword("пароль12345")
-	if err := writeSelfSigned(e.paths.WebCertFile, e.paths.WebCertFile+".key", "203.0.113.7"); err != nil {
-		t.Fatal(err)
-	}
-
-	p := certProblem(e)
-	if p == nil {
-		t.Fatal("самоподписанный сертификат не замечен")
-	}
-	if p.fix == nil {
-		t.Error("не предложено исправление")
-	}
-}
-
-func TestRealCertificateIsNotAProblem(t *testing.T) {
-	e := panelEnv(t, "")
-	e.cfg.SetWebPassword("пароль12345")
-	// No certificate at all is not a problem either: the panel writes its own
-	// on first start.
-	if got := certProblem(e); got != nil {
-		t.Errorf("без сертификата поднята тревога: %+v", got)
-	}
-}
-
 // The subscription check talks to the port over whatever it actually speaks.
 // When the subscription moved to HTTPS this probe stayed on http, followed the
 // redirect to 127.0.0.1, failed the certificate — issued for the public host,

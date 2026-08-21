@@ -687,7 +687,7 @@ async function api(path,opts){
   return ct.includes('application/json')?r.json():r.text();
 }
 function showLogin(){document.getElementById('loginScreen').classList.remove('hidden');document.getElementById('dashboard').classList.remove('on')}
-function showDashboard(){document.getElementById('loginScreen').classList.add('hidden');document.getElementById('dashboard').classList.add('on');select('status');refreshAll()}
+function showDashboard(){document.getElementById('loginScreen').classList.add('hidden');document.getElementById('dashboard').classList.add('on');select(lastPane());refreshAll()}
 async function checkSession(){
   try{await api('/me');showDashboard()}catch(e){showLogin()}
 }
@@ -1528,8 +1528,17 @@ const PORT_FIELD={hy2:'setVpnPort',reality:'setRealityPort',enc:'setEncPort',ss:
 const PANES=['keys','status','online','system','traffic','actions','restart','settings'];
 let openPane=null;
 
+// lastPane — раздел, открытый в прошлый раз. Незнакомое имя (осталось от
+// старой версии) отбрасывается, чтобы не открывать пустоту.
+function lastPane(){
+  const saved=localStorage.getItem('morPane');
+  return PANES.includes(saved)?saved:'status';
+}
+
 function select(which){
   if(!PANES.includes(which))return;
+  // Обновление страницы не должно уводить с того места, где человек сидел.
+  localStorage.setItem('morPane',which);
   const pane=document.getElementById('pane-'+which);
   if(!pane)return;
   if(openPane===which)return;

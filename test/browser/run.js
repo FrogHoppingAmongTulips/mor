@@ -498,6 +498,31 @@ test('QR выключен при заходе и не гаснет от выбо
   await dropKeys(page, 'тест-');
 });
 
+// Обновление страницы не должно уводить с того места, где человек сидел:
+// раньше при каждой загрузке жёстко открывался «Статус».
+test('открытый раздел переживает обновление страницы', async (page) => {
+  await login(page);
+  const open = () => page.evaluate(() => {
+    const sq = document.querySelector('.sq.on');
+    return sq ? sq.dataset.pane : '';
+  });
+
+  await page.click('[data-pane="keys"]');
+  await page.waitForTimeout(500);
+  eq(await open(), 'keys', 'не перешли в ключи');
+
+  await page.reload();
+  await page.waitForTimeout(1800);
+  eq(await open(), 'keys', 'после обновления ушли из ключей');
+
+  // И это не «всегда ключи», а именно последний выбранный.
+  await page.click('[data-pane="settings"]');
+  await page.waitForTimeout(500);
+  await page.reload();
+  await page.waitForTimeout(1800);
+  eq(await open(), 'settings', 'запомнился не тот раздел');
+});
+
 test('смена языка переводит интерфейс', async (page) => {
   await login(page);
   const before = await page.locator('.btn-plus').textContent();
