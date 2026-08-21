@@ -28,12 +28,6 @@ func createKey(e *env, name, proto, sni string) (*store.User, error) {
 			return nil, fmt.Errorf("Xray не установлен — переустанови mor")
 		}
 		u.UUID = keys.UUID()
-	case store.ProtoEnc:
-		if !xray.Installed() {
-			return nil, fmt.Errorf("Xray не установлен — переустанови mor")
-		}
-		u.UUID = keys.UUID()
-		u.SNI = ""
 	case store.ProtoSS:
 		if !xray.Installed() {
 			return nil, fmt.Errorf("Xray не установлен — переустанови mor")
@@ -50,7 +44,7 @@ func createKey(e *env, name, proto, sni string) (*store.User, error) {
 	if err := syncProto(e, proto); err != nil {
 		return saved, err
 	}
-	if proto == store.ProtoReality || proto == store.ProtoEnc || proto == store.ProtoSS {
+	if proto == store.ProtoReality || proto == store.ProtoSS {
 		// Letting the key in live saves a restart. If the API is not answering,
 		// restart instead — otherwise the link would not work until something
 		// else happened to restart Xray.
@@ -67,7 +61,7 @@ func createKey(e *env, name, proto, sni string) (*store.User, error) {
 // reads its keys through the auth callback, so it needs nothing here.
 func syncProto(e *env, proto string) error {
 	switch proto {
-	case store.ProtoReality, store.ProtoEnc, store.ProtoSS:
+	case store.ProtoReality, store.ProtoSS:
 		if xray.Installed() {
 			return e.xr.WriteConfig(e.live())
 		}
@@ -101,7 +95,7 @@ func removeKeys(e *env, list []*store.User) error {
 	// The keys are out of the config; cutting their live sessions is what the
 	// API adds. When it is silent, one restart covers everybody.
 	for _, u := range list {
-		if u.Proto != store.ProtoReality && u.Proto != store.ProtoEnc && u.Proto != store.ProtoSS {
+		if u.Proto != store.ProtoReality && u.Proto != store.ProtoSS {
 			continue
 		}
 		if err := e.xr.RemoveUser(u.ID, u.Proto); err != nil {

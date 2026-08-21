@@ -673,8 +673,8 @@ details.grp[open]>summary{margin-bottom:14px}
 <div class="toast" id="toast"></div>
 
 <script>
-const PROTO_NAMES={hy2:'Hysteria2',reality:'VLESS+Reality',enc:'VLESS Encryption',ss:'Shadowsocks'};
-const PROTO_ORDER=['hy2','reality','enc','ss'];
+const PROTO_NAMES={hy2:'Hysteria2',reality:'VLESS+Reality',ss:'Shadowsocks'};
+const PROTO_ORDER=['hy2','reality','ss'];
 let users=[],protocols=[],currentDetail=null,isDark=true;
 
 /* ---- auth ---- */
@@ -771,7 +771,7 @@ const I18N={
   disable:'Отключить',enable:'Включить',actions:'Последние действия',
   linkHint:'Одна ссылка на все протоколы. Открывается в любом приложении — формат подбирается сам.',
   whatStored:'Что занимает место',counting:'Считаю…',diskUsed:'Занято',diskOf:'из',
-  derivedNote:'«По трафику» — Reality, Encryption и Shadowsocks не сообщают о подключениях, присутствие определено по недавнему трафику.'},
+  derivedNote:'«По трафику» — Reality и Shadowsocks не сообщают о подключениях, присутствие определено по недавнему трафику.'},
  en:{create:'Create',createKey:'New key',cancel:'Cancel',logout:'sign out',keys:'Keys',status:'Status',
   system:'System',disk:'Disk',traffic:'Traffic this month',restart:'Restart',
   restartBtn:'Restart',
@@ -819,7 +819,7 @@ const I18N={
   disable:'Disable',enable:'Enable',actions:'Recent actions',
   linkHint:'One link for every protocol. Opens in any app — the format is picked automatically.',
   whatStored:'What is using space',counting:'Counting…',diskUsed:'Used',diskOf:'of',
-  derivedNote:'"By traffic" — Reality, Encryption and Shadowsocks do not report connections; presence is inferred from recent traffic.'}
+  derivedNote:'"By traffic" — Reality and Shadowsocks do not report connections; presence is inferred from recent traffic.'}
 };
 let lang=localStorage.getItem('morLang')||'ru';
 function t(k){return (I18N[lang]||{})[k]||I18N.ru[k]||k}
@@ -1519,10 +1519,10 @@ async function toggleProto(id,el){
 // Settings form fields, paired with the config key each one carries. One list
 // so loading and saving can never drift apart.
 const SET_TEXT={setHost:'host',setSni:'sni',setDns:'dns',setObfs:'hyObfs',setRealityDest:'realityDest'};
-const SET_NUM={setVpnPort:'vpnPort',setRealityPort:'realityPort',setEncPort:'encPort',setSsPort:'ssPort',setSubPort:'subPort',setWebPort:'webPort'};
+const SET_NUM={setVpnPort:'vpnPort',setRealityPort:'realityPort',setSsPort:'ssPort',setSubPort:'subPort',setWebPort:'webPort'};
 // Which config key each protocol's port field carries, so the rendered rows
 // and the save payload cannot drift apart.
-const PORT_FIELD={hy2:'setVpnPort',reality:'setRealityPort',enc:'setEncPort',ss:'setSsPort'};
+const PORT_FIELD={hy2:'setVpnPort',reality:'setRealityPort',ss:'setSsPort'};
 
 /* ---- master-detail ----
    Panes are moved into the detail column, not cloned, so exactly one of each

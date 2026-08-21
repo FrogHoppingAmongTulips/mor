@@ -94,3 +94,19 @@ func TestNamesSurviveASaveAndReload(t *testing.T) {
 		}
 	}
 }
+
+// Протокол убрали из mor, но ключи под ним остались в файле у тех, кто
+// обновляется. Такой ключ виден в списке, считается в лимитах и не попадает ни
+// в один конфиг движка — то есть выглядит рабочим и не подключает никого.
+func TestRetiredProtocolIsNotKnown(t *testing.T) {
+	for _, p := range []string{ProtoHy2, ProtoReality, ProtoSS} {
+		if !Known(p) {
+			t.Errorf("рабочий протокол %q объявлен неизвестным", p)
+		}
+	}
+	for _, p := range []string{"enc", "", "vmess", "trojan"} {
+		if Known(p) {
+			t.Errorf("протокол %q не поддерживается, но считается известным", p)
+		}
+	}
+}

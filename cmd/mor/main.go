@@ -227,7 +227,7 @@ func applyAll(e *env) {
 			log.Print("конфиг Hysteria2 обновлён")
 		}
 	}
-	if (e.cfg.On(store.ProtoReality) || e.cfg.On(store.ProtoEnc) || e.cfg.On(store.ProtoSS)) && xray.Installed() {
+	if (e.cfg.On(store.ProtoReality) || e.cfg.On(store.ProtoSS)) && xray.Installed() {
 		if changed, err := e.xr.ApplyIfChanged(users); err != nil {
 			log.Printf("предупреждение: Xray: %v", err)
 		} else if changed {
@@ -327,6 +327,7 @@ func load() (*env, error) {
 	if err != nil {
 		return nil, err
 	}
+	dropRetiredKeys(st)
 	return &env{
 		cfg:      cfg,
 		st:       st,
@@ -339,6 +340,27 @@ func load() (*env, error) {
 		ipLimits: hysteria.NewIPTracker(),
 		devices:  sub.OpenDevices(paths.DevicesFile),
 	}, nil
+}
+
+// dropRetiredKeys removes keys stored under a protocol mor no longer serves.
+//
+// VLESS Encryption was taken out, and a key left behind would sit in the list
+// looking usable while connecting nobody — no engine config carries it any
+// more. Deleting it is the honest state, and saying so is what tells the owner
+// why a key disappeared after an update.
+func dropRetiredKeys(st *store.Store) {
+	gone := map[string]int{}
+	for _, u := range st.List() {
+		if store.Known(u.Proto) {
+			continue
+		}
+		if st.Delete(u.ID) == nil {
+			gone[u.Proto]++
+		}
+	}
+	for proto, n := range gone {
+		log.Printf("удалено ключей протокола %q: %d — протокол больше не поддерживается", proto, n)
+	}
 }
 
 func detectHost() string {

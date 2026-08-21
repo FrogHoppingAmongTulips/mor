@@ -31,14 +31,6 @@ func ss() Proxy {
 	}
 }
 
-func enc() Proxy {
-	return Proxy{
-		Name: "enc", Kind: VLESS, Server: "203.0.113.7", Port: 2098,
-		UUID: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", Network: "tcp",
-		Encryption: "mlkem768x25519plus.native.0rtt.KEY",
-	}
-}
-
 func TestURIHysteria2(t *testing.T) {
 	u, err := url.Parse(hy2().URI())
 	if err != nil {
@@ -129,33 +121,8 @@ func TestURIIPv6HostBracketed(t *testing.T) {
 	}
 }
 
-// VLESS Encryption is new enough that almost nothing reads it, and an app that
-// meets a line it cannot parse refuses the whole profile rather than skipping
-// the line. One unreadable entry then costs the person the protocols that would
-// have worked, so it stays out of every subscription — its own link and QR are
-// built separately and still carry it.
-func TestEncryptionIsInNoSubscription(t *testing.T) {
-	e := enc()
-	for _, f := range []Format{FormatURI, FormatClash, FormatSingBox} {
-		if e.Supports(f) {
-			t.Errorf("VLESS Encryption попал в подписку формата %v", f)
-		}
-	}
-	// Ссылка на сам протокол при этом собирается и остаётся рабочей.
-	if u := e.URI(); !strings.HasPrefix(u, "vless://") || !strings.Contains(u, "encryption=") {
-		t.Errorf("прямая ссылка на Encryption сломана: %q", u)
-	}
-	for _, p := range []Proxy{hy2(), reality(), ss()} {
-		for _, f := range []Format{FormatURI, FormatClash, FormatSingBox} {
-			if !p.Supports(f) {
-				t.Errorf("%s должен поддерживаться форматом %d", p.Kind, f)
-			}
-		}
-	}
-}
-
 func TestClashYAMLShape(t *testing.T) {
-	out := Clash([]Proxy{hy2(), reality(), ss(), enc()})
+	out := Clash([]Proxy{hy2(), reality(), ss()})
 	for _, want := range []string{
 		"proxies:", "type: hysteria2", "type: vless", "type: ss",
 		"reality-opts:", "public-key:", "proxy-groups:", "rules:", "MATCH,mor",
@@ -177,7 +144,7 @@ func TestClashYAMLShape(t *testing.T) {
 // sing-box clients import a whole configuration, not a fragment: an outbound
 // list on its own would not load.
 func TestSingBoxIsValidCompleteConfig(t *testing.T) {
-	out := SingBox([]Proxy{hy2(), reality(), ss(), enc()})
+	out := SingBox([]Proxy{hy2(), reality(), ss()})
 
 	var cfg struct {
 		Inbounds  []map[string]any `json:"inbounds"`

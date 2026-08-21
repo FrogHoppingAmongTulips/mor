@@ -25,15 +25,6 @@ func client(u *store.User, wire string) map[string]any {
 	return c
 }
 
-// encClient is a VLESS Encryption key: the same UUID shape as Reality, without
-// the vision flow, which belongs to TLS transports only.
-func encClient(u *store.User) map[string]any {
-	return map[string]any{
-		"id":    u.UUID,
-		"email": u.ID,
-	}
-}
-
 // ssClient is one Shadowsocks key: its own password under the server's one
 // fixed method, so removing a key never touches anyone else's.
 func ssClient(u *store.User) map[string]any {
@@ -47,8 +38,6 @@ func ssClient(u *store.User) map[string]any {
 // TagOf names the inbound a key belongs to.
 func TagOf(proto string) string {
 	switch proto {
-	case store.ProtoEnc:
-		return encTag
 	case store.ProtoSS:
 		return ssTag
 	default:
@@ -72,18 +61,6 @@ func (m *Manager) AddUser(u *store.User) error {
 			"clients":    []any{client(u, m.cfg.Reality.Wire())},
 			"decryption": "none",
 		},
-	}
-	if u.Proto == store.ProtoEnc {
-		inbound = map[string]any{
-			"tag":      encTag,
-			"listen":   "0.0.0.0",
-			"port":     m.cfg.Enc.Port,
-			"protocol": "vless",
-			"settings": map[string]any{
-				"clients":    []any{encClient(u)},
-				"decryption": m.cfg.Enc.Decryption,
-			},
-		}
 	}
 	if u.Proto == store.ProtoSS {
 		inbound = map[string]any{

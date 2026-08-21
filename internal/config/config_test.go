@@ -185,7 +185,7 @@ func TestReloadCarriesEveryField(t *testing.T) {
 		PublicHost: "vpn.example.com", VPNPort: 2097, SNI: "www.microsoft.com",
 		DNS: "8.8.4.4", HyObfs: "шум",
 		Reality: Reality{Port: 8443, Dest: "www.apple.com:443", PrivateKey: "прк", PublicKey: "пуб", ShortID: "ид"},
-		Enc:     Enc{Port: 2198, Decryption: "деш", Encryption: "шиф"}, SS: SS{Port: 2199},
+		SS:      SS{Port: 2199},
 		SubPort: 8881, SubOff: true,
 		WebPasswordHash: "соль:хеш", WebPort: 9091, WebOff: true,
 		Off:         []string{"ss"},

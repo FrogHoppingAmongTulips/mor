@@ -91,7 +91,7 @@ func TestVerdictNamesWhatIsBroken(t *testing.T) {
 	dead := okRow("Reality", 443, false, "reality")
 	dead.engine, dead.held, dead.remote = false, false, ""
 
-	cut := okRow("VLESS Encryption", 2098, false, "enc")
+	cut := okRow("Shadowsocks", 2099, false, "ss")
 	cut.remote = reachNone
 
 	silent := okRow("Hysteria2", 2096, true, store.ProtoHy2)
@@ -104,7 +104,7 @@ func TestVerdictNamesWhatIsBroken(t *testing.T) {
 	if !contains(got[0], "Reality") || !contains(got[0], "не запущен") {
 		t.Errorf("остановленный движок описан неверно: %q", got[0])
 	}
-	if !contains(got[1], "2098") || !contains(got[1], "не доходит") {
+	if !contains(got[1], "2099") || !contains(got[1], "не доходит") {
 		t.Errorf("зарезанный порт описан неверно: %q", got[1])
 	}
 	if !contains(got[2], "Hysteria2") || !contains(got[2], "не держит порт") {
@@ -159,14 +159,14 @@ func contains(hay, needle string) bool {
 // what it promises has to match what it would actually do.
 
 func TestRepairsRestartsDeadEnginesOnce(t *testing.T) {
-	// Reality and Encryption share one Xray: restarting it twice would be a
+	// Reality and Shadowsocks share one Xray: restarting it twice would be a
 	// second, pointless drop of everyone's connections.
 	reality := okRow("VLESS+Reality", 443, false, store.ProtoReality)
 	reality.engine = false
-	enc := okRow("VLESS Encryption", 2098, false, store.ProtoEnc)
-	enc.held = false
+	ss := okRow("Shadowsocks", 2099, false, store.ProtoSS)
+	ss.engine = false
 
-	got := repairsFor([]result{reality, enc}, nil)
+	got := repairsFor([]result{reality, ss}, nil)
 	if len(got) != 1 {
 		t.Fatalf("два протокола на одном движке — одна починка, вышло %d: %v", len(got), got)
 	}

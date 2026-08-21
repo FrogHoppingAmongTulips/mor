@@ -111,10 +111,10 @@ install_xray() {
   if command -v xray >/dev/null 2>&1; then
     return
   fi
-  log "ставлю Xray (Reality и VLESS Encryption)…"
+  log "ставлю Xray (Reality и Shadowsocks)…"
   local out
   out="$(bash -c "$(curl -fsSL https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install 2>&1)" \
-    || { echo "$out" | tail -5; log "предупреждение: Xray не установился — Reality и Encryption будут недоступны"; }
+    || { echo "$out" | tail -5; log "предупреждение: Xray не установился — Reality и Shadowsocks будут недоступны"; }
 }
 
 install_mor() {
@@ -174,7 +174,7 @@ open_firewall() {
   hy="$(cfg_port vpn_port "${VPN_PORT}")"
   # 80 is for the ACME challenge — needed at issuance and at every renewal;
   # web_port is the panel itself, which was unreachable behind a live ufw.
-  tcp_ports="$(cfg_reality_port) $(cfg_nested_port enc port 2098) $(cfg_port sub_port 8880)"
+  tcp_ports="$(cfg_reality_port) $(cfg_port sub_port 8880)"
   tcp_ports="$tcp_ports $(cfg_nested_port ss port 2099) $(cfg_port web_port 9090) 80"
 
   if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q active; then
@@ -258,7 +258,7 @@ cfg_port() {
 
 cfg_reality_port() { cfg_nested_port reality port 443; }
 
-# cfg_nested_port digs a port out of a nested object, e.g. "enc": {"port": 2098}.
+# cfg_nested_port digs a port out of a nested object, e.g. "ss": {"port": 2099}.
 cfg_nested_port() {
   local obj="$1" key="$2" fallback="$3" v=""
   [ -f "$MOR_DIR/config.json" ] && v="$(tr -d '\n ' <"$MOR_DIR/config.json" \
@@ -273,8 +273,8 @@ proto_off() {
   tr -d '\n ' <"$MOR_DIR/config.json" | grep -q "\"off\":\[[^]]*\"$1\""
 }
 
-# reality and enc share one Xray: it stops only when both are off.
-xray_off() { proto_off reality && proto_off enc; }
+# reality and ss share one Xray: it stops only when both are off.
+xray_off() { proto_off reality && proto_off ss; }
 
 # start_engine always restarts, even when the unit is already up. Xray's own
 # installer starts it with a stock config, and mor writes its own a moment

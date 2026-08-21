@@ -259,7 +259,7 @@ func (m *menu) restartAll(units []string) {
 }
 
 // serviceUnits lists the services that should be up right now. Reality and
-// Encryption share one Xray, so it is named once.
+// Shadowsocks share one Xray, so it is named once.
 func (m *menu) serviceUnits() []string {
 	units := []string{"mor"}
 	seen := map[string]bool{"mor": true}

@@ -137,7 +137,7 @@ func (m *menu) setDNS(ip string) (string, bool) {
 		return "и так стоит " + ip, false
 	}
 	m.e.cfg.DNS = ip
-	if !saveQuiet(m.e, store.ProtoHy2, store.ProtoReality, store.ProtoEnc) {
+	if !saveQuiet(m.e, store.ProtoHy2, store.ProtoReality) {
 		return "DNS записан, но движок не отозвался", false
 	}
 	return "DNS теперь " + ip, true

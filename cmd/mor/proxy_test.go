@@ -26,7 +26,6 @@ func TestProxyForCoversEveryProtocol(t *testing.T) {
 	want := map[string]string{
 		store.ProtoHy2:     "hysteria2",
 		store.ProtoReality: "vless",
-		store.ProtoEnc:     "vless",
 		store.ProtoSS:      "ss",
 	}
 	for proto, scheme := range want {
@@ -53,10 +52,10 @@ func TestProxyForCoversEveryProtocol(t *testing.T) {
 // looks perfectly valid and connects to nothing.
 func TestProxyForUsesConfiguredPorts(t *testing.T) {
 	cfg := proxyTestCfg()
-	cfg.VPNPort, cfg.Reality.Port, cfg.Enc.Port, cfg.SS.Port = 1111, 2222, 3333, 4444
+	cfg.VPNPort, cfg.Reality.Port, cfg.SS.Port = 1111, 2222, 4444
 	want := map[string]int{
 		store.ProtoHy2: 1111, store.ProtoReality: 2222,
-		store.ProtoEnc: 3333, store.ProtoSS: 4444,
+		store.ProtoSS: 4444,
 	}
 	for proto, port := range want {
 		p, _ := proxyFor(cfg, &store.User{Name: "x", Proto: proto})
@@ -139,7 +138,7 @@ func TestProxyForHysteriaSkipsCertCheck(t *testing.T) {
 // link. They render from one description precisely so they cannot drift.
 func TestKeyTextMatchesProxyURI(t *testing.T) {
 	cfg := proxyTestCfg()
-	for _, proto := range []string{store.ProtoHy2, store.ProtoReality, store.ProtoEnc, store.ProtoSS} {
+	for _, proto := range []string{store.ProtoHy2, store.ProtoReality, store.ProtoSS} {
 		u := &store.User{Name: "телефон", Proto: proto, HyToken: "t", UUID: "u", SSPassword: "p"}
 		p, _ := proxyFor(cfg, u)
 		if got, want := keyText(cfg, u), p.URI(); got != want {

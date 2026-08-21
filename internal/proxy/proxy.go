@@ -50,9 +50,6 @@ type Proxy struct {
 	Network string // "tcp" or "xhttp"
 	Path    string
 
-	// VLESS Encryption carries its own encryption instead of TLS.
-	Encryption string
-
 	// Hysteria2 packet scrambling.
 	Obfs         string
 	ObfsPassword string
@@ -91,23 +88,19 @@ func (p Proxy) URI() string {
 		}).String()
 
 	case VLESS:
+		// VLESS здесь всегда Reality: другой его разновидности mor не отдаёт.
 		q := url.Values{}
 		q.Set("type", p.Network)
-		if p.Reality {
-			q.Set("security", "reality")
-			q.Set("sni", p.SNI)
-			q.Set("fp", p.Fingerprint)
-			q.Set("pbk", p.PublicKey)
-			q.Set("sid", p.ShortID)
-			if p.Network == "xhttp" {
-				q.Set("path", p.Path)
-				q.Set("mode", "auto")
-			} else {
-				q.Set("flow", p.Flow)
-			}
+		q.Set("security", "reality")
+		q.Set("sni", p.SNI)
+		q.Set("fp", p.Fingerprint)
+		q.Set("pbk", p.PublicKey)
+		q.Set("sid", p.ShortID)
+		if p.Network == "xhttp" {
+			q.Set("path", p.Path)
+			q.Set("mode", "auto")
 		} else {
-			q.Set("security", "none")
-			q.Set("encryption", p.Encryption)
+			q.Set("flow", p.Flow)
 		}
 		return (&url.URL{
 			Scheme: "vless", User: url.User(p.UUID), Host: p.addr(),
@@ -126,22 +119,9 @@ const (
 	FormatSingBox
 )
 
-// Supports reports whether an endpoint belongs in a subscription of this
-// format.
+// Supports reports whether a format can express this endpoint.
 //
-// VLESS Encryption is left out of all of them. It is recent enough that almost
-// nothing reads it, and an app that meets a line it cannot parse does not skip
-// that line — it refuses the whole profile. One unreadable entry then costs the
-// person the three protocols that would have worked. Clash and sing-box were
-// already excluded for this reason; the plain link list turned out to be no
-// different.
-//
-// The protocol itself stays available: its own link and QR are built directly,
-// not through a subscription, so a client that does understand it can be given
-// exactly that one.
-func (p Proxy) Supports(f Format) bool {
-	if p.Kind == VLESS && !p.Reality {
-		return false
-	}
-	return true
-}
+// Every protocol mor serves is expressible in all three, so this is true
+// throughout. It stays as a hook: the next protocol added may not be, and the
+// renderers already ask.
+func (p Proxy) Supports(Format) bool { return true }

@@ -61,7 +61,7 @@ TOKEN="$("$BIN" token new e2e | grep -o 'mor_[0-9a-f]*' | head -1)"
 [ -n "$TOKEN" ] || { echo "не удалось выпустить токен"; exit 1; }
 
 KEY_JSON="$(curl -sk -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d "{\"name\":\"$KEY_NAME\",\"protocols\":[\"hy2\",\"reality\",\"enc\",\"ss\"]}" "$API/api/users")"
+  -d "{\"name\":\"$KEY_NAME\",\"protocols\":[\"hy2\",\"reality\",\"ss\"]}" "$API/api/users")"
 KEY_ID="$(printf '%s' "$KEY_JSON" | python3 -c 'import sys,json;print(json.load(sys.stdin)["id"])')"
 [ -n "$KEY_ID" ] || { echo "ключ не создался"; exit 1; }
 
@@ -196,7 +196,7 @@ SUB="$(cat "$WORK/sub.txt")"
 if [ -n "$SUB" ]; then
   body="$(curl -sk --max-time 15 "$SUB" | base64 -d 2>/dev/null || true)"
   n="$(printf '%s' "$body" | grep -c '://' || true)"
-  [ "$n" -ge 4 ] && ok "подписка отдаёт $n ссылок" || bad "в подписке $n ссылок, ожидалось 4"
+  [ "$n" -ge 3 ] && ok "подписка отдаёт $n ссылок" || bad "в подписке $n ссылок, ожидалось 3"
 else
   bad "ссылки на подписку нет"
 fi

@@ -305,7 +305,7 @@ func applyLive(e *env, changed []*store.User) error {
 		}
 		bad := blocked(e, e.st.List())
 		for _, u := range changed {
-			if u.Proto != store.ProtoReality && u.Proto != store.ProtoEnc && u.Proto != store.ProtoSS {
+			if u.Proto != store.ProtoReality && u.Proto != store.ProtoSS {
 				continue
 			}
 			var err error

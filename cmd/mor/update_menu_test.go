@@ -5,6 +5,8 @@ import (
 	"context"
 	"strings"
 	"testing"
+
+	"mor/internal/store"
 )
 
 // Открытие экрана «Обновление» не должно ничего скачивать и ставить: человек
@@ -136,5 +138,34 @@ func TestForceInstallsLowerVersion(t *testing.T) {
 	cmdUpdate("--force")
 	if installed != "v0.0.1" {
 		t.Fatalf("--force не поставил: %q", installed)
+	}
+}
+
+// Ключи убранного протокола удаляются при запуске, а остальные остаются.
+func TestRetiredKeysAreDroppedOnLoad(t *testing.T) {
+	st, err := store.Open(t.TempDir() + "/users.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	live, err := st.Add(&store.User{Name: "живой", Proto: store.ProtoHy2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dead, err := st.Add(&store.User{Name: "старый", Proto: "enc"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dropRetiredKeys(st)
+
+	names := map[string]bool{}
+	for _, u := range st.List() {
+		names[u.ID] = true
+	}
+	if !names[live.ID] {
+		t.Error("удалён рабочий ключ")
+	}
+	if names[dead.ID] {
+		t.Error("ключ убранного протокола остался")
 	}
 }

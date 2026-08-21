@@ -106,7 +106,7 @@ func (ws *webServer) handleRestart(w http.ResponseWriter, r *http.Request) {
 			done = append(done, "Hysteria2")
 		}
 	}
-	xrayOn := ws.e.cfg.On(store.ProtoReality) || ws.e.cfg.On(store.ProtoEnc) || ws.e.cfg.On(store.ProtoSS)
+	xrayOn := ws.e.cfg.On(store.ProtoReality) || ws.e.cfg.On(store.ProtoSS)
 	if xrayOn && xray.Installed() {
 		if err := systemd.Restart(xray.Service); err != nil {
 			failed = append(failed, "Xray: "+err.Error())
@@ -242,7 +242,6 @@ type configPatch struct {
 	VPNPort     *int    `json:"vpnPort"`
 	RealityPort *int    `json:"realityPort"`
 	RealityDest *string `json:"realityDest"`
-	EncPort     *int    `json:"encPort"`
 	SSPort      *int    `json:"ssPort"`
 	SubPort     *int    `json:"subPort"`
 	SubOff      *bool   `json:"subOff"`
@@ -272,7 +271,7 @@ func (ws *webServer) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	c := ws.e.cfg
 	c.ReloadIfChanged()
 
-	for _, p := range []*int{p.VPNPort, p.RealityPort, p.EncPort, p.SSPort, p.SubPort, p.WebPort} {
+	for _, p := range []*int{p.VPNPort, p.RealityPort, p.SSPort, p.SubPort, p.WebPort} {
 		if p == nil {
 			continue
 		}
@@ -299,7 +298,6 @@ func (ws *webServer) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 	set(&c.Reality.Dest, p.RealityDest)
 	setInt(&c.VPNPort, p.VPNPort)
 	setInt(&c.Reality.Port, p.RealityPort)
-	setInt(&c.Enc.Port, p.EncPort)
 	setInt(&c.SS.Port, p.SSPort)
 	setInt(&c.SubPort, p.SubPort)
 	setInt(&c.WebPort, p.WebPort)
@@ -327,7 +325,7 @@ func (ws *webServer) handleConfigSave(w http.ResponseWriter, r *http.Request) {
 
 	// The panel's own port only takes effect on the next start: rebinding the
 	// listener underneath the request that asked for it would drop the answer.
-	if err := applyProtos(ws.e, store.ProtoHy2, store.ProtoReality, store.ProtoEnc, store.ProtoSS); err != nil {
+	if err := applyProtos(ws.e, store.ProtoHy2, store.ProtoReality, store.ProtoSS); err != nil {
 		writeJSON(w, map[string]any{"ok": true, "warning": "сохранено, но движок не отозвался: " + err.Error()})
 		return
 	}

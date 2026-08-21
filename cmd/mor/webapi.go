@@ -645,7 +645,6 @@ func (ws *webServer) handleProtocolToggle(w http.ResponseWriter, r *http.Request
 var protoDisplayNames = map[string]string{
 	store.ProtoHy2:     "Hysteria2",
 	store.ProtoReality: "VLESS+Reality",
-	store.ProtoEnc:     "VLESS Encryption",
 	store.ProtoSS:      "Shadowsocks",
 }
 
@@ -657,7 +656,7 @@ func (ws *webServer) handleConfigGet(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{
 		"dns": c.DNS, "sni": c.SNI, "host": c.PublicHost, "hyObfs": c.HyObfs,
 		"vpnPort": c.VPNPort, "realityPort": c.Reality.Port, "realityDest": c.Reality.Dest,
-		"encPort": c.Enc.Port, "ssPort": c.SS.Port,
+		"ssPort":  c.SS.Port,
 		"subPort": c.SubPort, "subOff": c.SubOff, "webPort": c.WebPort,
 	})
 }

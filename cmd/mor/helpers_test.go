@@ -14,15 +14,11 @@ func TestSetPortByProto(t *testing.T) {
 	cfg.EnsureDefaults()
 
 	setPort(cfg, store.ProtoReality, 8443)
-	setPort(cfg, store.ProtoEnc, 2053)
 	setPort(cfg, store.ProtoHy2, 2087)
 	setPort(cfg, store.ProtoSS, 8964)
 
 	if cfg.Reality.Port != 8443 {
 		t.Errorf("Reality: хотели 8443, стоит %d", cfg.Reality.Port)
-	}
-	if cfg.Enc.Port != 2053 {
-		t.Errorf("Encryption: хотели 2053, стоит %d", cfg.Enc.Port)
 	}
 	if cfg.VPNPort != 2087 {
 		t.Errorf("Hysteria2: хотели 2087, стоит %d", cfg.VPNPort)

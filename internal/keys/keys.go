@@ -8,7 +8,7 @@ import (
 	"fmt"
 )
 
-// RealityPair makes the X25519 pair Reality and VLESS Encryption both rely on.
+// RealityPair makes the X25519 pair Reality relies on.
 func RealityPair() (priv, pub string, err error) {
 	k, err := ecdh.X25519().GenerateKey(rand.Reader)
 	if err != nil {

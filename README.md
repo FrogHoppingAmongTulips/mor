@@ -28,11 +28,9 @@ curl -fsSL https://github.com/FrogHoppingAmongTulips/mor/releases/latest/downloa
 |---|---|---|
 | **Hysteria2** | UDP | самый быстрый |
 | **VLESS+Reality** | TCP | поддержан почти везде, проходит там, где блокируют остальное |
-| **VLESS Encryption** | TCP | шифрование Xray без сертификатов, поддержан не всеми клиентами |
 | **Shadowsocks** | TCP | работает в старых приложениях |
 
-Работают одновременно, любой выключается: `mor proto off ss` (`hy2`, `reality`,
-`enc`, `ss`).
+Работают одновременно, любой выключается: `mor proto off ss` (`hy2`, `reality`, `ss`).
 
 ## Права
 

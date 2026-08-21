@@ -151,14 +151,6 @@ func Render(list []proxy.Proxy, format proxy.Format) string {
 				links = append(links, p.URI())
 			}
 		}
-		// A key that has nothing but VLESS Encryption would otherwise get an
-		// empty subscription. A link only some clients read still beats a file
-		// with nothing in it.
-		if len(links) == 0 && len(list) > 0 {
-			for _, p := range list {
-				links = append(links, p.URI())
-			}
-		}
 		return Body(links)
 	}
 }

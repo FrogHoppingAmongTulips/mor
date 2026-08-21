@@ -31,9 +31,6 @@ func targets(e *env) []checkTarget {
 	if e.cfg.On(store.ProtoReality) {
 		out = append(out, checkTarget{store.ProtoName(store.ProtoReality), e.cfg.Reality.Port, false, store.ProtoReality})
 	}
-	if e.cfg.On(store.ProtoEnc) {
-		out = append(out, checkTarget{store.ProtoName(store.ProtoEnc), e.cfg.Enc.Port, false, store.ProtoEnc})
-	}
 	if e.cfg.On(store.ProtoSS) {
 		out = append(out, checkTarget{store.ProtoName(store.ProtoSS), e.cfg.SS.Port, false, store.ProtoSS})
 	}

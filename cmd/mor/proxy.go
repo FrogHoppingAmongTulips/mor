@@ -50,13 +50,6 @@ func proxyFor(cfg *config.Config, u *store.User) (proxy.Proxy, bool) {
 			p.Flow = "xtls-rprx-vision"
 		}
 
-	case store.ProtoEnc:
-		p.Kind = proxy.VLESS
-		p.Port = cfg.Enc.Port
-		p.UUID = u.UUID
-		p.Network = "tcp"
-		p.Encryption = cfg.Enc.Encryption
-
 	case store.ProtoSS:
 		p.Kind = proxy.Shadowsocks
 		p.Port = cfg.SS.Port

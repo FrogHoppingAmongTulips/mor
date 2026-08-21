@@ -15,12 +15,12 @@ import (
 )
 
 // protoList is every protocol mor knows, in the order they are shown.
-var protoList = []string{store.ProtoHy2, store.ProtoReality, store.ProtoEnc, store.ProtoSS}
+var protoList = []string{store.ProtoHy2, store.ProtoReality, store.ProtoSS}
 
 // baseProtocols come with mor and always run.
-var baseProtocols = []string{store.ProtoHy2, store.ProtoReality, store.ProtoEnc, store.ProtoSS}
+var baseProtocols = []string{store.ProtoHy2, store.ProtoReality, store.ProtoSS}
 
-// unitOf names the systemd service behind a protocol. Reality and Encryption
+// unitOf names the systemd service behind a protocol. Reality and Shadowsocks
 // share Xray, so switching one off must not stop the other.
 func unitOf(proto string) string {
 	switch proto {
@@ -33,14 +33,14 @@ func unitOf(proto string) string {
 
 // applyProtos writes configs and brings each engine to the state the config asks
 // for: running when the protocol is on, stopped when it is off. Reality and
-// Encryption share one Xray, so it only stops when both are off — otherwise the
+// Shadowsocks share one Xray, so it only stops when both are off — otherwise the
 // switched-off one simply loses its inbound.
 func applyProtos(e *env, protos ...string) error {
 	users := e.live()
 	xrayTouched := false
 	for _, p := range protos {
 		switch p {
-		case store.ProtoReality, store.ProtoEnc, store.ProtoSS:
+		case store.ProtoReality, store.ProtoSS:
 			xrayTouched = true
 			continue
 		}
@@ -58,7 +58,7 @@ func applyProtos(e *env, protos ...string) error {
 	if !xrayTouched || !xray.Installed() {
 		return nil
 	}
-	if !e.cfg.On(store.ProtoReality) && !e.cfg.On(store.ProtoEnc) && !e.cfg.On(store.ProtoSS) {
+	if !e.cfg.On(store.ProtoReality) && !e.cfg.On(store.ProtoSS) {
 		return stopUnit(xray.Service, true)
 	}
 	if err := e.xr.Apply(users); err != nil {
@@ -97,7 +97,6 @@ func portRows(e *env) []portRow {
 	rows := []portRow{
 		{store.ProtoHy2, store.ProtoName(store.ProtoHy2), e.cfg.VPNPort, "udp"},
 		{store.ProtoReality, store.ProtoName(store.ProtoReality), e.cfg.Reality.Port, "tcp"},
-		{store.ProtoEnc, store.ProtoName(store.ProtoEnc), e.cfg.Enc.Port, "tcp"},
 		{store.ProtoSS, store.ProtoName(store.ProtoSS), e.cfg.SS.Port, "tcp"},
 	}
 	return rows

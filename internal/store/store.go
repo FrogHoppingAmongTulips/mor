@@ -18,16 +18,25 @@ var ErrNotFound = errors.New("ключ не найден")
 const (
 	ProtoHy2     = "hy2"
 	ProtoReality = "reality"
-	ProtoEnc     = "enc"
 	ProtoSS      = "ss"
 )
+
+// Known reports whether mor still serves this protocol. A key stored under a
+// protocol that was removed is dead weight: it appears in lists, counts toward
+// limits and is written to no engine config, so it looks live and connects
+// nobody.
+func Known(p string) bool {
+	switch p {
+	case ProtoHy2, ProtoReality, ProtoSS:
+		return true
+	}
+	return false
+}
 
 func ProtoName(p string) string {
 	switch p {
 	case ProtoReality:
 		return "VLESS+Reality"
-	case ProtoEnc:
-		return "VLESS Encryption"
 	case ProtoSS:
 		return "Shadowsocks"
 	default:

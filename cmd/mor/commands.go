@@ -26,8 +26,6 @@ func cmdUser(args []string) {
 			proto = store.ProtoHy2
 		case "--reality":
 			proto = store.ProtoReality
-		case "--enc":
-			proto = store.ProtoEnc
 		case "--ss":
 			proto = store.ProtoSS
 		default:
@@ -217,8 +215,6 @@ func cmdStatus() {
 		engineState(e.cfg.On(store.ProtoHy2), true, hysteria.Service))
 	fmt.Printf("  Reality     %d/tcp · ключей %d · %s\n", e.cfg.Reality.Port, countProto(users, store.ProtoReality),
 		engineState(e.cfg.On(store.ProtoReality), xray.Installed(), xray.Service))
-	fmt.Printf("  Encryption  %d/tcp · ключей %d · %s\n", e.cfg.Enc.Port, countProto(users, store.ProtoEnc),
-		engineState(e.cfg.On(store.ProtoEnc), xray.Installed(), xray.Service))
 	fmt.Printf("  Shadowsocks %d/tcp · ключей %d · %s\n", e.cfg.SS.Port, countProto(users, store.ProtoSS),
 		engineState(e.cfg.On(store.ProtoSS), xray.Installed(), xray.Service))
 	fmt.Println()

@@ -146,8 +146,6 @@ func setPort(cfg *config.Config, proto string, port int) {
 	switch proto {
 	case store.ProtoReality:
 		cfg.Reality.Port = port
-	case store.ProtoEnc:
-		cfg.Enc.Port = port
 	case store.ProtoSS:
 		cfg.SS.Port = port
 	default:

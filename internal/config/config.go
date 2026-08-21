@@ -81,8 +81,6 @@ type Config struct {
 
 	Reality Reality `json:"reality"`
 
-	Enc Enc `json:"enc"`
-
 	SS SS `json:"ss"`
 
 	// SubPort serves subscription links; SubOff takes the server down without
@@ -144,15 +142,6 @@ func (r Reality) Wire() string {
 	return TransportTCP
 }
 
-// Enc is VLESS Encryption: Xray's own transport-level encryption, no TLS and no
-// certificate involved. The server holds Decryption, clients carry Encryption —
-// the two halves of one X25519 pair wrapped in Xray's format string.
-type Enc struct {
-	Port       int    `json:"port"`
-	Decryption string `json:"decryption"`
-	Encryption string `json:"encryption"`
-}
-
 // SS is plain Shadowsocks: no TLS, no masquerade, one AEAD method for the
 // whole server. Its only job is opening in apps that never learned Reality or
 // Hysteria2 — every password is per-key, set on the user record.
@@ -162,10 +151,7 @@ type SS struct {
 
 // Xray spells the mode into the key itself: 600s is how long the server keeps a
 // session alive, 0rtt lets the client send data with its first packet.
-const (
-	encServerPrefix = "mlkem768x25519plus.native.600s."
-	encClientPrefix = "mlkem768x25519plus.native.0rtt."
-)
+const ()
 
 func NewDefault() *Config {
 	return &Config{
@@ -231,7 +217,6 @@ func (c *Config) applyLocked(n *Config) {
 	c.DNS = n.DNS
 	c.HyObfs = n.HyObfs
 	c.Reality = n.Reality
-	c.Enc = n.Enc
 	c.SS = n.SS
 	c.SubPort = n.SubPort
 	c.SubOff = n.SubOff
@@ -262,14 +247,7 @@ func (c *Config) EnsureDefaults() bool {
 
 	set(c.SubPort <= 0, func() { c.SubPort = 8880 })
 	set(c.WebPort <= 0, func() { c.WebPort = 9090 })
-	set(c.Enc.Port == 0, func() { c.Enc.Port = 2098 })
 	set(c.SS.Port == 0, func() { c.SS.Port = 2099 })
-	set(c.Enc.Decryption == "" || c.Enc.Encryption == "", func() {
-		if priv, pub, err := keys.RealityPair(); err == nil {
-			c.Enc.Decryption = encServerPrefix + priv
-			c.Enc.Encryption = encClientPrefix + pub
-		}
-	})
 
 	set(c.Reality.Port == 0, func() { c.Reality.Port = 443 })
 	// One masquerade domain for the whole server. Older configs carried two, and

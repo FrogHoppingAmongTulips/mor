@@ -18,7 +18,6 @@ const Service = "xray"
 const (
 	APIPort    = 10085
 	inboundTag = "vless-in"
-	encTag     = "enc-in"
 	ssTag      = "ss-in"
 	apiInbound = "api"
 )
@@ -43,7 +42,6 @@ func (m *Manager) BuildConfig(users []*store.User) ([]byte, error) {
 	clients := []any{}
 	names := []string{r.Dest}
 	seen := map[string]bool{r.Dest: true}
-	encClients := []any{}
 	ssClients := []any{}
 	for _, u := range users {
 		// An expired key must not come back when the config is rewritten.
@@ -61,11 +59,6 @@ func (m *Manager) BuildConfig(users []*store.User) ([]byte, error) {
 				seen[u.SNI] = true
 				names = append(names, u.SNI)
 			}
-		case store.ProtoEnc:
-			if u.UUID == "" {
-				continue
-			}
-			encClients = append(encClients, encClient(u))
 		case store.ProtoSS:
 			if u.SSPassword == "" {
 				continue
@@ -87,7 +80,7 @@ func (m *Manager) BuildConfig(users []*store.User) ([]byte, error) {
 		"routing": map[string]any{
 			"rules": []any{map[string]any{"type": "field", "inboundTag": []string{apiInbound}, "outboundTag": apiInbound}},
 		},
-		"inbounds":  m.inbounds(clients, names, encClients, ssClients),
+		"inbounds":  m.inbounds(clients, names, ssClients),
 		"outbounds": []any{map[string]any{"protocol": "freedom"}},
 	}
 	return json.MarshalIndent(doc, "", "  ")
@@ -95,7 +88,7 @@ func (m *Manager) BuildConfig(users []*store.User) ([]byte, error) {
 
 // inbounds lists what Xray should listen on. A protocol that is switched off
 // gets no inbound at all, so its port goes quiet without touching the service.
-func (m *Manager) inbounds(clients []any, names []string, encClients []any, ssClients []any) []any {
+func (m *Manager) inbounds(clients []any, names []string, ssClients []any) []any {
 	r := m.cfg.Reality
 	list := []any{map[string]any{
 		"tag":      apiInbound,
@@ -115,19 +108,6 @@ func (m *Manager) inbounds(clients []any, names []string, encClients []any, ssCl
 				"decryption": "none",
 			},
 			"streamSettings": stream(r, names),
-		})
-	}
-	if m.cfg.On(store.ProtoEnc) {
-		list = append(list, map[string]any{
-			"tag":      encTag,
-			"listen":   "0.0.0.0",
-			"port":     m.cfg.Enc.Port,
-			"protocol": "vless",
-			"settings": map[string]any{
-				"clients":    encClients,
-				"decryption": m.cfg.Enc.Decryption,
-			},
-			"streamSettings": map[string]any{"network": "tcp"},
 		})
 	}
 	if m.cfg.On(store.ProtoSS) {

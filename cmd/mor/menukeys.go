@@ -85,7 +85,7 @@ func (m *menu) createKey() {
 	}
 
 	sni := ""
-	if only != store.ProtoEnc && only != store.ProtoSS {
+	if only != store.ProtoSS {
 		m.page("Создать ключ · " + name)
 		val, ok := m.askSNI(m.e.cfg.SNI)
 		if !ok {

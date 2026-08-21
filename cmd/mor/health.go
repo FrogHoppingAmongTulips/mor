@@ -173,7 +173,7 @@ func dnsProblem(ip string) *problem {
 			// out loud that it is being replaced rather than quietly doing it.
 			fix: &repair{"возвращаю DNS " + config.DefaultDNS, func(e *env) error {
 				e.cfg.DNS = config.DefaultDNS
-				if !saveQuiet(e, store.ProtoHy2, store.ProtoReality, store.ProtoEnc) {
+				if !saveQuiet(e, store.ProtoHy2, store.ProtoReality) {
 					return fmt.Errorf("записал, но движок не отозвался")
 				}
 				return nil

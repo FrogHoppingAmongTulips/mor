@@ -103,10 +103,10 @@ func TestExpiredKeysStayOut(t *testing.T) {
 	live := &store.User{ID: "live", Name: "живой", Proto: store.ProtoReality, UUID: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"}
 	dead := &store.User{ID: "dead", Name: "истёк", Proto: store.ProtoReality, UUID: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"}
 	dead.ExpiresAt = time.Now().Add(-time.Hour)
-	encDead := &store.User{ID: "encdead", Name: "истёк2", Proto: store.ProtoEnc, UUID: "cccccccc-cccc-4ccc-8ccc-cccccccccccc"}
-	encDead.ExpiresAt = time.Now().Add(-time.Minute)
+	ssDead := &store.User{ID: "ssdead", Name: "истёк2", Proto: store.ProtoSS, SSPassword: "пароль2"}
+	ssDead.ExpiresAt = time.Now().Add(-time.Minute)
 
-	b, err := New(cfg, config.DefaultPaths()).BuildConfig([]*store.User{live, dead, encDead})
+	b, err := New(cfg, config.DefaultPaths()).BuildConfig([]*store.User{live, dead, ssDead})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,59 +114,9 @@ func TestExpiredKeysStayOut(t *testing.T) {
 	if !strings.Contains(s, live.UUID) {
 		t.Error("живой ключ пропал из конфига")
 	}
-	if strings.Contains(s, dead.UUID) || strings.Contains(s, encDead.UUID) {
+	if strings.Contains(s, dead.UUID) || strings.Contains(s, ssDead.SSPassword) {
 		t.Error("истёкший ключ вернулся в конфиг")
 	}
-}
-
-func TestEncryptionInbound(t *testing.T) {
-	cfg := config.NewDefault()
-	cfg.PublicHost = "203.0.113.7"
-	cfg.EnsureDefaults()
-	m := New(cfg, config.Paths{})
-
-	u := &store.User{ID: "id1", Name: "телефон", Proto: store.ProtoEnc, UUID: "u-enc-1"}
-	b, err := m.BuildConfig([]*store.User{u})
-	if err != nil {
-		t.Fatal(err)
-	}
-	var doc struct {
-		Inbounds []struct {
-			Tag      string `json:"tag"`
-			Port     int    `json:"port"`
-			Protocol string `json:"protocol"`
-			Settings struct {
-				Decryption string `json:"decryption"`
-				Clients    []struct {
-					ID   string `json:"id"`
-					Flow string `json:"flow"`
-				} `json:"clients"`
-			} `json:"settings"`
-		} `json:"inbounds"`
-	}
-	if err := json.Unmarshal(b, &doc); err != nil {
-		t.Fatal(err)
-	}
-	found := false
-	for _, in := range doc.Inbounds {
-		if in.Tag != "enc-in" {
-			continue
-		}
-		found = true
-		if in.Port != cfg.Enc.Port || in.Settings.Decryption != cfg.Enc.Decryption {
-			t.Errorf("inbound: порт %d, decryption %q", in.Port, in.Settings.Decryption)
-		}
-		if len(in.Settings.Clients) != 1 || in.Settings.Clients[0].ID != u.UUID {
-			t.Error("ключ клиента не попал в конфиг")
-		}
-		if in.Settings.Clients[0].Flow != "" {
-			t.Error("flow остался — VLESS Encryption такого клиента не примет")
-		}
-	}
-	if !found {
-		t.Fatal("нет inbound vless encryption")
-	}
-
 }
 
 // Switching a protocol off must take its inbound away, not just stop serving it.
@@ -174,7 +124,7 @@ func TestSwitchedOffProtocolHasNoInbound(t *testing.T) {
 	cfg := config.NewDefault()
 	cfg.PublicHost = "203.0.113.7"
 	cfg.EnsureDefaults()
-	cfg.SetOn(store.ProtoEnc, false)
+	cfg.SetOn(store.ProtoSS, false)
 	m := New(cfg, config.Paths{})
 
 	b, err := m.BuildConfig(nil)
