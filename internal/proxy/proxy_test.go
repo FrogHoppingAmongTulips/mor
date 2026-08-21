@@ -129,17 +129,21 @@ func TestURIIPv6HostBracketed(t *testing.T) {
 	}
 }
 
-// VLESS Encryption is new enough that only Xray-based clients reading raw URIs
-// understand it. Offering it to the others is worse than leaving it out: one
-// unparsable entry can take the whole profile down and leave the person with
-// nothing instead of the protocols that would have worked.
-func TestEncryptionOnlyInURIFormat(t *testing.T) {
+// VLESS Encryption is new enough that almost nothing reads it, and an app that
+// meets a line it cannot parse refuses the whole profile rather than skipping
+// the line. One unreadable entry then costs the person the protocols that would
+// have worked, so it stays out of every subscription — its own link and QR are
+// built separately and still carry it.
+func TestEncryptionIsInNoSubscription(t *testing.T) {
 	e := enc()
-	if !e.Supports(FormatURI) {
-		t.Error("VLESS Encryption должен попадать в base64-подписку")
+	for _, f := range []Format{FormatURI, FormatClash, FormatSingBox} {
+		if e.Supports(f) {
+			t.Errorf("VLESS Encryption попал в подписку формата %v", f)
+		}
 	}
-	if e.Supports(FormatClash) || e.Supports(FormatSingBox) {
-		t.Error("VLESS Encryption не поддерживается Clash и sing-box — его нельзя туда класть")
+	// Ссылка на сам протокол при этом собирается и остаётся рабочей.
+	if u := e.URI(); !strings.HasPrefix(u, "vless://") || !strings.Contains(u, "encryption=") {
+		t.Errorf("прямая ссылка на Encryption сломана: %q", u)
 	}
 	for _, p := range []Proxy{hy2(), reality(), ss()} {
 		for _, f := range []Format{FormatURI, FormatClash, FormatSingBox} {

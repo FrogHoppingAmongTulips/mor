@@ -84,9 +84,15 @@ func TestServesGroup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("тело не base64: %v", err)
 	}
+	// Ключ создан на трёх протоколах, но VLESS Encryption в подписку не
+	// попадает: приложение, не умеющее его разобрать, отказывается от всего
+	// профиля, и человек остаётся вообще без протоколов.
 	lines := strings.Split(string(raw), "\n")
-	if len(lines) != 3 {
-		t.Errorf("в подписке %d строк, ждали 3: %q", len(lines), lines)
+	if len(lines) != 2 {
+		t.Errorf("в подписке %d строк, ждали 2: %q", len(lines), lines)
+	}
+	if strings.Contains(string(raw), "encryption=") {
+		t.Errorf("VLESS Encryption оказался в подписке: %q", lines)
 	}
 	if w.Header().Get("Profile-Title") == "" {
 		t.Error("нет заголовка Profile-Title — приложение не покажет имя")
@@ -363,5 +369,57 @@ func TestSubscriptionOverTLS(t *testing.T) {
 	}
 	if got := resp.Header.Get("Location"); got != url {
 		t.Fatalf("Location %q, ждали %q", got, url)
+	}
+}
+
+// Ключ, у которого кроме VLESS Encryption ничего нет, не должен получить
+// пустую подписку: ссылка, которую читают не все клиенты, всё равно лучше
+// файла, в котором нет ничего.
+func TestEncryptionOnlyKeyStillGetsItsLink(t *testing.T) {
+	st, _ := store.Open(t.TempDir() + "/users.json")
+	u, err := st.Add(&store.User{Name: "только-enc", Proto: store.ProtoEnc})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SetSub(u.ID, "a1b2c3"); err != nil {
+		t.Fatal(err)
+	}
+	s := New(st, testProxies, "сервер", nil)
+
+	w := httptest.NewRecorder()
+	s.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/sub/a1b2c3", nil))
+	raw, err := base64.StdEncoding.DecodeString(w.Body.String())
+	if err != nil {
+		t.Fatalf("тело не base64: %v", err)
+	}
+	if !strings.Contains(string(raw), "vless://") {
+		t.Fatalf("подписка пустая: %q", raw)
+	}
+}
+
+// А когда рядом есть протоколы, которые читают все, Encryption уступает им
+// место.
+func TestEncryptionYieldsWhenOthersArePresent(t *testing.T) {
+	st, _ := store.Open(t.TempDir() + "/users.json")
+	for _, p := range []string{store.ProtoEnc, store.ProtoHy2} {
+		u, err := st.Add(&store.User{Name: "смешанный", Proto: p})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := st.SetSub(u.ID, "d4e5f6"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s := New(st, testProxies, "сервер", nil)
+
+	w := httptest.NewRecorder()
+	s.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/sub/d4e5f6", nil))
+	raw, _ := base64.StdEncoding.DecodeString(w.Body.String())
+	body := string(raw)
+	if !strings.Contains(body, "hysteria2://") {
+		t.Errorf("рабочий протокол пропал: %q", body)
+	}
+	if strings.Contains(body, "encryption=") {
+		t.Errorf("Encryption не уступил место: %q", body)
 	}
 }

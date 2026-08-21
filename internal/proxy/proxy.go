@@ -126,15 +126,22 @@ const (
 	FormatSingBox
 )
 
-// Supports reports whether a format can express this endpoint at all.
+// Supports reports whether an endpoint belongs in a subscription of this
+// format.
 //
-// VLESS Encryption is recent enough that only Xray-based clients reading raw
-// URIs understand it. Handing it to the others is worse than leaving it out:
-// a line they cannot parse can take the whole subscription down with it, and
-// the person ends up with no working protocol instead of three.
+// VLESS Encryption is left out of all of them. It is recent enough that almost
+// nothing reads it, and an app that meets a line it cannot parse does not skip
+// that line — it refuses the whole profile. One unreadable entry then costs the
+// person the three protocols that would have worked. Clash and sing-box were
+// already excluded for this reason; the plain link list turned out to be no
+// different.
+//
+// The protocol itself stays available: its own link and QR are built directly,
+// not through a subscription, so a client that does understand it can be given
+// exactly that one.
 func (p Proxy) Supports(f Format) bool {
 	if p.Kind == VLESS && !p.Reality {
-		return f == FormatURI
+		return false
 	}
 	return true
 }
