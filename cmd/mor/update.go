@@ -83,20 +83,36 @@ func part(list []string, i int) int {
 	return n
 }
 
+// cmdUpdate — явная команда «поставь свежую версию»: её набирают, когда
+// именно этого и хотят, поэтому она ставит.
 func cmdUpdate() {
+	tag, newer, ok := checkUpdate()
+	if !ok || !newer {
+		return
+	}
+	installUpdate(tag)
+}
+
+// checkUpdate только смотрит и печатает. Ничего не качает и не ставит.
+func checkUpdate() (tag string, newer, ok bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	tag, err := latest(ctx)
 	cancel()
 	if err != nil {
 		fmt.Printf("  не удалось узнать последнюю версию: %v\n", err)
-		return
+		return "", false, false
 	}
 	fmt.Printf("  установлено: %s\n  доступно:    %s\n", version, tag)
 	if !newerThanRunning(tag) {
 		fmt.Println("\n  обновление не требуется")
-		return
+		return tag, false, true
 	}
+	return tag, true, true
+}
 
+// installUpdate — переменная, чтобы проверка могла убедиться, что открытие
+// экрана его не вызывает, не запуская установку на самом деле.
+var installUpdate = func(tag string) {
 	fmt.Printf("\n  качаю и ставлю %s…\n", tag)
 	// The installer already knows how to fetch the binary, restart the service
 	// and leave settings alone, so updating is just running it again.
@@ -109,9 +125,42 @@ func cmdUpdate() {
 	fmt.Println("  готово")
 }
 
+// update показывает, что установлено и что доступно, и на этом
+// останавливается. Ставить или нет — решает человек: открыть экран, чтобы
+// посмотреть версию, и обнаружить, что сервис уже перезапустился, — не то,
+// чего от этого пункта ждут.
 func (m *menu) update() {
-	m.page("Обновление")
-	cmdUpdate()
-	m.wait()
+	sec := &section{title: "Обновление"}
+	m.walk(sec, func(s *section) {
+		tag, newer, ok := checkUpdateQuiet()
+		s.state = nil
+		s.rows = nil
+		switch {
+		case !ok:
+			s.state = append(s.state, "не удалось узнать последнюю версию")
+		case !newer:
+			s.state = append(s.state, "установлено "+version, "новее нет")
+		default:
+			s.state = append(s.state, "установлено "+version, "доступно "+tag)
+			s.rows = []row{{label: "Установить " + tag, do: func() (string, bool) {
+				installUpdate(tag)
+				return "установлено — сервис перезапущен", true
+			}}}
+		}
+	})
 	m.msg = ""
+}
+
+// checkUpdateQuiet — то же, что checkUpdate, но без печати: экран рисует сам.
+// latestFn — переменная, чтобы проверка обходилась без сети.
+var latestFn = latest
+
+func checkUpdateQuiet() (tag string, newer, ok bool) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	tag, err := latestFn(ctx)
+	cancel()
+	if err != nil {
+		return "", false, false
+	}
+	return tag, newerThanRunning(tag), true
 }
