@@ -124,7 +124,8 @@ test('правка лимитов сохраняется и не дёргает 
   await page.click('.uh-open');
   await page.waitForTimeout(900);
 
-  const id = await page.evaluate(() => homeExpanded);
+  // Раскрытых ключей теперь может быть несколько — берём первый.
+  const id = await page.evaluate(() => [...homeExpanded][0]);
   await page.fill(`#ed-traffic-${id}`, '7gb');
   await page.fill(`#ed-time-${id}`, '5d');
   const scroller = () => page.evaluate(() => document.querySelector('.detail-body').scrollTop);
@@ -522,6 +523,73 @@ test('смена языка не двигает вёрстку', async (page) =>
   }
   await page.click('[data-act="lang"]');
   await page.waitForTimeout(500);
+});
+
+// Открыл второй ключ — первый остаётся открытым: закрывать то, что человек не
+// просил закрывать, значит терять уже найденное место.
+test('несколько ключей раскрываются одновременно', async (page) => {
+  await login(page);
+  await makeKey(page, 'тест-два-1', ['hy2']);
+  await makeKey(page, 'тест-два-2', ['hy2']);
+  await page.click('[data-pane="keys"]');
+  await page.waitForTimeout(600);
+
+  const row = (n) => page.locator('.uh', { has: page.locator('.uh-name', { hasText: n }) });
+  await row('тест-два-1').locator('.uh-open').click();
+  await page.waitForTimeout(800);
+  await row('тест-два-2').locator('.uh-open').click();
+  await page.waitForTimeout(800);
+  eq(await page.locator('.uh.open').count(), 2, 'второй ключ закрыл первый');
+
+  await row('тест-два-1').locator('.uh-open').click();
+  await page.waitForTimeout(600);
+  eq(await page.locator('.uh.open').count(), 1, 'закрылся не тот ключ');
+
+  await dropKeys(page, 'тест-');
+});
+
+// Нажатие где угодно по строке открывает ключ: поля строки раньше в кнопку не
+// входили, и клик у края не делал ничего.
+test('вся строка ключа открывает его', async (page) => {
+  await login(page);
+  await makeKey(page, 'тест-область', ['hy2']);
+  await page.click('[data-pane="keys"]');
+  await page.waitForTimeout(600);
+
+  const row = page.locator('.uh', { has: page.locator('.uh-name', { hasText: 'тест-область' }) });
+  const head = await row.locator('.uh-head').boundingBox();
+  const btn = await row.locator('.uh-open').boundingBox();
+  eq(Math.round(btn.height), Math.round(head.height), 'кнопка не на всю высоту строки');
+  ok(btn.x + btn.width >= head.x + head.width - 1, 'кнопка не достаёт до правого края');
+
+  await page.mouse.click(head.x + head.width - 5, head.y + head.height - 4);
+  await waitFor(page, () => document.querySelectorAll('.uh.open').length, 'нажатие у края не открыло ключ');
+
+  await dropKeys(page, 'тест-');
+});
+
+// Время на графиках — 24 часа в обоих языках: английская локаль по умолчанию
+// даёт am/pm, подпись становится длиннее и ось съезжает.
+test('время без am/pm в обоих языках', async (page) => {
+  await login(page);
+  await page.click('[data-pane="system"]');
+  await page.waitForTimeout(1500);
+  const labels = () => page.evaluate(() =>
+    [...document.querySelectorAll('#chartx-cpu span')].map((e) => e.textContent));
+
+  const ru = await labels();
+  await page.click('[data-act="lang"]');
+  await page.waitForTimeout(1200);
+  const en = await labels();
+  await page.click('[data-act="lang"]');
+  await page.waitForTimeout(600);
+
+  for (const l of [...ru, ...en]) {
+    ok(!/[ap]m/i.test(l), `в подписи времени am/pm: ${l}`);
+  }
+  if (ru.length && en.length) {
+    eq(en.join(' '), ru.join(' '), 'время переписалось при смене языка');
+  }
 });
 
 test('смена языка переводит интерфейс', async (page) => {

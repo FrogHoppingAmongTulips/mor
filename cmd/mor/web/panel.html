@@ -75,9 +75,9 @@ html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--fon
 .squares{width:min(46%,430px);flex-shrink:0;display:grid;grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(3,1fr);gap:14px;min-width:0;min-height:0}
 .sq{background:var(--card);border:1px solid var(--card-border);border-radius:var(--r);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;min-width:0;cursor:pointer;transition:background .15s,border-color .15s}
 .sq:hover{background:var(--card-h)}
-/* Выбранная плитка держит рамку в два раза толще: раньше отличие сводилось к
-   едва заметному оттенку фона, и понять, какой раздел открыт, было нельзя. */
-.sq.on{background:var(--card-h);border-color:var(--t3);box-shadow:inset 0 0 0 1px var(--t3)}
+/* Выбранная плитка отличается рамкой, а не фоном: затемнение делало её
+   тяжёлой, а понять, где находишься, всё равно надо. */
+.sq.on{border-color:var(--t2)}
 .sq-icon{width:30px;height:30px;stroke:var(--t2);stroke-width:1.25;fill:none;stroke-linecap:round;stroke-linejoin:round;transition:stroke .15s}
 .sq:hover .sq-icon,.sq.on .sq-icon{stroke:var(--t1)}
 .sq-label{font-size:10px;font-weight:500;color:var(--t2);text-transform:uppercase;letter-spacing:.14em;text-align:center}
@@ -104,7 +104,7 @@ weight:500;color:var(--t1);margin-bottom:14px;letter-spacing:.14em;text-transfor
    heaviest keys ranked. */
 .bstat-val{font-size:42px;font-weight:200;letter-spacing:-.03em;line-height:1.1;margin-bottom:16px}
 .bstat-val small{font-size:18px;color:var(--t3);font-weight:500;margin-left:4px}
-.bstat-counters{display:flex;gap:20px;padding:14px 0;border-top:1px solid var(--card-border);border-bottom:1px solid var(--card-border);margin-bottom:12px}
+.bstat-counters{display:flex;gap:20px;padding:14px 0;margin-bottom:12px}
 .bcount-val{font-size:18px;font-weight:300;letter-spacing:-.01em}
 .bcount-label{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;margin-top:2px}
 .top-row{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--t2);padding:5px 0}
@@ -141,8 +141,11 @@ weight:500;color:var(--t1);margin-bottom:14px;letter-spacing:.14em;text-transfor
 .disk-bar{height:4px;background:var(--card-h);border-radius:2px;overflow:hidden;margin:4px 0 10px}
 .disk-bar-fill{height:100%;background:var(--t2);border-radius:2px;transition:width .3s}
 .disk-legend{font-size:12px;color:var(--t3);margin-bottom:14px}
+/* Ширина под более длинную из двух подписей: иначе кнопка меняет размер при
+   переключении языка и тянет за собой соседей. */
+#diskBtn{min-width:11.5em}
 .disk-legend b{color:var(--t1);font-weight:400}
-.disk-row{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--t2);padding:5px 0;border-bottom:1px solid var(--card-border)}
+.disk-row{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--t2);padding:5px 0}
 .disk-row:last-child{border-bottom:none}
 .disk-row-path{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .disk-row-size{color:var(--t1);font-variant-numeric:tabular-nums;flex-shrink:0}
@@ -154,8 +157,8 @@ weight:500;color:var(--t1);margin-bottom:14px;letter-spacing:.14em;text-transfor
 
 /* Protocol table inside the status card */
 .ptable{margin-top:20px}
-.ptable-head{display:flex;justify-content:space-between;font-size:10px;font-weight:600;color:var(--t4);text-transform:uppercase;letter-spacing:.06em;padding-bottom:8px;border-bottom:1px solid var(--card-border)}
-.ptable-row{display:flex;justify-content:space-between;font-size:13px;color:var(--t1);padding:9px 0;border-bottom:1px solid var(--card-border)}
+.ptable-head{display:flex;justify-content:space-between;font-size:10px;font-weight:600;color:var(--t4);text-transform:uppercase;letter-spacing:.06em;padding-bottom:8px}
+.ptable-row{display:flex;justify-content:space-between;font-size:13px;color:var(--t1);padding:9px 0}
 .ptable-row:last-child{border-bottom:none}
 .ptable-row.off{color:var(--t3)}
 .ptable-port{color:var(--t2);font-variant-numeric:tabular-nums}
@@ -189,11 +192,13 @@ weight:500;color:var(--t1);margin-bottom:14px;letter-spacing:.14em;text-transfor
 /* HOME user cards — sized like the Ключи grid cards, expand downward in
    place on click instead of opening the modal (QR included inline). */
 .uh{background:var(--card-h);border:1px solid var(--card-border);border-radius:12px;margin-bottom:6px;overflow:hidden;transition:background .15s}
-.uh-head{display:flex;align-items:center;gap:9px;padding:9px 12px;cursor:pointer;transition:background .15s}
+/* Отступы перенесены внутрь кнопки: раньше поля строки в неё не входили, и
+   нажатие у края ничего не открывало. */
+.uh-head{display:flex;align-items:center;gap:9px;padding:0 0 0 12px;cursor:pointer;transition:background .15s}
 .uh-head:hover{background:var(--card-h)}
 /* The row is a real button, and a button with no rule of its own is drawn by
    the browser: grey fill, black text, centred. It has to be told it is a row. */
-.uh-open{flex:1;min-width:0;display:flex;align-items:center;gap:9px;background:none;border:0;padding:0;margin:0;font:inherit;color:var(--t1);text-align:left;cursor:pointer}
+.uh-open{flex:1;min-width:0;display:flex;align-items:center;gap:9px;background:none;border:0;padding:11px 12px 11px 0;margin:0;font:inherit;color:var(--t1);text-align:left;cursor:pointer}
 .uh-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
 .uh-dot.on{background:var(--t1)}
 .uh-dot.off{background:var(--t4)}
@@ -205,20 +210,19 @@ weight:500;color:var(--t1);margin-bottom:14px;letter-spacing:.14em;text-transfor
 .uh.dead .uh-pill{color:var(--t3)}
 .uh-status{flex-shrink:0}
 .uh-num{font-size:11px;color:var(--t3);font-variant-numeric:tabular-nums;min-width:1.6em;text-align:right;flex-shrink:0}
-/* Колонка справа: расход и «в сети» друг под другом, ширина под 9999 ГБ. */
-.uh-right{display:flex;flex-direction:column;align-items:flex-end;gap:1px;min-width:7.5em;flex-shrink:0}
-.uh-live{font-size:10px;color:var(--t2);white-space:nowrap;text-transform:lowercase}
+.uh-live{font-size:11px;color:var(--t2);white-space:nowrap;flex-shrink:0}
 .uh.dead .uh-live{color:var(--t3)}
 .uh-pill{font-size:11px;font-weight:500;color:var(--t1);background:var(--card-h);padding:5px 13px;border-radius:999px;white-space:nowrap}
 .uh-pill.on{color:var(--t1)}
-.uh-val{font-size:12px;color:var(--t2);font-variant-numeric:tabular-nums;flex-shrink:0}
+/* Ширина под 9999 ГБ: числа стоят столбцом, а не пляшут по длине. */
+.uh-val{font-size:12px;color:var(--t2);font-variant-numeric:tabular-nums;flex-shrink:0;min-width:5.5em;text-align:right}
 .uh-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .42s cubic-bezier(.32,.72,0,1)}
 .uh-body.open{grid-template-rows:1fr}
 .uh-body-in{overflow:hidden}
 .uh-content{padding:0 12px 14px;opacity:0;transition:opacity .3s ease .08s}
 .uh-body.open .uh-content{opacity:1}
 
-.prow{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)}
+.prow{display:flex;align-items:center;justify-content:space-between;padding:12px 0}
 .prow:last-child{border-bottom:none}
 .prow-l{display:flex;align-items:center;gap:8px}
 .prow-dot{width:6px;height:6px;border-radius:50%;background:var(--t1)}
@@ -276,7 +280,7 @@ details.grp[open]>summary{margin-bottom:14px}
 .kcard:last-child{margin-bottom:0}
 .kcard .ksec{margin:0 0 14px}
 .kwide{justify-content:center;margin-top:20px;padding:8px 28px}
-.kdanger{margin-top:12px;padding-top:14px;border-top:1px solid var(--card-border)}
+.kdanger{margin-top:12px;padding-top:14px}
 .btn-danger{border-color:var(--border2);color:var(--t2)}
 .btn-danger:hover{border-color:var(--t2);color:var(--t1);background:var(--card-h)}
 
@@ -301,7 +305,7 @@ details.grp[open]>summary{margin-bottom:14px}
 .kfact-v{font-size:21px;font-weight:600;letter-spacing:-.02em;line-height:1.15}
 .kfact-l{font-size:11px;color:var(--t3);margin-top:3px}
 .ksec{font-size:10px;font-weight:600;color:var(--t1);text-transform:uppercase;letter-spacing:.07em;margin:20px 0 12px}
-.set-sep{height:1px;background:var(--card-border);margin:24px 0 18px}
+.set-sep{height:0;margin:20px 0 4px}
 
 /* Bulk selection */
 .uh-pick{width:16px;height:16px;padding:0;background:none;border-radius:5px;border:1.5px solid var(--border2);flex-shrink:0;cursor:pointer;transition:background .15s,border-color .15s;display:flex;align-items:center;justify-content:center;align-self:center}
@@ -310,7 +314,7 @@ details.grp[open]>summary{margin-bottom:14px}
 /* The tick is centred by the flex box above and then nudged up by the height
    its own rotation adds, instead of being positioned by hand. */
 .uh-pick.on::after{content:'';width:3px;height:7px;margin-top:-2px;border:solid var(--bg);border-width:0 2px 2px 0;transform:rotate(45deg)}
-.bulkbar{display:none;align-items:center;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--card-border)}
+.bulkbar{display:none;align-items:center;gap:8px;margin-top:12px;padding-top:12px}
 .bulkbar.show{display:flex}
 
 /* Restart pane — the warning and the button need room to read as two steps */
@@ -404,13 +408,16 @@ details.grp[open]>summary{margin-bottom:14px}
 .upd-note{background:var(--card-h);border-radius:12px;padding:12px 14px;margin-top:26px;font-size:13px;color:var(--t1)}
 .upd-note b{font-weight:600}
 .upd-note .set-note{margin-top:4px}
-.pane-actions{margin-top:22px;padding-top:16px;border-top:1px solid var(--card-border)}
+.pane-actions{margin-top:22px;padding-top:16px}
 .linkhint{font-size:11px;color:var(--t3);line-height:1.5;margin-top:18px}
-.linkrow{width:100%;display:flex;align-items:center;gap:12px;margin-top:8px;padding:12px 0;background:none;border:0;border-top:1px solid var(--card-border);border-bottom:1px solid var(--card-border);font:inherit;color:inherit;text-align:left;cursor:pointer}
+/* Ссылка лежит в таком же поле, как «без лимита» в окне создания: одна форма
+   на всю панель вместо строки, зажатой между двумя линиями. */
+.linkrow{width:100%;display:flex;align-items:center;gap:12px;margin-top:10px;padding:11px 14px;background:var(--card-h);border:1px solid var(--card-border);border-radius:10px;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.linkrow:hover{border-color:var(--border2)}
 .linkrow:hover .linkrow-icon{stroke:var(--t1)}
 .linkrow-text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--t3);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 .linkrow-icon{width:15px;height:15px;flex-shrink:0;stroke:var(--t3);stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round;transition:stroke .15s}
-.kedit{margin:16px 0;padding:16px 0;border-top:1px solid var(--card-border);border-bottom:1px solid var(--card-border)}
+.kedit{margin:16px 0;padding:16px 0}
 .kedit .fi{margin-bottom:10px}
 /* Fields spaced as separate settings rather than a wall. The gap lives on the
    rows, not on the labels: a label inside a row is its parent's first child,
@@ -421,14 +428,14 @@ details.grp[open]>summary{margin-bottom:14px}
 .kedit>.fi{margin-bottom:2px}
 .kedit .set-note{margin:2px 0 12px}
 .audit-list{max-height:190px;overflow-y:auto}
-.audit-row{display:flex;align-items:baseline;gap:10px;font-size:12px;padding:6px 0;border-bottom:1px solid var(--card-border)}
+.audit-row{display:flex;align-items:baseline;gap:10px;font-size:12px;padding:6px 0}
 .audit-row:last-child{border-bottom:none}
 .audit-act{color:var(--t1);flex-shrink:0}
 .audit-target{color:var(--t3);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .audit-time{color:var(--t4);flex-shrink:0}
 
 /* Squares content */
-.set-adv{margin-top:22px;border-top:1px solid var(--card-border);padding-top:16px}
+.set-adv{margin-top:22px;padding-top:16px}
 .set-adv summary{font-size:10px;font-weight:500;color:var(--t1);text-transform:uppercase;letter-spacing:.14em;cursor:pointer;list-style:none;user-select:none}
 .set-adv summary::-webkit-details-marker{display:none}
 .set-adv summary::before{content:'+ ';color:var(--t4)}
@@ -460,7 +467,8 @@ details.grp[open]>summary{margin-bottom:14px}
   .detail-body{padding:0 16px 16px}
   /* A key row on a phone has no room for the sparkline; the numbers matter. */
   .uh-spark{display:none}
-  .uh-head{gap:12px;padding:12px 14px}
+  .uh-head{gap:12px;padding:0 0 0 14px}
+  .uh-open{padding:12px 14px 12px 0}
   /* Name and traffic on the first line, state under the name. Side by side
      they had no room left and ran into each other. */
   .uh-open{display:grid;grid-template-columns:auto 1fr auto;grid-template-rows:auto auto;
@@ -468,7 +476,8 @@ details.grp[open]>summary{margin-bottom:14px}
   .uh-dot{grid-row:1}
   .uh-num{grid-column:1;grid-row:1}
   .uh-name{grid-column:2;grid-row:1;font-size:15px}
-  .uh-right{grid-column:3;grid-row:1;min-width:0;font-size:13px}
+  .uh-val{grid-column:3;grid-row:1;min-width:0;font-size:13px}
+  .uh-live{grid-column:2/4;grid-row:2;justify-self:start}
   .uh-status{grid-column:2/4;grid-row:2;width:auto;justify-self:start}
   .uh-pill,.uh-live{font-size:11px}
   /* Fingers need a target, not a 16px square. */
@@ -854,9 +863,12 @@ function toggleLang(){
 /* ---- theme ---- */
 function toggleTheme(){isDark=!isDark;document.documentElement.setAttribute('data-theme',isDark?'dark':'light');
   updateThemeIcon();localStorage.setItem('morTheme',isDark?'dark':'light')}
+// Переключение классом, а не инлайновым стилем: у солнца в разметке стоит
+// класс hidden, и пустое значение style.display его не перебивало — в светлой
+// теме не рисовалось ни солнце, ни луна.
 function updateThemeIcon(){
-  document.getElementById('iconMoon').style.display=isDark?'':'none';
-  document.getElementById('iconSun').style.display=isDark?'none':'';
+  document.getElementById('iconMoon').classList.toggle('hidden',!isDark);
+  document.getElementById('iconSun').classList.toggle('hidden',isDark);
 }
 (function(){const saved=localStorage.getItem('morTheme');isDark=saved!=='light';document.documentElement.setAttribute('data-theme',isDark?'dark':'light')})();
 
@@ -1052,7 +1064,9 @@ function drawChart(id,key){
   // Clock labels: first, middle and last point of whatever window we have.
   const xw=document.getElementById('chartx-'+id);
   if(xw){
-    const at=i=>new Date(sysHist[i].at).toLocaleTimeString(lang==='ru'?'ru':'en',{hour:'2-digit',minute:'2-digit'});
+    // 24 часа в обоих языках: английская локаль по умолчанию даёт am/pm, из-за
+    // чего подпись становится длиннее и время на оси съезжает.
+    const at=i=>new Date(sysHist[i].at).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
     const last=sysHist.length-1;
     xw.innerHTML=last>0
       ? '<span>'+at(0)+'</span><span>'+at(Math.floor(last/2))+'</span><span>'+at(last)+'</span>'
@@ -1103,7 +1117,10 @@ function renderAttn(){
 }
 // Home user list — same card sizing as the Ключи grid, but tapping a user
 // expands it downward in place (QR included) instead of opening the modal.
-let homeExpanded=null;
+// Раскрытые ключи. Их может быть несколько: открыл второй — первый остаётся
+// открытым, потому что закрывать то, что человек не просил закрывать, значит
+// терять уже найденное место.
+const homeExpanded=new Set();
 // The panel refreshes itself every 15s. Rebuilding the list while somebody is
 // typing into the edit form would throw their input away mid-word, so a
 // focused form freezes the redraw until they are done with it.
@@ -1132,7 +1149,7 @@ function renderHome(){
     // engines stopped letting it in.
     const dead=keyDead(u);
     const on=!dead&&(onlineIds.has(u.id)||ago(u.lastSeen)==='онлайн');
-    const isOpen=homeExpanded===u.id;
+    const isOpen=homeExpanded.has(u.id);
     const card=document.createElement('div');card.className='uh'+(isOpen?' open':'')+(dead?' dead':'');
     // Two real buttons side by side rather than one clickable div: both reach
     // by Tab, both answer Enter and Space, and neither is nested in the other.
@@ -1148,13 +1165,10 @@ function renderHome(){
           '<span class="uh-name">'+esc(u.name)+'</span>'+
           '<span class="uh-status">'+deadPill(u)+'</span>'+
           sparkSvg(u.spark)+
-          // Расход и «в сети» — колонкой, цифра под цифрой. Ширина рассчитана
-          // на 9999 ГБ: больше одному человеку не набрать, а фиксированная
-          // колонка держит числа в одном столбце, как в таблице.
-          '<span class="uh-right">'+
-            '<span class="uh-val">'+fmtBytes(u.traffic)+'</span>'+
-            (on?'<span class="uh-live">'+t('onlineShort')+'</span>':'')+
-          '</span>'+
+          // «В сети» слева от расхода, расход — в колонке фиксированной ширины
+          // под 9999 ГБ, чтобы числа стояли столбцом, как в таблице.
+          (on?'<span class="uh-live">'+t('onlineShort')+'</span>':'')+
+          '<span class="uh-val">'+fmtBytes(u.traffic)+'</span>'+
         '</button>'+
       '</div>'+
       '<div class="uh-body'+(isOpen?' open':'')+'"><div class="uh-body-in"><div class="uh-content" id="uh-content-'+u.id+'"></div></div></div>';
@@ -1204,7 +1218,7 @@ async function deleteSelected(){
   for(const id of ids){
     try{await api('/users/'+encodeURIComponent(id),{method:'DELETE'})}catch(e){failed++}
     detailCache.delete(id);
-    if(homeExpanded===id)homeExpanded=null;
+    homeExpanded.delete(id);
   }
   picked.clear();
   await loadUsers();
@@ -1215,12 +1229,12 @@ async function deleteSelected(){
 // then content appearing and shoving the height again.
 const detailCache=new Map();
 async function toggleHomeUser(id){
-  if(homeExpanded===id){homeExpanded=null;renderHome();return}
+  if(homeExpanded.has(id)){homeExpanded.delete(id);renderHome();return}
   if(!detailCache.has(id)){
     try{detailCache.set(id,await api('/users/'+encodeURIComponent(id)))}
     catch(e){toast(t('errPrefix')+e.message);return}
   }
-  homeExpanded=id;
+  homeExpanded.add(id);
   currentDetail=detailCache.get(id);
   renderHome();
 }
@@ -1397,13 +1411,15 @@ function cycleCountdown(){
 // rewritten — replacing the element would restart the reveal animation and
 // fight anything being typed into the card.
 setInterval(()=>{
-  const el=document.getElementById('kcount');
-  if(!el||!homeExpanded)return;
-  const u=detailCache.get(homeExpanded);
-  if(!u||!u.expiresAt)return;
-  const parts=countdownUnits(u.expiresAt), spans=el.querySelectorAll('.cd-u');
-  if(parts.length!==spans.length){renderHomeDetail(homeExpanded);return}
-  parts.forEach((p,i)=>{if(spans[i].textContent!==p)spans[i].textContent=p});
+  homeExpanded.forEach(id=>{
+    const el=document.querySelector('#uh-content-'+id+' .cdown');
+    if(!el)return;
+    const u=detailCache.get(id);
+    if(!u||!u.expiresAt)return;
+    const parts=countdownUnits(u.expiresAt), spans=el.querySelectorAll('.cd-u');
+    if(parts.length!==spans.length){renderHomeDetail(id);return}
+    parts.forEach((p,i)=>{if(spans[i].textContent!==p)spans[i].textContent=p});
+  });
 },1000);
 
 // Russian needs three forms for a counted noun; English gets two.
@@ -1435,7 +1451,7 @@ async function saveKeyEdit(id){
     // from it directly. Re-fetching the whole list here rebuilt every row and
     // yanked the page out from under the button just pressed.
     if(fresh&&fresh.id)detailCache.set(id,fresh);
-    if(homeExpanded===id)renderHomeDetail(id);
+    if(homeExpanded.has(id))renderHomeDetail(id);
     loadUsers();
   }catch(e){toast((lang==='ru'?'ошибка: ':'error: ')+e.message)}
 }
@@ -1495,7 +1511,7 @@ function copyShown(id){
 async function refreshDetailViews(id){
   try{detailCache.set(id,await api('/users/'+encodeURIComponent(id)))}catch(e){detailCache.delete(id)}
   await loadUsers();
-  if(homeExpanded===id)renderHomeDetail(id);
+  if(homeExpanded.has(id))renderHomeDetail(id);
 }
 
 /* ---- protocols + config ---- */
@@ -1750,7 +1766,7 @@ async function createUser(){
     // cache the open card renders from. Without it the card unfolded empty:
     // renderHomeDetail has nothing to draw and quietly returns.
     detailCache.set(created.id,created);
-    homeExpanded=created.id;
+    homeExpanded.add(created.id);
     renderHome();
   }catch(e){toast(t('errPrefix')+e.message)}
 }
@@ -1798,7 +1814,7 @@ async function deleteUser(){
     hideDetail();
     detailCache.delete(id);
     picked.delete(id);
-    if(homeExpanded===id)homeExpanded=null;
+    homeExpanded.delete(id);
     await loadUsers();toast(name+' удалён');
   }catch(e){toast('ошибка: '+e.message)}
 }
