@@ -123,7 +123,10 @@ weight:500;color:var(--t1);margin-bottom:14px;letter-spacing:.14em;text-transfor
 .chart-axis{fill:var(--t4);font-size:9px}
 .chart-line{fill:none;stroke:var(--t1);stroke-width:1.5;vector-effect:non-scaling-stroke;stroke-linejoin:round}
 .chart-area{fill:var(--t1);opacity:.07}
-.chart-x{display:flex;justify-content:space-between;font-size:9px;color:var(--t4);margin-top:6px;padding-left:26px;font-variant-numeric:tabular-nums}
+/* Отступ слева — доля, а не пиксели: у графика под проценты отведено 26
+   единиц из 320, и график тянется по ширине окна. В пикселях время съезжало
+   под «0%» на одних ширинах и отрывалось от графика на других. */
+.chart-x{display:flex;justify-content:space-between;font-size:9px;color:var(--t4);margin-top:6px;padding-left:8.125%;font-variant-numeric:tabular-nums}
 .chart-empty{font-size:12px;color:var(--t4);padding:34px 0;text-align:center}
 
 .disk{margin-top:0}
