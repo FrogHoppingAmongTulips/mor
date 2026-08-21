@@ -116,7 +116,7 @@ func cmdUpdate(args ...string) {
 // checkUpdate только смотрит и печатает. Ничего не качает и не ставит.
 func checkUpdate() (tag string, newer, ok bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	tag, err := latest(ctx)
+	tag, err := latestFn(ctx)
 	cancel()
 	if err != nil {
 		fmt.Printf("  не удалось узнать последнюю версию: %v\n", err)
